@@ -5640,12 +5640,14 @@ window.confirmApproveRequest = async function() {
         // مسح الطلب من الفايربيز
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
 
-        // إرسال رسالة واتساب لولي الأمر
+        // إرسال رسالة واتساب للطالب (ولو مش كاتب رقمه هيبعت لولي الأمر احتياطي)
         let portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
         let waMsg = `🎉 *تمت الموافقة على طلب الانضمام*\nأهلاً بك في نظام ${localStorage.getItem("teacherName") || "السنتر"}.\n\n👤 *اسم الطالب:* ${newStudent.name}\n📚 *المجموعة:* ${newStudent.group}\n🔑 *كود الدخول الخاص بك:* ${newCode}\n\n🔗 *رابط منصة الطالب:* ${portalLink}`;
         
         if (typeof sendAutoWhatsApp === "function") {
-            await sendAutoWhatsApp(newStudent.parentPhone, waMsg);
+            // تحديد الرقم: لو الطالب كاتب رقمه نبعتله، لو لا نبعت لولي الأمر
+            let targetPhone = (newStudent.phone && newStudent.phone !== "0") ? newStudent.phone : newStudent.parentPhone;
+            await sendAutoWhatsApp(targetPhone, waMsg);
         }
 
         if(typeof addSystemLog === "function") addSystemLog("قبول طلب انضمام ✅", `تم قبول ${newStudent.name} وإعطائه كود ${newCode} وتسكينه في ${selectedGroup}`);
