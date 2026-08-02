@@ -635,7 +635,7 @@
                 let settings = await res.json();
                 
                 if (settings) {
-                    let tName = settings.teacherName || "الإدارة";
+                    let tName = settings.teacherName || "El-Senior";
                     let headerName = document.getElementById("teacher-name-header");
                     if(headerName) headerName.innerText = `مستر ${tName}`;
 
@@ -770,7 +770,7 @@ async function fetchStudentData(isAutoLogin = false) {
         const contactBoxOld = document.getElementById("teacher-contact-box");
 
         if (data && data.settings) {
-            let tName = data.settings.teacherName || data.teacherName || "الإدارة";
+            let tName = data.settings.teacherName || data.teacherName || "El-Senior";
 
             let headerName = document.getElementById("teacher-name-header");
             if(headerName) headerName.innerText = `مستر ${tName}`;
