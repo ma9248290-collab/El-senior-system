@@ -633,7 +633,7 @@
         async function loadTeacherInfoInitial() {
             globalTeacherId = "ElSenior_System_Master"; // 🔒 التثبيت هنا
             try {
-                let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/settings.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/settings.json`);
                 let settings = await res.json();
                 
                 if (settings) {
@@ -752,7 +752,7 @@ async function fetchStudentData(isAutoLogin = false) {
         }
 
         // 👇 سحب داتا الطالب 👇
-        let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data.json`);
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data.json`);
         let data = await res.json() || {};
 
         // === 🛡️ الحماية الشاملة من مشاكل الفايربيز ===
@@ -801,7 +801,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
         // ==========================================
 
-        let lecRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/lectures.json`);
+        let lecRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/lectures.json`);
         let lecturesData = await lecRes.json() || {};
         
         if (Array.isArray(lecturesData)) window.allLectures = lecturesData.filter(l => l !== null).reverse();
@@ -864,7 +864,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
         let totalItems = 0; let completedItems = 0; let missingLectures = 0; let missingExams = 0;
         try {
-            let subRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/onlineSubmissions.json`);
+            let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/onlineSubmissions.json`);
             let allSubs = await subRes.json() || {};
             let myExams = allOnlineExams.filter(e => e && (e.status === "open" || e.status === "closed") && (Array.isArray(e.group) ? e.group.includes(currentStudent.group) || e.group.includes("all") : e.group === currentStudent.group || e.group === "all"));
             totalItems += myExams.length;
@@ -872,7 +872,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
             let myLectures = window.allLectures.filter(l => l && (l.level === "all" || l.level === currentStudent.level));
             totalItems += myLectures.length;
-            let trackRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/course_tracking.json`);
+            let trackRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/course_tracking.json`);
             let allTracks = await trackRes.json() || {};
             myLectures.forEach(l => { let hasWatched = allTracks[l.id] && allTracks[l.id][currentStudent.phone]; if (hasWatched) completedItems++; else missingLectures++; });
 
@@ -926,7 +926,7 @@ async function fetchStudentData(isAutoLogin = false) {
         
         async function fetchStudentNotifications() {
             try {
-                let notifRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/notifications.json`);
+                let notifRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/notifications.json`);
                 let notifsData = await notifRes.json() || {};
                 
                 let notifsList = Object.values(notifsData).filter(n => {
@@ -989,7 +989,7 @@ async function fetchStudentData(isAutoLogin = false) {
             if(!container) return;
             container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المتجر... ⏳</div>`;
             try {
-                let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/store/items.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/store/items.json`);
                 let items = await res.json() || {};
                 let itemsArray = Object.values(items).reverse();
                 
@@ -1020,7 +1020,7 @@ async function fetchStudentData(isAutoLogin = false) {
             let tbody = document.getElementById("student-orders-tbody");
             if(!tbody) return;
             try {
-                let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/store/logs.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/store/logs.json`);
                 let logs = await res.json() || {};
                 let myOrders = Object.values(logs).filter(log => log.studentCode === currentStudent.code).reverse();
                 if(myOrders.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">لم تقم بالشراء.</td></tr>`; return; }
@@ -1038,13 +1038,13 @@ async function fetchStudentData(isAutoLogin = false) {
                 if (!confirm("تأكيد؟")) return; currentStudent.walletBalance -= price;
             }
             try {
-                let dataRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data.json`);
                 let data = await dataRes.json();
                 let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if (sIdx > -1) {
                     let updates = currency === 'points' ? { behaviorPoints: currentStudent.behaviorPoints } : { walletBalance: currentStudent.walletBalance };
-                    await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-                    await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/store/logs/${"order_" + Date.now()}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: "order_" + Date.now(), date: new Date().toLocaleString('ar-EG'), studentName: currentStudent.name, studentCode: currentStudent.code, itemName: itemName, price: price, currency: currency }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/store/logs/${"order_" + Date.now()}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: "order_" + Date.now(), date: new Date().toLocaleString('ar-EG'), studentName: currentStudent.name, studentCode: currentStudent.code, itemName: itemName, price: price, currency: currency }) });
                     alert("تم الشراء بنجاح!"); location.reload(); 
                 }
             } catch (e) { alert("حدث خطأ."); }
@@ -1055,7 +1055,7 @@ async function fetchStudentData(isAutoLogin = false) {
             if(!text) return alert("اكتب السؤال أولاً!");
             let questionObj = { id: "q_" + Date.now(), studentName: currentStudent.name, studentGroup: currentStudent.group, studentPhone: currentStudent.phone, questionText: text, replyText: "", date: new Date().toLocaleDateString('ar-EG') };
             try {
-                await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/forum/${questionObj.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(questionObj) });
+                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/forum/${questionObj.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(questionObj) });
                 document.getElementById("forumQuestionInput").value = ""; alert("تم نشر سؤالك! 🚀"); loadForumQuestions();
             } catch(e) {}
         };
@@ -1064,7 +1064,7 @@ async function fetchStudentData(isAutoLogin = false) {
             let container = document.getElementById("forum-questions-list");
             if(!container) return;
             try {
-                let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/forum.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/forum.json`);
                 let data = await res.json() || {}; container.innerHTML = "";
                 let myGroupQuestions = Object.values(data).filter(q => q && q.studentGroup === currentStudent.group).reverse();
                 if(myGroupQuestions.length === 0) { container.innerHTML = `<div style="text-align:center;">لا توجد نقاشات.</div>`; return; }
@@ -1150,7 +1150,7 @@ window.showOnlineExams = async function(isRenderOnly = false) {
     const container = document.getElementById("available-exams-container");
     container.innerHTML = `جاري جلب الامتحانات...`;
     try {
-        let subRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/onlineSubmissions.json`);
+        let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/onlineSubmissions.json`);
         let allSubs = await subRes.json() || {};
         window.studentSubmissions = allSubs;
         let myExams = allOnlineExams.filter(e => {
@@ -1264,7 +1264,7 @@ async function submitOnlineExam(isTimeOut = false) {
     });
     try {
         // 🔥 التعديل الأهم: الحفظ في الفايربيز باستخدام كود الطالب (currentStudent.code) بدل رقم التليفون
-        await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
             method: 'PUT', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ score: totalScore, maxScore: currentExam.totalScore, answers: studentAnswers, timestamp: new Date().toISOString() }) 
@@ -1365,7 +1365,7 @@ async function submitOnlineExam(isTimeOut = false) {
     let maxViews = parseInt(course.maxViews) || 0; // القيمة اللي المدرس حددها
 
     // جلب المشاهدات الحالية من الفايربيز
-    let trackingUrl = `https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
+    let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
     let res = await fetch(trackingUrl);
     let data = await res.json() || { views: 0 };
 
@@ -1467,14 +1467,14 @@ async function submitOnlineExam(isTimeOut = false) {
             if(!confirm(`تأكيد شراء الكورس بـ ${price} ج.م؟`)) return;
             if((currentStudent.walletBalance || 0) < price) { alert("رصيد محفظتك لا يكفي!"); return; }
             try {
-                let dataRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data.json`);
                 let data = await dataRes.json();
                 let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if(studentIndex !== -1) {
                     currentStudent.walletBalance -= price;
                     currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
                     if(!currentStudent.purchasedCourses.includes(courseId)) currentStudent.purchasedCourses.push(courseId);
-                    await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/students/${studentIndex}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/students/${studentIndex}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) });
                     alert("تم الشراء بنجاح!"); fetchStudentData(true);
                 }
             } catch(e) { alert("حدث خطأ!"); }
@@ -1484,17 +1484,17 @@ async function submitOnlineExam(isTimeOut = false) {
             const code = document.getElementById("rechargeCodeInput").value.trim();
             if(!code) return alert("أدخل الكود!");
             try {
-                let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/chargeCodes/${code}.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/chargeCodes/${code}.json`);
                 let codeData = await res.json();
                 if(!codeData || codeData.status === 'used') return alert("الكود غير صحيح أو مستخدم!");
-                let dataRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data.json`);
                 let data = await dataRes.json();
                 let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if(sIdx !== -1) {
                     let amount = parseFloat(codeData.amount);
                     currentStudent.walletBalance = (currentStudent.walletBalance || 0) + amount;
-                    await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) });
-                    await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/chargeCodes/${code}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify("used") });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/chargeCodes/${code}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify("used") });
                     alert(`تم شحن ${amount} ج.م بنجاح!`); document.getElementById("rechargeCodeInput").value = ""; fetchStudentData(true);
                 }
             } catch (e) { alert("حدث خطأ!"); }
@@ -1537,7 +1537,7 @@ async function submitRegistration() {
             studentData.groupPref = document.getElementById("regGroupPref").value.trim();
             studentData.status = "pending";
 
-            await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/join_requests/${Date.now()}.json`, {
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/join_requests/${Date.now()}.json`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentData)
             });
 
@@ -1552,7 +1552,7 @@ async function submitRegistration() {
             studentData.group = "أونلاين"; 
             studentData.behaviorPoints = 0;
 
-            let res = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/students.json`);
+            let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/students.json`);
             let studentsArray = await res.json() || [];
             studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
             
@@ -1561,7 +1561,7 @@ async function submitRegistration() {
             studentData.code = (maxId + 1).toString();
 
             studentsArray.push(studentData);
-            await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${globalTeacherId}/data/students.json`, {
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/data/students.json`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentsArray)
             });
 
