@@ -973,7 +973,7 @@ document.getElementById("addStudentForm")?.addEventListener("submit", function(e
     if(typeof addSystemLog === "function") addSystemLog("إضافة طالب 🎓", `تسجيل الطالب: ${name} (كود: ${code}) في ${group}`);
 
     const currentKey = localStorage.getItem("licenseKey") || "";
-    const portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html?id=${currentKey}`;
+    const portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
     const msg = `📢 *أهلاً بك في نظام ${localStorage.getItem("teacherName") || "السنتر"} التعليمي*\nتم تسجيل بيانات الطالب بنجاح.\n👤 *اسم الطالب:* ${name}\n🎓 *كود الطالب:* ${code}\n🔗 *رابط بوابة المتابعة:* ${portalLink}`;
     if (typeof sendAutoWhatsApp === "function") sendAutoWhatsApp(parentPhone, msg);
 
@@ -5641,7 +5641,7 @@ window.confirmApproveRequest = async function() {
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
 
         // إرسال رسالة واتساب لولي الأمر
-        let portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent=${localStorage.getItem("licenseKey")}`;
+        let portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
         let waMsg = `🎉 *تمت الموافقة على طلب الانضمام*\nأهلاً بك في نظام ${localStorage.getItem("teacherName") || "السنتر"}.\n\n👤 *اسم الطالب:* ${newStudent.name}\n📚 *المجموعة:* ${newStudent.group}\n🔑 *كود الدخول الخاص بك:* ${newCode}\n\n🔗 *رابط منصة الطالب:* ${portalLink}`;
         
         if (typeof sendAutoWhatsApp === "function") {
