@@ -37,6 +37,34 @@
 body { background-color: var(--bg-color); color: var(--text-main); transition: background-color 0.3s, color 0.3s; overflow-x: hidden; }
 
 /* الأساسيات والتخطيط */
+
+/* تظبيط حجم وموضع اللوجو في القائمة الجانبية (Sidebar) */
+.sidebar > div:first-child {
+    display: flex;
+    flex-direction: column; /* نخلي اللوجو فوق والاسم تحته */
+    align-items: center;
+    justify-content: center;
+    gap: 15px; /* مسافة ممتازة بين اللوجو والاسم */
+    margin-bottom: 40px;
+}
+
+.sidebar > div:first-child img {
+    width: 90px !important; /* حجم صغير ومناسب جداً */
+    height: auto;
+    border-radius: 50%; /* عشان لو اللوجو مربع نديله لمسة دائرية شيك */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* ظل خفيف بيبرز اللوجو */
+    border: 3px solid var(--primary-color); /* برواز بلون السيستم */
+    padding: 5px;
+    background: var(--card-bg); /* خلفية بيضا تحت اللوجو عشان ينور في الدارك مود */
+}
+
+/* تظبيط شكل اللوجو في شريط الملاحة في وضع الموبايل (Topbar) */
+.top-header img {
+    width: 50px !important;
+    height: auto;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
 .dashboard-container { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
 .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); padding: 30px 20px; border-left: 1px solid var(--border-color); overflow-y: auto; }
 .main-content { flex: 1; padding: 30px 40px; overflow-y: auto; background-color: var(--bg-color); }

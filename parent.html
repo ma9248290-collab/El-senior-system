@@ -1,5 +1,4 @@
-
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -26,25 +25,25 @@
             --wallet-color: #059669; 
         }
 
-        /* 🟢 أولى ثانوي: أخضر غامق */
+        /* 🟢 أولى ثانوي: أخضر */
         body.theme-grade-1 {
-            --primary: #059669; 
+            --primary: #059669; /* أخضر رئيسي */
             --primary-hover: #047857;
-            --secondary: #064e3b;
+            --secondary: #064e3b; /* أخضر داكن للنصوص */
         }
 
-        /* 🔴 تانية ثانوي: طوبي / أحمر غامق */
+        /* 🔴 تانية ثانوي: أحمر طوبي / بني */
         body.theme-grade-2 {
-            --primary: #b91c1c; 
-            --primary-hover: #991b1b;
-            --secondary: #450a0a;
+            --primary: #9f1239; /* أحمر طوبي / بني محمر */
+            --primary-hover: #881337;
+            --secondary: #4c0519; /* بني داكن جداً */
         }
 
-        /* 🔵 تالتة ثانوي: أزرق / لبني غامق */
+        /* 🔵 تالتة ثانوي: لبني زاهي */
         body.theme-grade-3 {
-            --primary: #2563eb; 
-            --primary-hover: #1d4ed8;
-            --secondary: #1e3a8a;
+            --primary: #0ea5e9; /* لبني ساطع */
+            --primary-hover: #0284c7;
+            --secondary: #082f49; /* كحلي للنصوص عشان يقرأ براحته */
         }
 
         body { 
@@ -220,10 +219,12 @@
         #detailsCoursePlaylist::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
     </style>
 </head>
+<body>
     <div class="login-wrapper" id="login-screen">
         <div class="login-box">
-            <div style="margin-top: -80px; margin-bottom: 15px;">
-    <img src="logo.png" style="width: 100px; height: auto; background: white; border-radius: 50%; padding: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+            <div style="margin-top: -60px; margin-bottom: 20px;">
+    <!-- تم تصغير اللوجو هنا في شاشة الدخول -->
+    <img src="logo.png" style="width: 80px; height: auto; background: white; border-radius: 50%; padding: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
 </div>
 <h2 style="color: var(--secondary); margin-bottom: 5px; font-weight: 800;">El-Senior <span style="color: var(--primary)">.</span></h2><p style="color: var(--text-muted); margin-bottom: 5px;">منصة الطالب الذكية</p>
 <!-- مكان الأرقام -->
@@ -310,8 +311,9 @@
     <div id="app-layout">
         <header class="topbar">
             <div class="student-info">
-                <img src="logo.png" style="width: 80px; height: auto;">
-                <div>
+                <!-- تم تصغير اللوجو هنا في شريط القوائم العلوي -->
+                <img src="logo.png" style="width: 50px; height: auto; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <div style="margin-right: 10px;">
                     <h3 class="student-name" id="top-name">اسم الطالب</h3>
                     <span style="font-size: 12px; color: var(--text-muted);" id="top-group">المجموعة</span>
                 </div>
@@ -633,7 +635,7 @@
         async function loadTeacherInfoInitial() {
             globalTeacherId = "ElSenior_System_Master"; // 🔒 التثبيت هنا
             try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/settings.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/settings.json`);
                 let settings = await res.json();
                 
                 if (settings) {
@@ -718,7 +720,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
     try {
         // 🛑 [الحماية الجديدة]: فحص حالة اشتراك المدرس قبل دخول الطالب
-        let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${globalTeacherId}.json`);
+        let licRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/settings.json`);
         let licData = await licRes.json();
         
         if (licData) {
@@ -752,7 +754,7 @@ async function fetchStudentData(isAutoLogin = false) {
         }
 
         // 👇 سحب داتا الطالب 👇
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data.json`);
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
         let data = await res.json() || {};
 
         // === 🛡️ الحماية الشاملة من مشاكل الفايربيز ===
@@ -801,7 +803,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
         // ==========================================
 
-        let lecRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//lectures.json`);
+        let lecRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/lectures.json`);
         let lecturesData = await lecRes.json() || {};
         
         if (Array.isArray(lecturesData)) window.allLectures = lecturesData.filter(l => l !== null).reverse();
@@ -864,7 +866,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
         let totalItems = 0; let completedItems = 0; let missingLectures = 0; let missingExams = 0;
         try {
-            let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//onlineSubmissions.json`);
+            let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions.json`);
             let allSubs = await subRes.json() || {};
             let myExams = allOnlineExams.filter(e => e && (e.status === "open" || e.status === "closed") && (Array.isArray(e.group) ? e.group.includes(currentStudent.group) || e.group.includes("all") : e.group === currentStudent.group || e.group === "all"));
             totalItems += myExams.length;
@@ -872,7 +874,7 @@ async function fetchStudentData(isAutoLogin = false) {
 
             let myLectures = window.allLectures.filter(l => l && (l.level === "all" || l.level === currentStudent.level));
             totalItems += myLectures.length;
-            let trackRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//course_tracking.json`);
+            let trackRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking.json`);
             let allTracks = await trackRes.json() || {};
             myLectures.forEach(l => { let hasWatched = allTracks[l.id] && allTracks[l.id][currentStudent.phone]; if (hasWatched) completedItems++; else missingLectures++; });
 
@@ -926,7 +928,7 @@ async function fetchStudentData(isAutoLogin = false) {
         
         async function fetchStudentNotifications() {
             try {
-                let notifRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//notifications.json`);
+                let notifRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/notifications.json`);
                 let notifsData = await notifRes.json() || {};
                 
                 let notifsList = Object.values(notifsData).filter(n => {
@@ -989,7 +991,7 @@ async function fetchStudentData(isAutoLogin = false) {
             if(!container) return;
             container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:20px;">جاري تحميل المتجر... ⏳</div>`;
             try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//store/items.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/store/items.json`);
                 let items = await res.json() || {};
                 let itemsArray = Object.values(items).reverse();
                 
@@ -1020,7 +1022,7 @@ async function fetchStudentData(isAutoLogin = false) {
             let tbody = document.getElementById("student-orders-tbody");
             if(!tbody) return;
             try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//store/logs.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/store/logs.json`);
                 let logs = await res.json() || {};
                 let myOrders = Object.values(logs).filter(log => log.studentCode === currentStudent.code).reverse();
                 if(myOrders.length === 0) { tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">لم تقم بالشراء.</td></tr>`; return; }
@@ -1034,17 +1036,17 @@ async function fetchStudentData(isAutoLogin = false) {
                 if ((currentStudent.behaviorPoints || 0) < price) return alert("النقاط لا تكفي.");
                 if (!confirm("تأكيد؟")) return; currentStudent.behaviorPoints -= price;
             } else {
-                if ((currentStudent.walletBalance || 0) < price) return alert("الرصيد لا يكفي.");
+                if ((currentStudent.walletBalance || 0) < price) return alert("الرصيد لا تكفي.");
                 if (!confirm("تأكيد؟")) return; currentStudent.walletBalance -= price;
             }
             try {
-                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
                 let data = await dataRes.json();
                 let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if (sIdx > -1) {
                     let updates = currency === 'points' ? { behaviorPoints: currentStudent.behaviorPoints } : { walletBalance: currentStudent.walletBalance };
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//store/logs/${"order_" + Date.now()}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: "order_" + Date.now(), date: new Date().toLocaleString('ar-EG'), studentName: currentStudent.name, studentCode: currentStudent.code, itemName: itemName, price: price, currency: currency }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/store/logs/${"order_" + Date.now()}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: "order_" + Date.now(), date: new Date().toLocaleString('ar-EG'), studentName: currentStudent.name, studentCode: currentStudent.code, itemName: itemName, price: price, currency: currency }) });
                     alert("تم الشراء بنجاح!"); location.reload(); 
                 }
             } catch (e) { alert("حدث خطأ."); }
@@ -1055,7 +1057,7 @@ async function fetchStudentData(isAutoLogin = false) {
             if(!text) return alert("اكتب السؤال أولاً!");
             let questionObj = { id: "q_" + Date.now(), studentName: currentStudent.name, studentGroup: currentStudent.group, studentPhone: currentStudent.phone, questionText: text, replyText: "", date: new Date().toLocaleDateString('ar-EG') };
             try {
-                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//forum/${questionObj.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(questionObj) });
+                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/forum/${questionObj.id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(questionObj) });
                 document.getElementById("forumQuestionInput").value = ""; alert("تم نشر سؤالك! 🚀"); loadForumQuestions();
             } catch(e) {}
         };
@@ -1064,7 +1066,7 @@ async function fetchStudentData(isAutoLogin = false) {
             let container = document.getElementById("forum-questions-list");
             if(!container) return;
             try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//forum.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/forum.json`);
                 let data = await res.json() || {}; container.innerHTML = "";
                 let myGroupQuestions = Object.values(data).filter(q => q && q.studentGroup === currentStudent.group).reverse();
                 if(myGroupQuestions.length === 0) { container.innerHTML = `<div style="text-align:center;">لا توجد نقاشات.</div>`; return; }
@@ -1150,7 +1152,7 @@ window.showOnlineExams = async function(isRenderOnly = false) {
     const container = document.getElementById("available-exams-container");
     container.innerHTML = `جاري جلب الامتحانات...`;
     try {
-        let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//onlineSubmissions.json`);
+        let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions.json`);
         let allSubs = await subRes.json() || {};
         window.studentSubmissions = allSubs;
         let myExams = allOnlineExams.filter(e => {
@@ -1264,7 +1266,7 @@ async function submitOnlineExam(isTimeOut = false) {
     });
     try {
         // 🔥 التعديل الأهم: الحفظ في الفايربيز باستخدام كود الطالب (currentStudent.code) بدل رقم التليفون
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
             method: 'PUT', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({ score: totalScore, maxScore: currentExam.totalScore, answers: studentAnswers, timestamp: new Date().toISOString() }) 
@@ -1365,7 +1367,7 @@ async function submitOnlineExam(isTimeOut = false) {
     let maxViews = parseInt(course.maxViews) || 0; // القيمة اللي المدرس حددها
 
     // جلب المشاهدات الحالية من الفايربيز
-    let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
+    let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
     let res = await fetch(trackingUrl);
     let data = await res.json() || { views: 0 };
 
@@ -1467,14 +1469,14 @@ async function submitOnlineExam(isTimeOut = false) {
             if(!confirm(`تأكيد شراء الكورس بـ ${price} ج.م؟`)) return;
             if((currentStudent.walletBalance || 0) < price) { alert("رصيد محفظتك لا يكفي!"); return; }
             try {
-                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
                 let data = await dataRes.json();
                 let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if(studentIndex !== -1) {
                     currentStudent.walletBalance -= price;
                     currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
                     if(!currentStudent.purchasedCourses.includes(courseId)) currentStudent.purchasedCourses.push(courseId);
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/students/${studentIndex}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) });
                     alert("تم الشراء بنجاح!"); fetchStudentData(true);
                 }
             } catch(e) { alert("حدث خطأ!"); }
@@ -1484,17 +1486,17 @@ async function submitOnlineExam(isTimeOut = false) {
             const code = document.getElementById("rechargeCodeInput").value.trim();
             if(!code) return alert("أدخل الكود!");
             try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//chargeCodes/${code}.json`);
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}.json`);
                 let codeData = await res.json();
                 if(!codeData || codeData.status === 'used') return alert("الكود غير صحيح أو مستخدم!");
-                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data.json`);
+                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
                 let data = await dataRes.json();
                 let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
                 if(sIdx !== -1) {
                     let amount = parseFloat(codeData.amount);
                     currentStudent.walletBalance = (currentStudent.walletBalance || 0) + amount;
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) });
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//chargeCodes/${code}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify("used") });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) });
+                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify("used") });
                     alert(`تم شحن ${amount} ج.م بنجاح!`); document.getElementById("rechargeCodeInput").value = ""; fetchStudentData(true);
                 }
             } catch (e) { alert("حدث خطأ!"); }
@@ -1537,7 +1539,7 @@ async function submitRegistration() {
             studentData.groupPref = document.getElementById("regGroupPref").value.trim();
             studentData.status = "pending";
 
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//join_requests/${Date.now()}.json`, {
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/join_requests/${Date.now()}.json`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentData)
             });
 
@@ -1552,7 +1554,7 @@ async function submitRegistration() {
             studentData.group = "أونلاين"; 
             studentData.behaviorPoints = 0;
 
-            let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/students.json`);
+            let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`);
             let studentsArray = await res.json() || [];
             studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
             
@@ -1561,7 +1563,7 @@ async function submitRegistration() {
             studentData.code = (maxId + 1).toString();
 
             studentsArray.push(studentData);
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}//data/students.json`, {
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentsArray)
             });
 
