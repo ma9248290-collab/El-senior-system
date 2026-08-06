@@ -1944,12 +1944,12 @@ function updateBroadcastCount() { const target = document.getElementById('broadc
 
 
 // ==========================================
-// 1. عرض ملف الطالب كاملاً بالجداول والباركود
+// 1. عرض ملف الطالب كاملاً بالجداول والباركود + زراير الواتساب
 // ==========================================
 window.openStudentProfile = function(code) {
     const student = students.find(s => s.code === code); if(!student) return;
     
-    // 🔥 السطر ده هو اللي بيحل المشكلة: بينقلك لصفحة الطلاب الأول قبل ما يفتح الملف
+    // بينقلك لصفحة الطلاب الأول قبل ما يفتح الملف
     switchPage('students');
     
     currentStudentProfileCode = code;
@@ -1975,25 +1975,47 @@ window.openStudentProfile = function(code) {
     if(document.getElementById("profile-gender")) document.getElementById("profile-gender").innerText = student.gender;
     document.getElementById("profile-behavior-points").innerText = student.behaviorPoints || 0; 
 
+    // 🔥 التعديل هنا: تشغيل زراير الواتساب للطالب وولي الأمر
+    let waStudentBtn = document.getElementById("wa-student-btn");
+    if (waStudentBtn) {
+        waStudentBtn.onclick = function() {
+            if(student.phone && student.phone !== "0" && student.phone !== "") {
+                window.open(`https://wa.me/20${student.phone.replace(/^0+/, '')}`, '_blank');
+            } else {
+                showToast("رقم هاتف الطالب غير مسجل!", "error");
+            }
+        };
+    }
+
+    let waParentBtn = document.getElementById("wa-parent-btn");
+    if (waParentBtn) {
+        waParentBtn.onclick = function() {
+            if(student.parentPhone && student.parentPhone !== "0" && student.parentPhone !== "") {
+                window.open(`https://wa.me/20${student.parentPhone.replace(/^0+/, '')}`, '_blank');
+            } else {
+                showToast("رقم ولي الأمر غير مسجل!", "error");
+            }
+        };
+    }
+
     // جلب ورسم جدول الغياب
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
-    groupSessions.forEach(s => { const st = s.attendance[student.phone]; if(st === 'present') attended++; const badge = st === 'present' ? `<span style="color:var(--success-color);">حاضر ✓</span>` : st === 'absent' ? `<span style="color:var(--danger-color);">غائب ✗</span>` : `-`; if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; });
+    groupSessions.forEach(s => { const st = s.attendance[student.code] || s.attendance[student.phone]; if(st === 'present') attended++; const badge = st === 'present' ? `<span style="color:var(--success-color);">حاضر ✓</span>` : st === 'absent' ? `<span style="color:var(--danger-color);">غائب ✗</span>` : `-`; if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
 
     // جلب ورسم جدول الامتحانات
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
-    groupExams.forEach(e => { if(e.grades[student.phone]) { tExam += parseFloat(e.maxScore); sExam += parseFloat(e.grades[student.phone]); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${e.grades[student.phone] || '--'}</strong> / ${e.maxScore}</td></tr>`; });
+    groupExams.forEach(e => { let g = e.grades[student.code] !== undefined ? e.grades[student.code] : e.grades[student.phone]; if(g !== undefined) { tExam += parseFloat(e.maxScore); sExam += parseFloat(g); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${e.maxScore}</td></tr>`; });
     document.getElementById("profile-exams").innerText = `${tExam > 0 ? Math.round((sExam / tExam) * 100) : 0}%`;
 
     // جلب ورسم جدول الواجبات
     const groupHw = homeworks.filter(h => h.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tHw = 0, sHw = 0; const hwTbody = document.getElementById("profile-hw-list"); if(hwTbody) hwTbody.innerHTML = "";
-    groupHw.forEach(h => { if(h.grades[student.phone]) { tHw += parseFloat(h.maxScore); sHw += parseFloat(h.grades[student.phone]); } if(hwTbody) hwTbody.innerHTML += `<tr><td>${h.name}</td><td>${h.date}</td><td><strong>${h.grades[student.phone] || '--'}</strong> / ${h.maxScore}</td></tr>`; });
+    groupHw.forEach(h => { let g = h.grades[student.code] !== undefined ? h.grades[student.code] : h.grades[student.phone]; if(g !== undefined) { tHw += parseFloat(h.maxScore); sHw += parseFloat(g); } if(hwTbody) hwTbody.innerHTML += `<tr><td>${h.name}</td><td>${h.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${h.maxScore}</td></tr>`; });
     document.getElementById("profile-hw").innerText = `${tHw > 0 ? Math.round((sHw / tHw) * 100) : 0}%`;
 };
-
 
 
 // ==========================================
@@ -5682,4 +5704,127 @@ document.addEventListener('DOMContentLoaded', () => {
             loadJoinRequests();
         }
     }, 2000);
+});
+
+// ==========================================
+// 🔙 نظام التنقل الذكي وزر الرجوع الشامل للمتصفح (Full History API) - لوحة المدرس
+// ==========================================
+
+window.isHistoryNavigating = false;
+
+// 🚀 1. حل مشكلة القوائم الجانبية (منع المتصفح من إرسالك للرئيسية بسبب href="#")
+document.addEventListener('click', function(e) {
+    let target = e.target.closest('a');
+    // لو العنصر اللي انداس عليه لينك والـ href بتاعه # بس، نوقفه عشان ميبوظش الهيستوري
+    if (target && target.getAttribute('href') === '#') {
+        e.preventDefault(); 
+    }
+});
+
+// 2. تحديد الصفحة الحالية عند فتح السيستم
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if(sessionStorage.getItem("isLoggedIn") === "true") {
+            // تسجيل الرئيسية كأول نقطة في الهيستوري
+            history.replaceState({ page: 'dashboard', type: 'main' }, '', '#dashboard');
+        }
+    }, 1500);
+});
+
+// 3. تتبع التنقل بين التابات الرئيسية
+const originalSwitchPageForHistory = window.switchPage;
+window.switchPage = function(pageId, fromHistory = false) {
+    // تشغيل الدالة الأصلية
+    if (originalSwitchPageForHistory) originalSwitchPageForHistory(pageId);
+
+    // تسجيل الخطوة في الهيستوري لو مش جاية من زرار الرجوع
+    if (!fromHistory && !window.isHistoryNavigating) {
+        history.pushState({ page: pageId, type: 'main' }, '', `#${pageId}`);
+    }
+};
+
+// 4. تتبع فتح الصفحات الفرعية (ملفات الطلاب، تفاصيل الحصة، الامتحانات، إلخ)
+const subPagesOverrides = [
+    { funcName: 'openStudentProfile', pageKey: 'student-profile', prefix: 'student' },
+    { funcName: 'openGroupDetails', pageKey: 'group-details', prefix: 'group' },
+    { funcName: 'openSessionDetails', pageKey: 'session-details', prefix: 'session' },
+    { funcName: 'openExamDetails', pageKey: 'exam-details', prefix: 'exam' },
+    { funcName: 'openOnlineExamDetails', pageKey: 'online-exam-details', prefix: 'online-exam' },
+    { funcName: 'openHwDetails', pageKey: 'hw-details', prefix: 'hw' }
+];
+
+subPagesOverrides.forEach(override => {
+    const originalFunc = window[override.funcName];
+    window[override.funcName] = async function(id, fromHistory = false) {
+        // تشغيل الدالة الأصلية 
+        if (originalFunc) {
+            let result = originalFunc.apply(this, [id]);
+            if (result instanceof Promise) await result;
+        }
+        
+        // تسجيل الخطوة
+        if (!fromHistory && !window.isHistoryNavigating) {
+            history.pushState({ page: override.pageKey, type: 'sub', id: id }, '', `#${override.prefix}-${id}`);
+        }
+    };
+});
+
+// 5. تتبع زراير العودة الداخلية في الواجهة (عشان رابط الموقع يتحدث معاها)
+const backButtonsOverrides = [
+    { funcName: 'backToStudents', parentPage: 'students' },
+    { funcName: 'backToGroups', parentPage: 'groups' },
+    { funcName: 'backToSessions', parentPage: 'attendance' },
+    { funcName: 'backToExams', parentPage: 'exams' },
+    { funcName: 'backToPlatformExams', parentPage: 'platform' },
+    { funcName: 'backToHw', parentPage: 'homework' }
+];
+
+backButtonsOverrides.forEach(override => {
+    const originalBackFunc = window[override.funcName];
+    window[override.funcName] = function(fromHistory = false) {
+        if (originalBackFunc) originalBackFunc.apply(this, []);
+        
+        // تحديث الرابط وتسجيل الخطوة
+        if (!fromHistory && !window.isHistoryNavigating) {
+            history.pushState({ page: override.parentPage, type: 'main' }, '', `#${override.parentPage}`);
+        }
+    };
+});
+
+// 6. الاستماع السحري لزر الرجوع (Back Button) في المتصفح أو الموبايل
+window.addEventListener('popstate', function(event) {
+    window.isHistoryNavigating = true;
+    const state = event.state;
+
+    // إغلاق كل النوافذ المنبثقة (Modals) بالمرة عشان الشاشة تنضف
+    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+
+    if (state) {
+        if (state.type === 'main') {
+            // لو بنرجع لصفحة رئيسية، لازم نقفل أي ملف مفتوح الأول
+            if(document.getElementById("student-profile-view")?.style.display === 'block') window.backToStudents(true);
+            if(document.getElementById("group-details-view")?.style.display === 'block') window.backToGroups(true);
+            if(document.getElementById("session-details-view")?.style.display === 'block') window.backToSessions(true);
+            if(document.getElementById("exam-details-view")?.style.display === 'block') window.backToExams(true);
+            if(document.getElementById("online-exam-details-section")?.style.display === 'block') window.backToPlatformExams(true);
+            if(document.getElementById("hw-details-view")?.style.display === 'block') window.backToHw(true);
+
+            // بعد كده نفتح الصفحة اللي طلبها زرار الرجوع
+            window.switchPage(state.page, true);
+        } 
+        else if (state.type === 'sub') {
+            // لو بنرجع لملف كان مفتوح قبل كده
+            if (state.page === 'student-profile') window.openStudentProfile(state.id, true);
+            else if (state.page === 'group-details') window.openGroupDetails(state.id, true);
+            else if (state.page === 'session-details') window.openSessionDetails(state.id, true);
+            else if (state.page === 'exam-details') window.openExamDetails(state.id, true);
+            else if (state.page === 'online-exam-details') window.openOnlineExamDetails(state.id, true);
+            else if (state.page === 'hw-details') window.openHwDetails(state.id, true);
+        }
+    } else {
+        // حماية: لو الهيستوري فاضي يرجعه للرئيسية
+        window.switchPage('dashboard', true);
+    }
+
+    setTimeout(() => { window.isHistoryNavigating = false; }, 100);
 });
