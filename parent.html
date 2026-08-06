@@ -1182,7 +1182,7 @@ body {
                     let allSubs = await subRes.json() || {};
                     let myExams = allOnlineExams.filter(e => e && (e.status === "open" || e.status === "closed") && (Array.isArray(e.group) ? e.group.includes(currentStudent.group) || e.group.includes("all") : e.group === currentStudent.group || e.group === "all"));
                     totalItems += myExams.length;
-                    myExams.forEach(e => { if (allSubs[e.id] && allSubs[e.id][currentStudent.phone]) completedItems++; else if (e.status === "open") missingExams++; });
+                    myExams.forEach(e => { if (allSubs[e.id] && (allSubs[e.id][currentStudent.code] || allSubs[e.id][currentStudent.phone])) completedItems++; else if (e.status === "open") missingExams++; });
 
                     let myLectures = window.allLectures.filter(l => l && (l.level === "all" || l.level === currentStudent.level));
                     totalItems += myLectures.length;
@@ -1593,92 +1593,214 @@ body {
             } catch(e) {}
         };
 
-        window.reviewExam = function(examId) {
-            let exam = allOnlineExams.find(e => e.id === examId); 
-            let examSubs = window.studentSubmissions[examId] || {};
-            let sub = examSubs[currentStudent.code];
-            if (!sub && currentStudent.phone && String(currentStudent.phone).trim() !== "0") sub = examSubs[currentStudent.phone];
+       // ==========================================
+// 🚀 نظام الامتحانات الإلكترونية (Slideshow LTR)
+// ==========================================
 
-            if(!exam || !sub) return;
-            document.getElementById("online-exams-list-screen").style.display = "none"; document.getElementById("review-exam-screen").style.display = "block";
-            document.getElementById("review-exam-title").innerText = exam.title; document.getElementById("review-exam-score").innerText = sub.score; document.getElementById("review-exam-total").innerText = exam.totalScore;
-            let container = document.getElementById("review-questions-render"); container.innerHTML = "";
+// دالة التنقل بين الأسئلة (السلايدز)
+window.currentSlideIndex = 0;
+window.navigateSlide = function(step) {
+    let slides = document.querySelectorAll('.q-slide');
+    if(slides.length === 0) return;
+    
+    // إخفاء السؤال الحالي
+    slides[window.currentSlideIndex].style.display = 'none';
+    
+    // حساب الاندكس الجديد
+    window.currentSlideIndex += step;
+    
+    // إظهار السؤال الجديد بأنيميشن
+    slides[window.currentSlideIndex].style.display = 'block';
+    slides[window.currentSlideIndex].style.animation = 'none';
+    setTimeout(() => slides[window.currentSlideIndex].style.animation = 'fadeInUp 0.4s ease forwards', 10);
+};
+
+window.startExam = function(examId) {
+    currentExam = allOnlineExams.find(e => e.id === examId); 
+    if(!currentExam) return;
+    if(!confirm(`هل أنت مستعد؟ المدة: ${currentExam.duration} دقيقة.`)) return;
+    
+    document.getElementById("online-exams-list-screen").style.display = "none"; 
+    document.getElementById("active-exam-screen").style.display = "block";
+    document.getElementById("active-exam-title").innerText = currentExam.title;
+    
+    // إخفاء الزرار القديم لأننا هنضيفه جوه آخر سلايد
+    let oldSubmitBtn = document.getElementById("submitExamBtn");
+    if(oldSubmitBtn) oldSubmitBtn.style.display = "none";
+
+    const container = document.getElementById("exam-questions-render"); 
+    container.innerHTML = "";
+    window.currentSlideIndex = 0; // تصفير السلايد
+    
+    currentExam.questions.forEach((q, index) => {
+        let displayStyle = index === 0 ? "block" : "none";
+        
+        // الكارت الأساسي للسؤال
+        let qHtml = `<div class="q-slide" id="slide_${index}" style="display: ${displayStyle}; background: white; padding: 35px 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 20px;">`;
+        
+        // الهيدر بتاع السؤال (الدرجات والترتيب من اليمين)
+        qHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px dashed var(--border); padding-bottom: 15px; direction: rtl;">
+            <span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 8px 20px; border-radius: 12px; font-weight: 900; font-size: 16px; border: 1px solid rgba(245, 158, 11, 0.3);">🎯 ${q.points} درجات</span>
+            <span style="color: var(--text-muted); font-weight: 900; background: var(--bg-color); padding: 8px 15px; border-radius: 12px;">السؤال ${index + 1} من ${currentExam.questions.length}</span>
+        </div>`;
+
+        // نص السؤال والاختيارات (بالإنجليزي من الشمال لليمين LTR)
+        qHtml += `<div style="direction: ltr; text-align: left; font-family: 'Segoe UI', Tahoma, sans-serif;">`;
+        qHtml += `<h3 style="color: var(--secondary); font-size: 24px; line-height: 1.6; margin: 0 0 25px 0;">${index + 1}. ${q.text}</h3>`;
+
+        if (q.type === 'mcq') { 
+            qHtml += `<div class="q-options" style="display: flex; flex-direction: column; gap: 12px;">`; 
+            q.options.forEach((opt, optIndex) => { 
+                qHtml += `<label style="display: flex; align-items: center; gap: 15px; background: var(--bg-color); border: 2px solid var(--border); padding: 15px 20px; border-radius: 15px; cursor: pointer; transition: 0.3s; font-size: 18px; font-weight: 600;"
+                onmouseover="this.style.borderColor='var(--primary)'" 
+                onmouseout="if(!this.querySelector('input').checked) this.style.borderColor='var(--border)'"
+                onclick="document.querySelectorAll('input[name=ans_${q.id}]').forEach(inp => {inp.parentElement.style.borderColor='var(--border)'; inp.parentElement.style.background='var(--bg-color)';}); this.style.borderColor='var(--primary)'; this.style.background='rgba(14, 165, 233, 0.05)';">
+                    <input type="radio" name="ans_${q.id}" value="${optIndex}" style="width: 22px; height: 22px; accent-color: var(--primary);"> 
+                    <span style="flex: 1;">${opt}</span>
+                </label>`; 
+            }); 
+            qHtml += `</div>`; 
+        } 
+        else if (q.type === 'tf') { 
+            qHtml += `
+            <div class="q-options" style="display: flex; gap: 20px;">
+                <label style="flex: 1; text-align: center; background: rgba(16, 185, 129, 0.05); border: 2px solid #10b981; padding: 20px; border-radius: 15px; cursor: pointer; font-size: 22px; font-weight: bold; color: #10b981; transition: 0.3s;" onclick="document.querySelectorAll('input[name=ans_${q.id}]').forEach(i=>{i.parentElement.style.background='transparent'; i.parentElement.style.opacity='0.5'}); this.style.background='rgba(16, 185, 129, 0.15)'; this.style.opacity='1';">
+                    <input type="radio" name="ans_${q.id}" value="true" style="display:none;"> ✔️ True
+                </label>
+                <label style="flex: 1; text-align: center; background: rgba(239, 68, 68, 0.05); border: 2px solid #ef4444; padding: 20px; border-radius: 15px; cursor: pointer; font-size: 22px; font-weight: bold; color: #ef4444; transition: 0.3s;" onclick="document.querySelectorAll('input[name=ans_${q.id}]').forEach(i=>{i.parentElement.style.background='transparent'; i.parentElement.style.opacity='0.5'}); this.style.background='rgba(239, 68, 68, 0.15)'; this.style.opacity='1';">
+                    <input type="radio" name="ans_${q.id}" value="false" style="display:none;"> ❌ False
+                </label>
+            </div>`; 
+        } 
+        else if (q.type === 'blank') { 
+            qHtml += `<input type="text" id="ans_${q.id}" class="custom-input" placeholder="Type your answer here..." style="font-size: 18px; padding: 15px; border-radius: 12px; border: 2px solid var(--border); width: 100%; direction: ltr; text-align: left;">`; 
+        } 
+        else if (q.type === 'essay') { 
+            qHtml += `<textarea id="ans_${q.id}" class="custom-input" rows="5" placeholder="Write your detailed answer here..." style="font-size: 18px; padding: 15px; border-radius: 12px; border: 2px solid var(--border); resize: vertical; width: 100%; direction: ltr; text-align: left;"></textarea>`; 
+        }
+        qHtml += `</div>`; // إغلاق ديف الـ LTR
+
+        // زراير التنقل (السابق والتالي)
+        qHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 35px; padding-top: 25px; border-top: 1px solid var(--border); direction: rtl;">
+            <button class="btn btn-secondary" style="width: auto; padding: 12px 30px; font-size: 16px; border-radius: 12px; opacity: ${index === 0 ? '0.3' : '1'}; pointer-events: ${index === 0 ? 'none' : 'auto'};" onclick="navigateSlide(-1)">السابق</button>
             
-            exam.questions.forEach((q, index) => {
-                let studentAns = sub.answers[q.id]; let qScore = 0; let isCorrect = false; let ansHtml = "";
-                if (q.type === 'mcq') {
-                    isCorrect = (studentAns === q.correctAnswerIndex); qScore = isCorrect ? q.points : 0;
-                    ansHtml = `<div class="q-options">`;
-                    q.options.forEach((opt, optIndex) => {
-                        let bg = "var(--bg-color)"; let border = "var(--border)"; let icon = "";
-                        if (optIndex === q.correctAnswerIndex) { bg = "#d1fae5"; border = "#10b981"; icon = "✅"; }
-                        else if (optIndex === studentAns && !isCorrect) { bg = "#fee2e2"; border = "#ef4444"; icon = "❌"; }
-                        ansHtml += `<div class="q-option-label" style="background:${bg}; border-color:${border};">${opt} ${icon}</div>`;
-                    });
-                    ansHtml += `</div>`;
-                } else if (q.type === 'tf') {
-                    isCorrect = (String(studentAns) === String(q.correctAnswerTF || q.correctAnswer)); qScore = isCorrect ? q.points : 0;
-                    ansHtml = `<div style="background: ${isCorrect?'#d1fae5':'#fee2e2'}; padding:15px; border-radius:12px; font-weight:bold; border:2px solid ${isCorrect?'#10b981':'#ef4444'};">إجابتك: ${studentAns==='true'?'صح':'خطأ'} | الصحيحة: ${(q.correctAnswerTF || q.correctAnswer)==='true'?'صح':'خطأ'}</div>`;
-                } else {
-                    qScore = (sub.manualGrades && sub.manualGrades[q.id] !== undefined) ? sub.manualGrades[q.id] : (studentAns === q.correctAnswerText ? q.points : 0);
-                    ansHtml = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border:1px solid var(--border); font-weight:bold;">إجابتك: ${studentAns || 'لم يُجب'}</div>`;
-                }
-                container.innerHTML += `<div class="q-box" style="border-right: 6px solid ${qScore > 0 ? '#10b981' : '#ef4444'};"><div class="q-title">${index + 1}. ${q.text} <span style="color:var(--primary);">(${qScore}/${q.points})</span></div>${ansHtml}</div>`;
-            });
-        };
+            ${index === currentExam.questions.length - 1 ? 
+                `<button class="btn slide-submit-btn" style="width: auto; background: var(--success); padding: 12px 30px; font-size: 18px; font-weight: 900; border-radius: 12px; box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);" onclick="submitOnlineExam()">تسليم الامتحان نهائياً ✅</button>` : 
+                `<button class="btn" style="width: auto; padding: 12px 40px; font-size: 18px; font-weight: 900; border-radius: 12px; box-shadow: 0 10px 20px rgba(14, 165, 233, 0.3);" onclick="navigateSlide(1)">التالي ⬅️</button>`
+            }
+        </div>`;
 
+        container.innerHTML += qHtml + `</div>`;
+    });
+    
+    // تفعيل التايمر
+    let timeInSeconds = currentExam.duration * 60; const timerDisplay = document.getElementById('exam-timer');
+    examTimerInterval = setInterval(() => { 
+        let m = Math.floor(timeInSeconds / 60), s = timeInSeconds % 60; 
+        timerDisplay.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`; 
+        
+        // تلوين التايمر بالأحمر لو فاضل دقيقة واحدة
+        if(timeInSeconds <= 60) timerDisplay.parentElement.style.background = "var(--danger)";
+        
+        if (timeInSeconds <= 0) { clearInterval(examTimerInterval); submitOnlineExam(true); } 
+        timeInSeconds--; 
+    }, 1000);
+}
+
+window.submitOnlineExam = async function(isTimeOut = false) {
+    if (!isTimeOut && !confirm("هل أنت متأكد من تسليم الامتحان؟ (تأكد من إجابتك على جميع الأسئلة)")) return; 
+    clearInterval(examTimerInterval);
+    
+    let totalScore = 0; let studentAnswers = {};
+    currentExam.questions.forEach(q => {
+        let qScore = 0;
+        if (q.type === 'mcq') { let selected = document.querySelector(`input[name="ans_${q.id}"]:checked`); let ansVal = selected ? parseInt(selected.value) : -1; studentAnswers[q.id] = ansVal; if (ansVal === q.correctAnswerIndex) qScore = q.points; } 
+        else if (q.type === 'tf') { let selected = document.querySelector(`input[name="ans_${q.id}"]:checked`); let ansVal = selected ? selected.value : ""; studentAnswers[q.id] = ansVal; if (ansVal === String(q.correctAnswerTF || q.correctAnswer)) qScore = q.points; } 
+        else if (q.type === 'blank') { let ansVal = document.getElementById(`ans_${q.id}`).value.trim(); studentAnswers[q.id] = ansVal; if (ansVal.toLowerCase() === (q.correctAnswerText || "").toLowerCase()) qScore = q.points; } 
+        else if (q.type === 'essay') { studentAnswers[q.id] = document.getElementById(`ans_${q.id}`).value.trim(); }
+        totalScore += qScore;
+    });
+    
+    try {
+        // تغيير حالة زراير التسليم
+        document.querySelectorAll(".slide-submit-btn, #submitExamBtn").forEach(btn => {
+            if(btn) { btn.innerText = "جاري الحفظ... ⏳"; btn.disabled = true; }
+        });
+
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ score: totalScore, maxScore: currentExam.totalScore, answers: studentAnswers, timestamp: new Date().toISOString() }) 
+        });
+        
+        alert("تم التسليم بنجاح! 🎯"); 
+        document.getElementById("active-exam-screen").style.display = "none"; 
+        showOnlineExams(); 
+        
+    } catch (e) { 
+        alert("خطأ بالاتصال بالإنترنت!"); 
+    } finally { 
+        document.querySelectorAll(".slide-submit-btn, #submitExamBtn").forEach(btn => {
+            if(btn) { btn.innerText = "تسليم الامتحان نهائياً ✅"; btn.disabled = false; }
+        }); 
+    }
+}
+
+// تعديل شاشة عرض الإجابات عشان تظهر LTR برضه
+window.reviewExam = function(examId) {
+    let exam = allOnlineExams.find(e => e.id === examId); 
+    let examSubs = window.studentSubmissions[examId] || {};
+    let sub = examSubs[currentStudent.code];
+    if (!sub && currentStudent.phone && String(currentStudent.phone).trim() !== "0") sub = examSubs[currentStudent.phone];
+
+    if(!exam || !sub) return;
+    document.getElementById("online-exams-list-screen").style.display = "none"; 
+    document.getElementById("review-exam-screen").style.display = "block";
+    
+    document.getElementById("review-exam-title").innerText = exam.title; 
+    document.getElementById("review-exam-score").innerText = sub.score; 
+    document.getElementById("review-exam-total").innerText = exam.totalScore;
+    
+    let container = document.getElementById("review-questions-render"); 
+    container.innerHTML = "";
+    
+    exam.questions.forEach((q, index) => {
+        let studentAns = sub.answers[q.id]; let qScore = 0; let isCorrect = false; let ansHtml = "";
+        
+        if (q.type === 'mcq') {
+            isCorrect = (studentAns === q.correctAnswerIndex); qScore = isCorrect ? q.points : 0;
+            ansHtml = `<div class="q-options" style="display: flex; flex-direction: column; gap: 10px;">`;
+            q.options.forEach((opt, optIndex) => {
+                let bg = "var(--bg-color)"; let border = "var(--border)"; let icon = "";
+                if (optIndex === q.correctAnswerIndex) { bg = "#d1fae5"; border = "#10b981"; icon = "✅"; }
+                else if (optIndex === studentAns && !isCorrect) { bg = "#fee2e2"; border = "#ef4444"; icon = "❌"; }
+                ansHtml += `<div style="background:${bg}; border: 2px solid ${border}; padding: 12px 15px; border-radius: 12px; font-size: 16px; font-weight: bold; display: flex; justify-content: space-between;"><span>${opt}</span> <span>${icon}</span></div>`;
+            });
+            ansHtml += `</div>`;
+        } else if (q.type === 'tf') {
+            isCorrect = (String(studentAns) === String(q.correctAnswerTF || q.correctAnswer)); qScore = isCorrect ? q.points : 0;
+            ansHtml = `<div style="background: ${isCorrect?'#d1fae5':'#fee2e2'}; padding:15px; border-radius:12px; font-weight:bold; border:2px solid ${isCorrect?'#10b981':'#ef4444'}; font-size: 18px;">Your Answer: ${studentAns==='true'?'True ✔️':'False ❌'} <br> Correct: ${(q.correctAnswerTF || q.correctAnswer)==='true'?'True ✔️':'False ❌'}</div>`;
+        } else {
+            qScore = (sub.manualGrades && sub.manualGrades[q.id] !== undefined) ? sub.manualGrades[q.id] : (studentAns === q.correctAnswerText ? q.points : 0);
+            ansHtml = `<div style="background:var(--bg-color); padding:15px; border-radius:12px; border:2px solid var(--border); font-weight:bold; font-size: 16px;">Your Answer: <span style="color: var(--primary);">${studentAns || 'No Answer'}</span></div>`;
+        }
+
+        container.innerHTML += `
+        <div style="background: white; padding: 30px; border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 5px 15px rgba(0,0,0,0.03); margin-bottom: 20px; text-align: left; direction: ltr; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px dashed var(--border); padding-bottom: 15px; direction: rtl;">
+                <span style="background: ${qScore > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; color: ${qScore > 0 ? '#10b981' : '#ef4444'}; padding: 8px 20px; border-radius: 12px; font-weight: 900; font-size: 16px; border: 1px solid ${qScore > 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'};">الدرجة: ${qScore} / ${q.points}</span>
+                <span style="color: var(--secondary); font-weight: 900; background: var(--bg-color); padding: 8px 15px; border-radius: 12px;">السؤال ${index + 1}</span>
+            </div>
+            <h3 style="color: var(--secondary); font-size: 22px; line-height: 1.5; margin: 0 0 20px 0;">${q.text}</h3>
+            ${ansHtml}
+        </div>`;
+    });
+};
         window.closeReviewScreen = function() { document.getElementById("review-exam-screen").style.display = "none"; document.getElementById("online-exams-list-screen").style.display = "block"; };
         window.backToDashboard = function() { document.getElementById("online-exams-list-screen").style.display = "none"; document.getElementById("app-layout").style.display = "block"; }
 
-        window.startExam = function(examId) {
-            currentExam = allOnlineExams.find(e => e.id === examId); if(!currentExam) return;
-            if(!confirm(`هل أنت مستعد؟ المدة: ${currentExam.duration} دقيقة.`)) return;
-            document.getElementById("online-exams-list-screen").style.display = "none"; document.getElementById("active-exam-screen").style.display = "block";
-            document.getElementById("active-exam-title").innerText = currentExam.title;
-            const container = document.getElementById("exam-questions-render"); container.innerHTML = "";
-            
-            currentExam.questions.forEach((q, index) => {
-                let qHtml = `<div class="q-box"><div class="q-title">${index + 1}. ${q.text} <span style="color:var(--primary); font-size:14px;">(${q.points} درجات)</span></div>`;
-                if (q.type === 'mcq') { 
-                    qHtml += `<div class="q-options">`; 
-                    q.options.forEach((opt, optIndex) => { 
-                        qHtml += `<label class="q-option-label"><input type="radio" name="ans_${q.id}" value="${optIndex}"> ${opt}</label>`; 
-                    }); 
-                    qHtml += `</div>`; 
-                } 
-                else if (q.type === 'tf') { 
-                    qHtml += `<div class="q-options"><label class="q-option-label"><input type="radio" name="ans_${q.id}" value="true"> ✔️ صح</label><label class="q-option-label"><input type="radio" name="ans_${q.id}" value="false"> ❌ خطأ</label></div>`; 
-                } 
-                else if (q.type === 'blank') { qHtml += `<input type="text" id="ans_${q.id}" class="custom-input" placeholder="اكتب إجابتك...">`; } 
-                else if (q.type === 'essay') { qHtml += `<textarea id="ans_${q.id}" class="custom-input" rows="4" placeholder="اكتب التفاصيل..."></textarea>`; }
-                container.innerHTML += qHtml + `</div>`;
-            });
-            let timeInSeconds = currentExam.duration * 60; const timerDisplay = document.getElementById('exam-timer');
-            examTimerInterval = setInterval(() => { let m = Math.floor(timeInSeconds / 60), s = timeInSeconds % 60; timerDisplay.innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`; if (timeInSeconds <= 0) { clearInterval(examTimerInterval); submitOnlineExam(true); } timeInSeconds--; }, 1000);
-        }
-
-        window.submitOnlineExam = async function(isTimeOut = false) {
-            if (!isTimeOut && !confirm("تأكيد التسليم؟ (تأكد من اختيار إجابة لكل سؤال)")) return; clearInterval(examTimerInterval);
-            let totalScore = 0; let studentAnswers = {};
-            currentExam.questions.forEach(q => {
-                let qScore = 0;
-                if (q.type === 'mcq') { let selected = document.querySelector(`input[name="ans_${q.id}"]:checked`); let ansVal = selected ? parseInt(selected.value) : -1; studentAnswers[q.id] = ansVal; if (ansVal === q.correctAnswerIndex) qScore = q.points; } 
-                else if (q.type === 'tf') { let selected = document.querySelector(`input[name="ans_${q.id}"]:checked`); let ansVal = selected ? selected.value : ""; studentAnswers[q.id] = ansVal; if (ansVal === String(q.correctAnswerTF || q.correctAnswer)) qScore = q.points; } 
-                else if (q.type === 'blank') { let ansVal = document.getElementById(`ans_${q.id}`).value.trim(); studentAnswers[q.id] = ansVal; if (ansVal.toLowerCase() === (q.correctAnswerText || "").toLowerCase()) qScore = q.points; } 
-                else if (q.type === 'essay') { studentAnswers[q.id] = document.getElementById(`ans_${q.id}`).value.trim(); }
-                totalScore += qScore;
-            });
-            try {
-                document.getElementById("submitExamBtn").innerText = "جاري الحفظ... ⏳";
-                document.getElementById("submitExamBtn").disabled = true;
-                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions/${currentExam.id}/${currentStudent.code}.json`, { 
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ score: totalScore, maxScore: currentExam.totalScore, answers: studentAnswers, timestamp: new Date().toISOString() }) 
-                });
-                alert("تم التسليم بنجاح!"); document.getElementById("active-exam-screen").style.display = "none"; showOnlineExams(); 
-            } catch (e) { alert("خطأ بالاتصال!"); } finally { document.getElementById("submitExamBtn").innerText = "✅ تسليم ورقة الإجابة نهائياً"; document.getElementById("submitExamBtn").disabled = false; }
-        }
-
+        
         window.openStudentCourseDetails = function(courseId) {
             let course = window.allLectures.find(l => l.id === courseId);
             if(!course) return;
@@ -1718,70 +1840,126 @@ body {
                 btn.innerText = "⛶ تكبير الشاشة";
             }
         };
+        
 
-        window.openCoursePlayer = function(courseId, startVideoIndex = 0) {
-            let course = window.allLectures.find(l => l.id === courseId);
-            if(!course) return;
+        // ==========================================
+// 🎬 مشغل الكورسات (Playlist & Video Player) المحدث
+// ==========================================
 
-            document.body.classList.add("no-select");
-            document.getElementById("app-layout").style.display = "none";
-            document.getElementById("protected-course-screen").style.display = "flex";
-            document.getElementById("player-course-title").innerText = `${course.title}`;
-            
-            document.getElementById("video-watermark").innerHTML = `${currentStudent.name} <br> ${currentStudent.phone}`;
+window.openCoursePlayer = function(courseId, startVideoIndex = 0) {
+    let course = window.allLectures.find(l => l.id === courseId);
+    if(!course) return;
 
-            let vids = course.videos || [];
-            if(vids.length === 0 && course.url) vids.push({title: "المحاضرة كاملة", url: course.url});
+    document.body.classList.add("no-select");
+    document.getElementById("app-layout").style.display = "none";
+    document.getElementById("protected-course-screen").style.display = "flex";
+    document.getElementById("player-course-title").innerText = `${course.title}`;
+    
+    document.getElementById("video-watermark").innerHTML = `${currentStudent.name} <br> ${currentStudent.phone}`;
 
-            let playlistHtml = `<h4 style="color:#94a3b8; margin:0 0 20px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">محتويات الكورس</h4>`;
-            vids.forEach((v, idx) => {
-                let safeTitle = v.title.replace(/'/g, "\\'");
-                let isActive = idx === startVideoIndex ? "background: rgba(59, 130, 246, 0.15); border-right: 4px solid #3b82f6; color: #3b82f6; font-weight: 900;" : "background: transparent; color: #94a3b8; border-right: 4px solid transparent; font-weight: bold;";
-                playlistHtml += `
-                <div style="${isActive} padding:15px; border-radius:8px; margin-bottom:8px; cursor:pointer; transition:0.3s; display: flex; align-items: center; gap: 10px;" 
-                     onmouseover="this.style.background='rgba(255,255,255,0.05)'" 
-                     onmouseout="this.style.background='${idx === startVideoIndex ? 'rgba(59, 130, 246, 0.15)' : 'transparent'}'" 
-                     onclick="playCourseVideo('${v.url}', '${safeTitle}', '${course.id}', ${idx}, this)">
-                    <span style="font-size: 18px;">${idx === startVideoIndex ? '▶️' : '🔒'}</span> 
-                    <span style="flex: 1; font-size: 15px;">${v.title}</span>
-                </div>`;
-            });
-            document.getElementById("player-playlist").innerHTML = playlistHtml;
+    let vids = course.videos || [];
+    if(vids.length === 0 && course.url) vids.push({title: "المحاضرة كاملة", url: course.url});
 
-            if(vids.length > startVideoIndex) playCourseVideo(vids[startVideoIndex].url, vids[startVideoIndex].title, course.id, startVideoIndex);
-            
-            document.addEventListener('contextmenu', blockContext);
-            document.addEventListener('keydown', blockKeys);
-            window.addEventListener('blur', applyBlackout);
-            window.addEventListener('focus', removeBlackout);
-        };
+    let playlistHtml = `<h4 style="color:#94a3b8; margin:0 0 20px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">محتويات الكورس</h4>`;
+    
+    vids.forEach((v, idx) => {
+        let safeTitle = v.title.replace(/'/g, "\\'");
+        let isActive = idx === startVideoIndex;
+        
+        // التعديل هنا: الأكتيف بياخد لون أزرق، والغير أكتيف بياخد لون رمادي وأيقونة شاشة بدل القفل
+        let bgStyle = isActive ? "background: rgba(59, 130, 246, 0.15); border-right: 4px solid #3b82f6; color: #3b82f6; font-weight: 900;" : "background: transparent; color: #94a3b8; border-right: 4px solid transparent; font-weight: bold;";
+        let icon = isActive ? '▶️' : '📺';
 
-        window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, element = null) {
-            let course = window.allLectures.find(l => l.id === courseId);
-            if (!course) return;
+        playlistHtml += `
+        <div class="playlist-item" data-index="${idx}" style="${bgStyle} padding:15px; border-radius:8px; margin-bottom:8px; cursor:pointer; transition:0.3s; display: flex; align-items: center; gap: 10px;" 
+             onmouseover="if(this.getAttribute('data-active') !== 'true') this.style.background='rgba(255,255,255,0.05)'" 
+             onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.background='transparent'" 
+             onclick="playCourseVideo('${v.url}', '${safeTitle}', '${course.id}', ${idx}, this)"
+             data-active="${isActive ? 'true' : 'false'}">
+            <span class="vid-icon" style="font-size: 18px;">${icon}</span> 
+            <span style="flex: 1; font-size: 15px;">${v.title}</span>
+        </div>`;
+    });
+    document.getElementById("player-playlist").innerHTML = playlistHtml;
 
-            let maxViews = parseInt(course.maxViews) || 0; 
-            let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
-            let res = await fetch(trackingUrl);
-            let data = await res.json() || { views: 0 };
+    if(vids.length > startVideoIndex) {
+        // بنبعت العنصر الأولاني كـ Reference
+        let firstElement = document.querySelector('.playlist-item[data-index="'+startVideoIndex+'"]');
+        playCourseVideo(vids[startVideoIndex].url, vids[startVideoIndex].title, course.id, startVideoIndex, firstElement);
+    }
+    
+    document.addEventListener('contextmenu', blockContext);
+    document.addEventListener('keydown', blockKeys);
+    window.addEventListener('blur', applyBlackout);
+    window.addEventListener('focus', removeBlackout);
+};
 
-            if (maxViews > 0 && data.views >= maxViews) {
-                alert("🚫 لقد استخدمت العدد المحدد لمشاهدة الكورس (انتهت مرات المشاهدة).");
-                return; 
+window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, element = null) {
+    let course = window.allLectures.find(l => l.id === courseId);
+    if (!course) return;
+
+    let maxViews = parseInt(course.maxViews) || 0; 
+    let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
+    let res = await fetch(trackingUrl);
+    let data = await res.json() || { views: 0 };
+
+    if (maxViews > 0 && data.views >= maxViews) {
+        alert("🚫 لقد استنفدت العدد المسموح لمشاهدة هذا الفيديو.");
+        return; 
+    }
+
+    // 🔥 التعديل الديناميكي: تحديث شكل القائمة الجانبية لما الطالب يختار فيديو تاني
+    if (element) {
+        // 1. تصفير كل عناصر القائمة (نرجعها رمادي وأيقونة شاشة)
+        document.querySelectorAll('.playlist-item').forEach(item => {
+            item.setAttribute('data-active', 'false');
+            item.style.background = 'transparent';
+            item.style.color = '#94a3b8';
+            item.style.borderRight = '4px solid transparent';
+            item.style.fontWeight = 'bold';
+            let iconSpan = item.querySelector('.vid-icon');
+            if(iconSpan) iconSpan.innerText = '📺'; 
+        });
+
+        // 2. تفعيل العنصر المضغوط (ندي له أزرق وأيقونة تشغيل)
+        element.setAttribute('data-active', 'true');
+        element.style.background = 'rgba(59, 130, 246, 0.15)';
+        element.style.color = '#3b82f6';
+        element.style.borderRight = '4px solid #3b82f6';
+        element.style.fontWeight = '900';
+        let activeIconSpan = element.querySelector('.vid-icon');
+        if(activeIconSpan) activeIconSpan.innerText = '▶️';
+    }
+
+    // 🔥 حل مشكلة يوتيوب (Error 153) باستخدام تنظيف الروابط
+    let embedUrl = url;
+    try {
+        let parsedUrl = new URL(url);
+        if (parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be')) {
+            let videoId = parsedUrl.searchParams.get('v');
+            if (!videoId && parsedUrl.hostname === 'youtu.be') {
+                videoId = parsedUrl.pathname.substring(1); // التقاط الـ ID من الروابط المختصرة
             }
+            if (videoId) {
+                // إزالة أي إضافات بتعمل إيرور (زي التوقيت أو قوائم التشغيل)
+                embedUrl = `https://www.youtube.com/embed/${videoId.split('&')[0]}?rel=0&modestbranding=1`;
+            }
+        }
+    } catch(e) { 
+        // لو الرابط مش يوتيوب أو صيغته غريبة، هنستخدم الطريقة القديمة كاحتياطي
+        if(url.includes("watch?v=")) embedUrl = url.replace("watch?v=", "embed/");
+        else if(url.includes("youtu.be/")) embedUrl = url.replace("youtu.be/", "youtube.com/embed/");
+    }
+    
+    document.getElementById("video-iframe").src = embedUrl;
 
-            let embedUrl = url;
-            if(url.includes("watch?v=")) embedUrl = url.replace("watch?v=", "embed/");
-            else if(url.includes("youtu.be/")) embedUrl = url.replace("youtu.be/", "youtube.com/embed/");
-            
-            document.getElementById("video-iframe").src = embedUrl;
+    let now = new Date();
+    let dateStr = now.toLocaleDateString('ar-EG') + " | " + now.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric', hour12: true });
+    await fetch(trackingUrl, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoTitle: videoTitle, views: data.views + 1, lastSeen: dateStr })
+    });
+};
 
-            let now = new Date();
-            let dateStr = now.toLocaleDateString('ar-EG') + " | " + now.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric', hour12: true });
-            await fetch(trackingUrl, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoTitle: videoTitle, views: data.views + 1, lastSeen: dateStr })
-            });
-        };
 
         window.closeCoursePlayer = function() {
             document.getElementById("video-iframe").src = ""; 
