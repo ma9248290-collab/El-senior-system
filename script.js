@@ -1983,7 +1983,7 @@ window.openStudentProfile = function(code) {
 
     // جداول الإحصائيات (حضور، امتحانات، واجبات)
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
-    let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
+    let attended = 0; const attTbody = docuent.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
     groupSessions.forEach(s => { const st = s.attendance[student.code] || s.attendance[student.phone]; if(st === 'present') attended++; const badge = st === 'present' ? `<span style="color:var(--success-color);">حاضر ✓</span>` : st === 'absent' ? `<span style="color:var(--danger-color);">غائب ✗</span>` : `-`; if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
 
@@ -5184,15 +5184,41 @@ window.renderGradesTable = function(itemDetails, tbodyId, saveFunction, itemId, 
 
 window.openStudentProfile = function(code) {
     const student = students.find(s => s.code === code); if(!student) return;
+    
     switchPage('students'); currentStudentProfileCode = code;
     document.getElementById("students-overview").style.display = "none"; document.getElementById("student-profile-view").style.display = "block";
     document.getElementById("profile-name").innerText = student.name; document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
+    
     if (typeof JsBarcode !== 'undefined') JsBarcode("#studentProfileBarcode", student.code, { format: "CODE128", lineColor: "#0f172a", width: 2, height: 40, displayValue: false });
+    
     if(document.getElementById("profile-phone")) document.getElementById("profile-phone").innerText = student.phone;
     if(document.getElementById("profile-parent")) document.getElementById("profile-parent").innerText = student.parentPhone;
     if(document.getElementById("profile-level")) document.getElementById("profile-level").innerText = student.level;
     if(document.getElementById("profile-gender")) document.getElementById("profile-gender").innerText = student.gender;
     document.getElementById("profile-behavior-points").innerText = student.behaviorPoints || 0; 
+
+    // 🔥 التعديل هنا: تشغيل زراير الواتساب للطالب وولي الأمر
+    let waStudentBtn = document.getElementById("wa-student-btn");
+    if (waStudentBtn) {
+        waStudentBtn.onclick = function() {
+            if(student.phone && student.phone !== "0" && student.phone !== "") {
+                window.open(`https://wa.me/20${student.phone.replace(/^0+/, '')}`, '_blank');
+            } else {
+                showToast("رقم هاتف الطالب غير مسجل!", "error");
+            }
+        };
+    }
+
+    let waParentBtn = document.getElementById("wa-parent-btn");
+    if (waParentBtn) {
+        waParentBtn.onclick = function() {
+            if(student.parentPhone && student.parentPhone !== "0" && student.parentPhone !== "") {
+                window.open(`https://wa.me/20${student.parentPhone.replace(/^0+/, '')}`, '_blank');
+            } else {
+                showToast("رقم ولي الأمر غير مسجل!", "error");
+            }
+        };
+    }
 
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
