@@ -143,6 +143,71 @@ body {
     .nav-actions .btn-outline { display: none; } 
 }
 
+
+.trust-bar {
+    display: flex; justify-content: center; gap: 60px;
+    background: linear-gradient(135deg, var(--secondary), #1e293b);
+    padding: 30px; margin: -30px 5% 60px 5%;
+    border-radius: 20px; color: white;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+    position: relative; z-index: 10; flex-wrap: wrap;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.trust-item { text-align: center; }
+.trust-item h2 { margin: 0; color: var(--primary); font-size: 36px; font-weight: 900; }
+.trust-item p { margin: 5px 0 0 0; color: #cbd5e1; font-weight: bold; font-size: 16px; }
+
+
+
+.float-icon {
+    position: absolute; background: white; padding: 10px 15px;
+    border-radius: 12px; font-weight: 900; font-size: 20px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    animation: floating 3s ease-in-out infinite alternate;
+    z-index: 3; color: var(--primary); border: 1px solid var(--border);
+}
+.float-1 { top: 10%; left: 10%; animation-delay: 0s; }
+.float-2 { bottom: 20%; right: 5%; animation-delay: 1s; font-size: 25px; }
+.float-3 { top: 40%; right: -10%; animation-delay: 2s; }
+@keyframes floating {
+    0% { transform: translateY(0px) rotate(0deg); }
+    100% { transform: translateY(-15px) rotate(5deg); }
+}
+
+.btn-solid {
+    animation: pulse-glow 2s infinite;
+}
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(14, 165, 233, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+}
+
+.hero-content {
+    animation: fadeInUp 1s ease-out forwards;
+}
+.features-grid .feature-card {
+    opacity: 0;
+    animation: fadeInUp 0.8s ease-out forwards;
+}
+.features-grid .feature-card:nth-child(1) { animation-delay: 0.2s; }
+.features-grid .feature-card:nth-child(2) { animation-delay: 0.4s; }
+.features-grid .feature-card:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.cursor {
+    color: var(--secondary);
+    animation: blink 0.8s infinite;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
 /* ========================================== */
 /* 🔐 نوافذ الدخول والتسجيل (Split Screen VIP) */
 /* ========================================== */
@@ -390,7 +455,7 @@ body {
                     </h2>
                 </div>
 
-                <h1>تعلم <span style="color: var(--primary);">اللغة الإنجليزية</span> <br> بأبسط وأمتع الطرق</h1>
+                <h1>تعلم <span style="color: var(--primary);" id="typewriter-text"></span><span class="cursor">|</span> <br> بأبسط وأمتع الطرق</h1>
                 <p>انضم لكتيبة الأوائل مع <strong id="hero-teacher-name">مستر سامي سمير (El-Senior)</strong>، خبير تدريس اللغة الإنجليزية. أسلوب مبتكر، متابعة مستمرة، وتدريب على أحدث نظم الامتحانات لضمان الدرجة النهائية.</p>
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                     <button class="btn-solid" style="padding: 15px 40px; font-size: 20px;" onclick="openAuthModal('login')">ابدأ رحلتك الآن</button>
@@ -400,9 +465,34 @@ body {
             <div class="hero-image-wrapper">
                 <div class="hero-image-bg"></div>
                 <!-- صورة المستر -->
-                <img src="mr.png" alt="مستر سامي سمير" id="hero-teacher-img">
+                
+                <div class="hero-image-wrapper">
+    <div class="hero-image-bg"></div>
+    <img src="mr.png" alt="مستر سامي سمير" id="hero-teacher-img">
+    
+    <!-- العناصر الطايرة -->
+    <div class="float-icon float-1">Gramar</div>
+    <div class="float-icon float-2">Skills</div>
+    <div class="float-icon float-3">Story</div>
+</div>
             </div>
         </main>
+
+        <!-- شريط الإحصائيات -->
+<div class="trust-bar">
+    <div class="trust-item">
+        <h2>+10,000</h2>
+        <p>طالب مستفيد</p>
+    </div>
+    <div class="trust-item">
+        <h2>%99</h2>
+        <p>نسبة نجاح</p>
+    </div>
+    <div class="trust-item">
+        <h2>+150</h2>
+        <p>محاضرة وامتحان</p>
+    </div>
+</div>
 
        <!-- المميزات -->
         <section class="features-section">
@@ -1902,6 +1992,31 @@ window.addEventListener('popstate', function(event) {
 
     setTimeout(() => { window.isHistoryNavigating = false; }, 100);
 });
+
+
+// تأثير الآلة الكاتبة
+const texts = ["اللغة الإنجليزية", "الجرامر بذكاء", "مهارات الترجمة", "حل الامتحانات"];
+let count = 0;
+let index = 0;
+let currentText = '';
+let letter = '';
+
+(function type() {
+    if (count === texts.length) { count = 0; }
+    currentText = texts[count];
+    letter = currentText.slice(0, ++index);
+    
+    let typewriterEl = document.getElementById('typewriter-text');
+    if (typewriterEl) typewriterEl.textContent = letter;
+    
+    if (letter.length === currentText.length) {
+        count++;
+        index = 0;
+        setTimeout(type, 2000); // يستنى ثانيتين قبل ما يكتب الكلمة اللي بعدها
+    } else {
+        setTimeout(type, 100); // سرعة الكتابة
+    }
+}());
 
     </script>
 </body>
