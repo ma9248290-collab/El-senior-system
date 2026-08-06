@@ -1948,27 +1948,10 @@ function updateBroadcastCount() { const target = document.getElementById('broadc
 // ==========================================
 window.openStudentProfile = function(code) {
     const student = students.find(s => s.code === code); if(!student) return;
-    
-    // بينقلك لصفحة الطلاب الأول قبل ما يفتح الملف
-    switchPage('students');
-    
-    currentStudentProfileCode = code;
-    document.getElementById("students-overview").style.display = "none"; 
-    document.getElementById("student-profile-view").style.display = "block";
-    document.getElementById("profile-name").innerText = student.name; 
-    document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
-    
-    // رسم الباركود بناءً على كود الطالب
-    if (typeof JsBarcode !== 'undefined') {
-        JsBarcode("#studentProfileBarcode", student.code, {
-            format: "CODE128",     
-            lineColor: "#0f172a",  
-            width: 2,              
-            height: 40,            
-            displayValue: false    
-        });
-    }
-
+    switchPage('students'); currentStudentProfileCode = code;
+    document.getElementById("students-overview").style.display = "none"; document.getElementById("student-profile-view").style.display = "block";
+    document.getElementById("profile-name").innerText = student.name; document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
+    if (typeof JsBarcode !== 'undefined') JsBarcode("#studentProfileBarcode", student.code, { format: "CODE128", lineColor: "#0f172a", width: 2, height: 40, displayValue: false });
     if(document.getElementById("profile-phone")) document.getElementById("profile-phone").innerText = student.phone;
     if(document.getElementById("profile-parent")) document.getElementById("profile-parent").innerText = student.parentPhone;
     if(document.getElementById("profile-level")) document.getElementById("profile-level").innerText = student.level;
@@ -1998,19 +1981,17 @@ window.openStudentProfile = function(code) {
         };
     }
 
-    // جلب ورسم جدول الغياب
+    // جداول الإحصائيات (حضور، امتحانات، واجبات)
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
     groupSessions.forEach(s => { const st = s.attendance[student.code] || s.attendance[student.phone]; if(st === 'present') attended++; const badge = st === 'present' ? `<span style="color:var(--success-color);">حاضر ✓</span>` : st === 'absent' ? `<span style="color:var(--danger-color);">غائب ✗</span>` : `-`; if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
 
-    // جلب ورسم جدول الامتحانات
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
     groupExams.forEach(e => { let g = e.grades[student.code] !== undefined ? e.grades[student.code] : e.grades[student.phone]; if(g !== undefined) { tExam += parseFloat(e.maxScore); sExam += parseFloat(g); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${e.maxScore}</td></tr>`; });
     document.getElementById("profile-exams").innerText = `${tExam > 0 ? Math.round((sExam / tExam) * 100) : 0}%`;
 
-    // جلب ورسم جدول الواجبات
     const groupHw = homeworks.filter(h => h.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tHw = 0, sHw = 0; const hwTbody = document.getElementById("profile-hw-list"); if(hwTbody) hwTbody.innerHTML = "";
     groupHw.forEach(h => { let g = h.grades[student.code] !== undefined ? h.grades[student.code] : h.grades[student.phone]; if(g !== undefined) { tHw += parseFloat(h.maxScore); sHw += parseFloat(g); } if(hwTbody) hwTbody.innerHTML += `<tr><td>${h.name}</td><td>${h.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${h.maxScore}</td></tr>`; });
