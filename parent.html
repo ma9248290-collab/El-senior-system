@@ -1999,10 +1999,17 @@ window.openStudentCourseDetails = async function(courseId) {
     if(!course) return;
 
     let allSubs = {};
+    let safeExams = [];
     try {
+        // جلب الإجابات عشان نتأكد الطالب امتحن ولا لا
         let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions.json`);
         allSubs = await subRes.json() || {};
         window.studentSubmissions = allSubs;
+
+        // جلب الامتحانات من السيرفر مباشرة عشان نجيب اسم الامتحان المطلوب
+        let examsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/onlineExams.json`);
+        let fetchedExams = await examsRes.json() || [];
+        safeExams = Array.isArray(fetchedExams) ? fetchedExams : Object.values(fetchedExams).filter(e => e !== null);
     } catch(e) {}
 
     document.getElementById("detailsCourseTitle").innerText = course.title;
@@ -2024,7 +2031,7 @@ window.openStudentCourseDetails = async function(courseId) {
         
         let hasPurchasedVideo = currentStudent.purchasedCourses && (currentStudent.purchasedCourses.includes(specificVideoId) || hasPurchasedWholeCourse);
 
-        // فحص شرط الحضور
+        // فحص شرط الحضور (لو الفيديو مربوط بحصة)
         let didAttend = false;
         if (v.linkedSession) {
             let sessionObj = window.allClassSessions.find(s => String(s.id) === String(v.linkedSession));
@@ -2033,11 +2040,11 @@ window.openStudentCourseDetails = async function(courseId) {
 
         // فحص شرط الامتحان
         let isLockedByExam = false;
-        let requiredExamObj = null; // عشان نجيب اسم الامتحان
+        let requiredExamObj = null;
         
         if (v.requiredExam) {
             // البحث عن تفاصيل الامتحان من الداتا
-            requiredExamObj = allOnlineExams.find(e => e.id === v.requiredExam); 
+            requiredExamObj = safeExams.find(e => e.id === v.requiredExam); 
             
             let examSubs = allSubs[v.requiredExam];
             let didSubmitExam = examSubs && (examSubs[currentStudent.code] || examSubs[currentStudent.phone]);
@@ -2049,11 +2056,11 @@ window.openStudentCourseDetails = async function(courseId) {
         let canWatch = isVideoFree || hasPurchasedVideo || didAttend;
 
         if (isLockedByExam && requiredExamObj) {
-            // 🚨 التعديل الجديد: إظهار اسم الامتحان وزرار الانتقال
+            // 🚨 التعديل الجديد: إظهار اسم الامتحان وزرار الانتقال للامتحان
             playlistHtml += `
             <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px; opacity: 0.9;">
-                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:12px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
-                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); animation: pulse-glow 2s infinite;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; switchTab('tab-exams'); setTimeout(() => showOnlineExams(), 100);">انتقل للامتحان 📝</button>
+                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
+                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); animation: pulse-glow 2s infinite;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
             </div>`;
         } else if (isLockedByExam && !requiredExamObj) {
             // لو المدرس مسح الامتحان من السيستم بس لسه مربوط هنا (أمان)
@@ -2082,6 +2089,8 @@ window.openStudentCourseDetails = async function(courseId) {
     document.getElementById("detailsCoursePlaylist").innerHTML = playlistHtml;
     document.getElementById("studentCourseDetailsModal").style.display = "flex";
 };
+
+
 // 3. دالة الشراء الجديدة (بتشتري فيديو معين مش كورس كامل)
 window.purchaseVideo = async function(courseId, videoIndex, price, videoTitle) {
     if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء محاضرة (${videoTitle})؟`)) return;

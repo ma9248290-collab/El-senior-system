@@ -3940,37 +3940,63 @@ window.addCourseVideoRow = function(title = "", url = "", linkedSession = "", re
     document.getElementById("courseVideosContainer").appendChild(div);
 };
 
-// 2. إضافة فيديو (تعديل)
 window.addEditCourseVideoRow = function(title = "", url = "", linkedSession = "", requiredExam = "", type = "free", price = "") {
     let container = document.getElementById("editCourseVideosContainer");
+    
     let level = document.getElementById("editLecLevel").value;
     let validGroups = groups.filter(g => level === 'all' || g.level === level).map(g => g.name);
     let validSessions = classSessions.filter(s => validGroups.includes(s.group)).reverse();
-    let sessionOpts = '<option value="">بدون ربط بالحضور</option>';
-    validSessions.forEach(s => { sessionOpts += `<option value="${s.id}" ${linkedSession === s.id ? 'selected' : ''}>${s.date} - ${s.topic || 'حصة'} (${s.group})</option>`; });
+    
+    let sessionOpts = '<option value="">بدون ربط (متاح للكل بناءً على شراء الكورس)</option>';
+    validSessions.forEach(s => {
+        sessionOpts += `<option value="${s.id}" ${linkedSession === s.id ? 'selected' : ''}>${s.date} - ${s.topic || 'حصة'} (${s.group})</option>`;
+    });
+
     let examsToSelect = JSON.parse(localStorage.getItem("onlineExams")) || [];
     let examOpts = '<option value="">بدون شرط امتحان</option>';
-    examsToSelect.forEach(e => { examOpts += `<option value="${e.id}" ${requiredExam === e.id ? 'selected' : ''}>${e.title}</option>`; });
+    examsToSelect.forEach(e => {
+        examOpts += `<option value="${e.id}" ${requiredExam === e.id ? 'selected' : ''}>${e.title}</option>`;
+    });
 
-    let div = document.createElement("div"); div.className = "video-row-edit";
-    div.style.cssText = "background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px; position: relative;";
+    let div = document.createElement("div");
+    div.className = "video-row-edit";
+    // الستايل الجديد للمربع
+    div.style.cssText = "background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px; position: relative; transition: 0.3s;";
     
     div.innerHTML = `
-        <button type="button" onclick="this.parentElement.remove()" style="position: absolute; top: 15px; left: 15px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer;">🗑️</button>
+        <!-- زرار الحذف الشيك في الركن الأيسر -->
+        <button type="button" onclick="this.parentElement.remove()" style="position: absolute; top: 15px; left: 15px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#f87171'; this.style.color='white';" onmouseout="this.style.background='#fee2e2'; this.style.color='#ef4444';" title="حذف هذا الفيديو">🗑️</button>
+
+        <!-- صف العناوين والروابط -->
         <div style="display: flex; gap: 15px; margin-bottom: 15px; padding-left: 45px;">
-            <div style="flex: 1;"><label style="font-size: 12px; font-weight: bold;">عنوان المحاضرة</label><input type="text" class="custom-input vid-title" value="${title}" style="margin: 0; background: #f8fafc;"></div>
-            <div style="flex: 1;"><label style="font-size: 12px; font-weight: bold;">الرابط (YouTube/Drive)</label><input type="url" class="custom-input vid-url" value="${url}" style="margin: 0; background: #f8fafc; direction: ltr;"></div>
+            <div style="flex: 1;">
+                <label style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 5px; display: block;">عنوان الفيديو</label>
+                <input type="text" class="custom-input vid-title" placeholder="مثال: الجزء الأول" value="${title}" style="margin: 0; background: #f8fafc; border-color: #cbd5e1;">
+            </div>
+            <div style="flex: 2;">
+                <label style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 5px; display: block;">رابط الفيديو (YouTube / Drive)</label>
+                <input type="url" class="custom-input vid-url" placeholder="https://..." value="${url}" style="margin: 0; background: #f8fafc; text-align: left; direction: ltr; border-color: #cbd5e1;">
+            </div>
         </div>
-        <div style="display: flex; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; flex-wrap: wrap;">
+
+        <!-- صف الشروط (مفصول بخط داش) -->
+        <div style="display: flex; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 150px;">
                 <label style="font-size: 12px; color: #3b82f6; font-weight: bold;">نوع المحاضرة:</label>
                 <select class="custom-input vid-type" style="margin: 0;" onchange="this.nextElementSibling.style.display = this.value === 'paid' ? 'block' : 'none'">
-                    <option value="free" ${type === 'free' ? 'selected' : ''}>محتوى مجاني</option><option value="paid" ${type === 'paid' ? 'selected' : ''}>محتوى مدفوع</option>
+                    <option value="free" ${type === 'free' ? 'selected' : ''}>محتوى مجاني</option>
+                    <option value="paid" ${type === 'paid' ? 'selected' : ''}>محتوى مدفوع</option>
                 </select>
                 <input type="number" class="custom-input vid-price" placeholder="السعر (ج.م)" value="${price}" style="margin-top: 5px; display: ${type === 'paid' ? 'block' : 'none'};">
             </div>
-            <div style="flex: 1; min-width: 150px;"><label style="font-size: 12px; color: #10b981; font-weight: bold;">تُفتح مجاناً لمن حضر حصة:</label><select class="custom-input vid-session" style="margin: 0;">${sessionOpts}</select></div>
-            <div style="flex: 1; min-width: 150px;"><label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label><select class="custom-input vid-exam" style="margin: 0;">${examOpts}</select></div>
+            <div style="flex: 1; min-width: 250px;">
+                <label style="font-size: 13px; color: #10b981; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;"><span>🔓</span> يُفتح مجاناً لمن حضر حصة:</label>
+                <select class="custom-input vid-session" style="margin: 0; border-color: #10b981; font-weight: bold;">${sessionOpts}</select>
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+                <label style="font-size: 13px; color: #f59e0b; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;"><span>🔐</span> شرط الفتح (اجتياز امتحان):</label>
+                <select class="custom-input vid-exam" style="margin: 0; border-color: #f59e0b; font-weight: bold;">${examOpts}</select>
+            </div>
         </div>
     `;
     container.appendChild(div);
@@ -4166,27 +4192,31 @@ document.getElementById("lecLevel")?.addEventListener("change", function() {
 window.openEditCourseModal = function(id) {
     let lec = window.fetchedLectures.find(l => l.id === id);
     if(!lec) return;
+
+    // تعبئة البيانات الأساسية للكورس (بدون التسعير القديم لأنه اتنقل جوه الفيديوهات)
     document.getElementById("editLecId").value = lec.id;
     document.getElementById("editLecTitle").value = lec.title;
-    document.getElementById("editLecType").value = lec.type;
-    document.getElementById("editLecPrice").value = lec.price || 0;
-    document.getElementById("editPriceContainer").style.display = lec.type === 'paid' ? 'block' : 'none';
     document.getElementById("editLecDesc").value = lec.desc || "";
     document.getElementById("editLecMaxViews").value = lec.maxViews || 0;
     document.getElementById("editLecImageBase64").value = lec.image || "";
 
+    // تظبيط قائمة الصفوف الدراسية
     let selectLevel = document.getElementById("editLecLevel");
     let activeLevels = JSON.parse(localStorage.getItem("activeLevels")) || ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
     selectLevel.innerHTML = '<option value="all">كل الصفوف (عام)</option>';
     activeLevels.forEach(lvl => { selectLevel.innerHTML += `<option value="${lvl}" ${lec.level === lvl ? 'selected' : ''}>${lvl}</option>`; });
 
+    // رسم الفيديوهات الخاصة بالكورس بكل بياناتها (بما فيها السعر والنوع لكل فيديو)
     let vContainer = document.getElementById("editCourseVideosContainer");
     vContainer.innerHTML = "";
+    
     if(lec.videos && lec.videos.length > 0) {
-        lec.videos.forEach(v => addEditCourseVideoRow(v.title, v.url, v.linkedSession, v.requiredExam));
+        lec.videos.forEach(v => addEditCourseVideoRow(v.title, v.url, v.linkedSession, v.requiredExam, v.type, v.price));
     } else {
         addEditCourseVideoRow();
     }
+    
+    // فتح النافذة
     openModal("editCourseModal");
 };
 
@@ -4267,14 +4297,7 @@ window.openCourseContent = function(courseId) {
 
 
 
-// --- ✏️ دوال التعديل ---
-window.addEditCourseVideoRow = function(title = "", url = "") {
-    let container = document.getElementById("editCourseVideosContainer");
-    let div = document.createElement("div");
-    div.className = "video-row-edit"; div.style.display = "flex"; div.style.gap = "10px"; div.style.marginBottom = "10px";
-    div.innerHTML = `<input type="text" class="custom-input vid-title" placeholder="عنوان الفيديو" value="${title}" style="flex: 1;"><input type="url" class="custom-input vid-url" placeholder="رابط الفيديو" value="${url}" style="flex: 2;"><button class="btn" style="background:#ef4444; width:auto; padding:10px;" onclick="this.parentElement.remove()">🗑️</button>`;
-    container.appendChild(div);
-};
+
 
 // ==========================================
 // 🖼️ دالة ذكية لضغط الصور قبل الرفع (تمنع بطء السيستم)
