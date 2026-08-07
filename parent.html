@@ -285,9 +285,10 @@ body {
 
 .auth-btn-outline:hover { background: var(--primary); color: white; }
 
+/* الكود الجديد */
 .close-auth {
-    position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.05); border: none;
-    width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: 0.3s;
+    position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.05); border: none;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; transition: 0.3s; z-index: 10;
 }
 
 .close-auth:hover { background: var(--danger); color: white; }
@@ -1133,7 +1134,8 @@ body {
                 else currentStudent.purchasedCourses = [];
 
                 let studentGroupObj = safeGroups.find(g => typeof g === 'object' && g.name === currentStudent.group);
-                currentStudent.level = studentGroupObj ? studentGroupObj.level : "غير محدد";
+// التعديل: نحافظ على صف الطالب اللي اختاره في التسجيل لو مجموعته ملهاش صف (زي الأونلاين)
+currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroupObj.level : (currentStudent.level || "غير محدد");
 
                 if (currentStudent.level === "غير محدد") {
                     let gName = currentStudent.group || "";
@@ -1295,7 +1297,6 @@ body {
 
                 } else {
                     studentData.gov = document.getElementById("regGov").value.trim();
-                    studentData.city = document.getElementById("regCity").value.trim();
                     studentData.school = document.getElementById("regSchool").value.trim();
                     studentData.group = "أونلاين"; 
                     studentData.behaviorPoints = 0;
@@ -1503,57 +1504,7 @@ body {
             } catch(e) {}
         };
 
-        function renderStudentLectures() {
-            let list = document.getElementById("studentLecturesList");
-            if(!list) return;
-            list.innerHTML = "";
-            
-            if(window.allLectures.length === 0) {
-                list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: var(--card-bg); border-radius: 20px; border: 2px dashed var(--border);">لا توجد كورسات متاحة حالياً.</div>`;
-                return;
-            }
-
-            window.allLectures.forEach(lec => {
-                let isFree = lec.type === 'free';
-                let hasAccess = window.studentHasAccess(lec);
-                let attendedSession = false;
-                if (!isFree && hasAccess && (!currentStudent.purchasedCourses || !currentStudent.purchasedCourses.includes(lec.id))) {
-                    attendedSession = true;
-                }
-                let canWatch = isFree || hasAccess;
-                let maxViews = parseInt(lec.maxViews) || 0;
-                let viewsInfo = maxViews > 0 ? ` 👁️ ${maxViews} مشاهدة` : ` 👁️ غير محدود`;
-
-                let badgeHtml = "";
-                if (isFree) badgeHtml = `<span style="background: rgba(16, 185, 129, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; display: inline-block;">🎁 مجاني</span>`;
-                else if (attendedSession) badgeHtml = `<span style="background: rgba(59, 130, 246, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; display: inline-block;">✅ مجاني لحضورك</span>`;
-                else if (hasAccess) badgeHtml = `<span style="background: rgba(139, 92, 246, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; display: inline-block;">🔓 تم الشراء</span>`;
-                else badgeHtml = `<span style="background: rgba(239, 68, 68, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; display: inline-block;">💰 ${lec.price} ج.م</span>`;
-                
-                badgeHtml = `<div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-                                <span style="background: rgba(245, 158, 11, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900; display: inline-block;">${viewsInfo}</span>
-                                ${badgeHtml}
-                             </div>`;
-
-                let actionBtn = canWatch 
-                    ? `<button class="btn" style="width: 100%; background: #3b82f6; font-weight: 900; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'" onclick="openStudentCourseDetails('${lec.id}')">▶️ عرض محتوى الكورس</button>`
-                    : `<button class="btn" style="width: 100%; background: #10b981; font-weight: 900; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'" onclick="purchaseCourse('${lec.id}', ${lec.price})">🛒 شراء (خصم من المحفظة)</button>`;
-
-                list.innerHTML += `
-                <div style="background: var(--card-bg); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 20px rgba(0,0,0,0.04); display: flex; flex-direction: column; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-8px)'; this.style.boxShadow='0 20px 40px rgba(0,0,0,0.12)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.04)';">
-                    <div style="position: relative;">
-                        <img src="${lec.image}" style="width: 100%; height: 200px; object-fit: cover; border-bottom: 4px solid var(--primary);">
-                        <div style="position: absolute; top: 15px; right: 15px; width: calc(100% - 30px);">${badgeHtml}</div>
-                    </div>
-                    <div style="padding: 25px; display: flex; flex-direction: column; flex: 1;">
-                        <h3 style="margin: 0 0 15px 0; color: var(--secondary); font-size: 20px; font-weight: 900; line-height: 1.4;">${lec.title}</h3>
-                        <p style="margin: 0 0 25px 0; font-size: 14px; color: var(--text-muted); font-weight: bold; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${lec.desc || 'لا توجد تفاصيل إضافية لهذا الكورس.'}</p>
-                        <div style="margin-top: auto;">${actionBtn}</div>
-                    </div>
-                </div>`;
-            });
-        }
-
+        
         window.showOnlineExams = async function(isRenderOnly = false) {
             if(!isRenderOnly) {
                 document.getElementById("app-layout").style.display = "none";
@@ -1801,29 +1752,6 @@ window.reviewExam = function(examId) {
         window.backToDashboard = function() { document.getElementById("online-exams-list-screen").style.display = "none"; document.getElementById("app-layout").style.display = "block"; }
 
         
-        window.openStudentCourseDetails = function(courseId) {
-            let course = window.allLectures.find(l => l.id === courseId);
-            if(!course) return;
-
-            document.getElementById("detailsCourseTitle").innerText = course.title;
-            document.getElementById("detailsCourseImage").src = course.image || 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop';
-            document.getElementById("detailsCourseDesc").innerText = course.desc || "لا يوجد وصف إضافي متوفر لهذا الكورس.";
-
-            let vids = course.videos || [];
-            if(vids.length === 0 && course.url) vids.push({title: "المحاضرة كاملة", url: course.url});
-
-            let playlistHtml = "";
-            vids.forEach((v, idx) => {
-                let safeTitle = v.title.replace(/'/g, "\\'");
-                playlistHtml += `
-                <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px;">
-                    <span style="font-weight: 900; color: var(--secondary); font-size: 16px;">▶️ ${v.title}</span>
-                    <button class="btn" style="background: var(--success); padding: 8px 25px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل المحاضرة 🔒</button>
-                </div>`;
-            });
-            document.getElementById("detailsCoursePlaylist").innerHTML = playlistHtml;
-            document.getElementById("studentCourseDetailsModal").style.display = "flex";
-        };
 
         window.toggleCustomFullscreen = function() {
             let player = document.getElementById("video-wrapper");
@@ -1899,18 +1827,37 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
     if (!course) return;
 
     let maxViews = parseInt(course.maxViews) || 0; 
-    let trackingUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
-    let res = await fetch(trackingUrl);
-    let data = await res.json() || { views: 0 };
+    
+    // جلب داتا التراكر الخاصة بالطالب (نجرب بالكود الأول، ولو ملقيناش نجرب بالرقم عشان الداتا القديمة)
+    let usedKey = currentStudent.code;
+    let trackingUrlCode = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`;
+    let resCode = await fetch(trackingUrlCode);
+    let data = await resCode.json();
 
-    if (maxViews > 0 && data.views >= maxViews) {
-        alert("🚫 لقد استنفدت العدد المسموح لمشاهدة هذا الفيديو.");
+    if (!data) {
+        let trackingUrlPhone = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${currentStudent.phone}/${videoIndex}.json`;
+        let resPhone = await fetch(trackingUrlPhone);
+        data = await resPhone.json();
+        if (data && data.views > 0) usedKey = currentStudent.phone;
+    }
+    
+    data = data || { views: 0 };
+    
+    // 💡 التعديل هنا: قراءة السماحية الإضافية من السنتر
+    let extraViews = parseInt(data.extraViews) || 0;
+    let totalAllowed = maxViews + extraViews;
+
+    if (maxViews > 0 && data.views >= totalAllowed) {
+        if(typeof showToast === 'function') {
+            showToast("🚫 لقد استنفدت العدد المسموح لمشاهدة هذا الفيديو. يرجى مراجعة إدارة السنتر لتجديد الفرصة.", "error");
+        } else {
+            alert("🚫 لقد استنفدت العدد المسموح لمشاهدة هذا الفيديو.");
+        }
         return; 
     }
 
-    // 🔥 التعديل الديناميكي: تحديث شكل القائمة الجانبية لما الطالب يختار فيديو تاني
+    // التعديل الديناميكي للشكل في القائمة الجانبية
     if (element) {
-        // 1. تصفير كل عناصر القائمة (نرجعها رمادي وأيقونة شاشة)
         document.querySelectorAll('.playlist-item').forEach(item => {
             item.setAttribute('data-active', 'false');
             item.style.background = 'transparent';
@@ -1921,7 +1868,6 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
             if(iconSpan) iconSpan.innerText = '📺'; 
         });
 
-        // 2. تفعيل العنصر المضغوط (ندي له أزرق وأيقونة تشغيل)
         element.setAttribute('data-active', 'true');
         element.style.background = 'rgba(59, 130, 246, 0.15)';
         element.style.color = '#3b82f6';
@@ -1931,35 +1877,32 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
         if(activeIconSpan) activeIconSpan.innerText = '▶️';
     }
 
-    // 🔥 حل مشكلة يوتيوب (Error 153) باستخدام تنظيف الروابط
     let embedUrl = url;
     try {
         let parsedUrl = new URL(url);
         if (parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be')) {
             let videoId = parsedUrl.searchParams.get('v');
-            if (!videoId && parsedUrl.hostname === 'youtu.be') {
-                videoId = parsedUrl.pathname.substring(1); // التقاط الـ ID من الروابط المختصرة
-            }
-            if (videoId) {
-                // إزالة أي إضافات بتعمل إيرور (زي التوقيت أو قوائم التشغيل)
-                embedUrl = `https://www.youtube.com/embed/${videoId.split('&')[0]}?rel=0&modestbranding=1`;
-            }
+            if (!videoId && parsedUrl.hostname === 'youtu.be') videoId = parsedUrl.pathname.substring(1);
+            if (videoId) embedUrl = `https://www.youtube.com/embed/${videoId.split('&')[0]}?rel=0&modestbranding=1`;
         }
     } catch(e) { 
-        // لو الرابط مش يوتيوب أو صيغته غريبة، هنستخدم الطريقة القديمة كاحتياطي
         if(url.includes("watch?v=")) embedUrl = url.replace("watch?v=", "embed/");
         else if(url.includes("youtu.be/")) embedUrl = url.replace("youtu.be/", "youtube.com/embed/");
     }
     
     document.getElementById("video-iframe").src = embedUrl;
 
+    // تسجيل المشاهدة وإضافة التاريخ
     let now = new Date();
     let dateStr = now.toLocaleDateString('ar-EG') + " | " + now.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric', hour12: true });
-    await fetch(trackingUrl, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoTitle: videoTitle, views: data.views + 1, lastSeen: dateStr })
+    
+    let updateUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`;
+    await fetch(updateUrl, {
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ videoTitle: videoTitle, views: data.views + 1, lastSeen: dateStr, extraViews: extraViews })
     });
 };
-
 
         window.closeCoursePlayer = function() {
             document.getElementById("video-iframe").src = ""; 
@@ -2013,22 +1956,180 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
         window.addEventListener('blur', applyBlackout);
         window.addEventListener('focus', removeBlackout);
 
-        window.purchaseCourse = async function(courseId, price) {
-            if(!confirm(`تأكيد شراء الكورس بـ ${price} ج.م؟`)) return;
-            if((currentStudent.walletBalance || 0) < price) { alert("رصيد محفظتك لا يكفي!"); return; }
-            try {
-                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
-                let data = await dataRes.json();
-                let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
-                if(studentIndex !== -1) {
-                    currentStudent.walletBalance -= price;
-                    currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
-                    if(!currentStudent.purchasedCourses.includes(courseId)) currentStudent.purchasedCourses.push(courseId);
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) });
-                    alert("تم الشراء بنجاح!"); fetchStudentData(true);
-                }
-            } catch(e) { alert("حدث خطأ!"); }
-        };
+        // 1. عرض الكروت من بره (شيلنا زرار الشراء، خلينا الدخول مجاني عشان يشتري من جوه)
+window.renderStudentLectures = function() {
+    let list = document.getElementById("studentLecturesList");
+    if(!list) return; list.innerHTML = "";
+    
+    if(window.allLectures.length === 0) {
+        list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: var(--card-bg); border-radius: 20px; border: 2px dashed var(--border);">لا توجد كورسات متاحة حالياً.</div>`;
+        return;
+    }
+
+    window.allLectures.forEach(lec => {
+        let maxViews = parseInt(lec.maxViews) || 0;
+        let viewsInfo = maxViews > 0 ? ` 👁️ ${maxViews} مشاهدة` : ` 👁️ غير محدود`;
+        
+        // إظهار بادج بيعرفه إن الكورس جواه محاضرات
+        let badgeHtml = `<div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
+                            <span style="background: rgba(245, 158, 11, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">${viewsInfo}</span>
+                            <span style="background: rgba(14, 165, 233, 0.95); color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">${(lec.videos||[]).length} محاضرات</span>
+                         </div>`;
+
+        let actionBtns = `<button class="btn" style="width: 100%; background: #3b82f6; font-weight: 900; padding: 15px; border-radius: 12px; box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);" onclick="openStudentCourseDetails('${lec.id}')">▶️ تصفح محتوى الكورس</button>`;
+
+        list.innerHTML += `
+        <div style="background: var(--card-bg); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 10px 20px rgba(0,0,0,0.04); display: flex; flex-direction: column; transition: all 0.3s ease;">
+            <div style="position: relative;">
+                <img src="${lec.image}" style="width: 100%; height: 200px; object-fit: cover; border-bottom: 4px solid var(--primary);">
+                <div style="position: absolute; top: 15px; right: 15px; width: calc(100% - 30px);">${badgeHtml}</div>
+            </div>
+            <div style="padding: 25px; display: flex; flex-direction: column; flex: 1;">
+                <h3 style="margin: 0 0 15px 0; color: var(--secondary); font-size: 20px; font-weight: 900; line-height: 1.4;">${lec.title}</h3>
+                <p style="margin: 0 0 25px 0; font-size: 14px; color: var(--text-muted); font-weight: bold; line-height: 1.8;">${lec.desc || 'لا توجد تفاصيل إضافية لهذا الكورس.'}</p>
+                <div style="margin-top: auto;">${actionBtns}</div>
+            </div>
+        </div>`;
+    });
+};
+
+// 2. النافذة المنبثقة للفيديوهات (هنا السحر كله: بيقيم كل فيديو لوحده)
+window.openStudentCourseDetails = async function(courseId) {
+    let course = window.allLectures.find(l => l.id === courseId);
+    if(!course) return;
+
+    let allSubs = {};
+    try {
+        let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions.json`);
+        allSubs = await subRes.json() || {};
+        window.studentSubmissions = allSubs;
+    } catch(e) {}
+
+    document.getElementById("detailsCourseTitle").innerText = course.title;
+    document.getElementById("detailsCourseImage").src = course.image || 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop';
+    document.getElementById("detailsCourseDesc").innerText = course.desc || "تفاصيل المحاضرات بالأسفل.";
+
+    let vids = course.videos || [];
+    let playlistHtml = "";
+    
+    // دعم النظام القديم (لو الطالب كان شاري الكورس القديم كله يتفتحله)
+    let hasPurchasedWholeCourse = currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(courseId);
+
+    vids.forEach((v, idx) => {
+        let safeTitle = v.title.replace(/'/g, "\\'");
+        let specificVideoId = `${courseId}_v${idx}`; 
+        
+        let isVideoFree = v.type === 'free' || !v.type; 
+        let videoPrice = v.price || 0;
+        
+        let hasPurchasedVideo = currentStudent.purchasedCourses && (currentStudent.purchasedCourses.includes(specificVideoId) || hasPurchasedWholeCourse);
+
+        // فحص شرط الحضور
+        let didAttend = false;
+        if (v.linkedSession) {
+            let sessionObj = window.allClassSessions.find(s => String(s.id) === String(v.linkedSession));
+            didAttend = sessionObj && sessionObj.attendance && (sessionObj.attendance[currentStudent.code] === 'present' || sessionObj.attendance[currentStudent.phone] === 'present');
+        }
+
+        // فحص شرط الامتحان
+        let isLockedByExam = false;
+        let requiredExamObj = null; // عشان نجيب اسم الامتحان
+        
+        if (v.requiredExam) {
+            // البحث عن تفاصيل الامتحان من الداتا
+            requiredExamObj = allOnlineExams.find(e => e.id === v.requiredExam); 
+            
+            let examSubs = allSubs[v.requiredExam];
+            let didSubmitExam = examSubs && (examSubs[currentStudent.code] || examSubs[currentStudent.phone]);
+            
+            // لو ممتحنش، هنقفل الفيديو
+            if (!didSubmitExam) isLockedByExam = true;
+        }
+
+        let canWatch = isVideoFree || hasPurchasedVideo || didAttend;
+
+        if (isLockedByExam && requiredExamObj) {
+            // 🚨 التعديل الجديد: إظهار اسم الامتحان وزرار الانتقال
+            playlistHtml += `
+            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px; opacity: 0.9;">
+                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:12px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
+                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); animation: pulse-glow 2s infinite;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; switchTab('tab-exams'); setTimeout(() => showOnlineExams(), 100);">انتقل للامتحان 📝</button>
+            </div>`;
+        } else if (isLockedByExam && !requiredExamObj) {
+            // لو المدرس مسح الامتحان من السيستم بس لسه مربوط هنا (أمان)
+            playlistHtml += `
+            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px; opacity: 0.7;">
+                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:12px; color:var(--danger);">الامتحان المطلوب غير متاح حالياً</span></span>
+                <button class="btn" style="background: #94a3b8; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; cursor: not-allowed;" disabled>مغلق 🔐</button>
+            </div>`;
+        } else if (canWatch) {
+            // مفتوح وجاهز للتشغيل
+            playlistHtml += `
+            <div style="background: #f0fdf4; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #10b981; margin-bottom: 10px;">
+                <span style="font-weight: 900; color: #065f46; font-size: 16px;">▶️ ${v.title}</span>
+                <button class="btn" style="background: var(--success); padding: 8px 20px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل المحاضرة ▶️</button>
+            </div>`;
+        } else {
+            // محتاج يشتري
+            playlistHtml += `
+            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px;">
+                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title}</span>
+                <button class="btn" style="background: #10b981; padding: 8px 15px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);" onclick="purchaseVideo('${course.id}', ${idx}, ${videoPrice}, '${safeTitle}')">شراء (${videoPrice} ج.م) 🛒</button>
+            </div>`;
+        }
+    });
+
+    document.getElementById("detailsCoursePlaylist").innerHTML = playlistHtml;
+    document.getElementById("studentCourseDetailsModal").style.display = "flex";
+};
+// 3. دالة الشراء الجديدة (بتشتري فيديو معين مش كورس كامل)
+window.purchaseVideo = async function(courseId, videoIndex, price, videoTitle) {
+    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء محاضرة (${videoTitle})؟`)) return;
+    if((currentStudent.walletBalance || 0) < price) { 
+        showToast("رصيد محفظتك لا يكفي! قم بالشحن أولاً.", "error"); 
+        return; 
+    }
+    
+    let btn = event.currentTarget;
+    let origText = btn.innerText;
+    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
+
+    try {
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
+        let data = await dataRes.json();
+        let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
+        
+        if(studentIndex !== -1) {
+            currentStudent.walletBalance -= price;
+            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
+            
+            // إضافة ID مميز للفيديو في مصفوفة المشتريات
+            let specificVideoId = `${courseId}_v${videoIndex}`;
+            if(!currentStudent.purchasedCourses.includes(specificVideoId)) {
+                currentStudent.purchasedCourses.push(specificVideoId);
+            }
+
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
+            });
+            
+            showToast("تم شراء المحاضرة بنجاح! 🎉", "success");
+            
+            // تحديث رصيد المحفظة في الشاشة
+            document.getElementById("top-balance").innerText = currentStudent.walletBalance;
+            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
+            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
+
+            // ريفريش النافذة عشان الزرار يقلب أخضر (تشغيل)
+            openStudentCourseDetails(courseId);
+        }
+    } catch(e) { 
+        showToast("حدث خطأ أثناء الشراء! تأكد من الإنترنت.", "error"); 
+        btn.innerText = origText; btn.disabled = false;
+    }
+};
+
 
         window.redeemCode = async function() {
             const code = document.getElementById("rechargeCodeInput").value.trim();

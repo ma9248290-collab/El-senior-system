@@ -25,8 +25,8 @@
     <!-- الأخطبوط اللي بيشاور (متوسط الحجم وجوه الكارت) -->
     <img src="logo.PNG" style="width: 80px; height: auto;">
 </div>
-            <h2 class="logo" style="margin-bottom: 10px;">El-Senior <span class="dot">.</span></h2>
-            <p style="color: var(--text-muted); margin-bottom: 30px;">نظام إدارة الدروس الخصوصية</p>
+           <h2 class="logo" style="margin-bottom: 5px;">El-Senior <span class="dot">.</span></h2>
+<span style="display: block; font-size: 16px; color: var(--primary-color); font-weight: 900; margin-bottom: 15px;">Sami Samir</span>
             <h3 style="margin-bottom: 20px; color: var(--text-main);">تسجيل الدخول</h3>
             <form id="loginForm">
                 
@@ -56,10 +56,13 @@
     <div class="dashboard-container" id="main-app" style="display: none;">
         
         <aside class="sidebar no-print">
-            <div style="display: flex; align-items: center; justify-content: center; gap: -10px; margin-bottom: 30px;">
-                <img src="logo.PNG" style="width: 80px; height: auto;">
-                <h2 class="logo" style="margin: 0;">El-Senior</h2>
-            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px;">
+    <img src="logo.PNG" style="width: 70px; height: auto;">
+    <div style="text-align: right;">
+        <h2 class="logo" style="margin: 0; line-height: 1.1;">El-Senior</h2>
+        <span style="display: block; font-size: 13px; color: var(--primary-color); font-weight: 800; letter-spacing: 1px;">Sami Samir</span>
+    </div>
+</div>
 
             <style>
                 /* 🎨 استايل القوائم المنسدلة (تم حل مشكلة السهم والتناسق) */
@@ -840,25 +843,14 @@
                     </select>
                 </div>
 
-                <div class="input-group">
-                    <label style="color: var(--success-color); font-weight: bold;">ربط الكورس بحصص (مجانًا لمن حضرها)</label>
-                    <div id="lecSessionsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed var(--success-color); max-height: 120px; overflow-y: auto;">
-                        <span style="color: var(--text-muted); font-size: 13px; font-weight: bold;">اختر الصف الدراسي أولاً لعرض الحصص الخاصة به...</span>
-                    </div>
-                </div>
+                
 
                 <div class="input-group">
     <label>عدد المشاهدات المسموح بها (اتركها 0 لعدد غير محدود)</label>
     <input type="number" id="lecMaxViews" class="custom-input" placeholder="0 = لا نهائي" min="0">
 </div>
 
-                <div class="input-group">
-                    <label>نوع الكورس (التسعير)</label>
-                    <select id="lecType" class="custom-input" onchange="document.getElementById('priceContainer').style.display = this.value === 'paid' ? 'block' : 'none'">
-                        <option value="free">محتوى مجاني</option>
-                        <option value="paid">محتوى مدفوع</option>
-                    </select>
-                </div>
+                
 
                 <div class="input-group" id="priceContainer" style="display: none;">
                     <label>سعر الكورس (يُخصم من المحفظة لمن كان غائباً)</label>
@@ -872,12 +864,7 @@
 
                 <div class="input-group" style="grid-column: span 2; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed var(--primary-color);">
                     <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 10px;">فيديوهات الكورس 🎥</label>
-                    <div id="courseVideosContainer">
-                        <div class="video-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <input type="text" class="custom-input vid-title" placeholder="عنوان الفيديو (مثال: الجزء الأول)" style="flex: 1;">
-                            <input type="url" class="custom-input vid-url" placeholder="رابط الفيديو (YouTube, Drive)" style="flex: 2;">
-                        </div>
-                    </div>
+                    <div id="courseVideosContainer"></div>
                     <button class="theme-btn" style="width: auto; padding: 8px 15px; margin-top: 5px;" onclick="addCourseVideoRow()">➕ إضافة فيديو آخر للكورس</button>
                 </div>
 
@@ -1773,10 +1760,11 @@
     <div id="editSessionModal" class="modal"><div class="modal-content"><form id="editSessionForm"><input type="hidden" id="editSessionId"><div class="input-group"><input type="date" id="editSessionDate" class="custom-input"></div><div class="input-group"><input type="text" id="editSessionTopic" class="custom-input"></div><button type="submit" class="save-btn">حفظ</button></form></div></div>
     <div id="addStudentToGroupModal" class="modal"><div class="modal-content"><div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="theme-btn" onclick="switchAddStudentTab('existing')">طالب مسجل</button><button class="theme-btn" onclick="switchAddStudentTab('new')">طالب جديد</button></div><form id="addExistingStudentForm"><div class="input-group"><select id="existingStudentSelect" class="custom-input"></select></div><button type="submit" class="save-btn">إضافة للمجموعة</button></form><div id="newStudentTabContent" style="display: none;"><button type="button" class="save-btn" onclick="goToNewStudentForm()">انتقال لتسجيل طالب جديد</button></div></div></div>
 
+
 <!-- زرار فتح الشات -->
-<button id="shefo-assistant-btn" onclick="openShefoChat()" style="width: 75px; height: 75px; padding: 0; border-radius: 50%; display: flex; justify-content: center; align-items: center; opacity: 0.75; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.2);" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)';" onmouseout="this.style.opacity='0.75'; this.style.transform='scale(1)';">
-    <!-- أخطبوط الدعم الفني مصغر -->
-    <img src="logo.PNG" style="width: 55px; height: 55px; min-width: 55px; margin: 0; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+<button id="shefo-assistant-btn" onclick="openShefoChat()" style="width: 75px; height: 75px; padding: 0; border-radius: 50%; display: flex; justify-content: center; align-items: center; opacity: 0.9; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(0,0,0,0.15); border: 2px solid #e2e8f0; background: white;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)';" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)';">
+    <!-- اللوجو -->
+    <img src="logo.PNG" style="width: 55px; height: 55px; min-width: 55px; margin: 0;">
 </button>
 
 <!-- نافذة شات ميرا (WhatsApp Style) -->
@@ -1954,29 +1942,16 @@
                         <select id="editLecLevel" class="custom-input" onchange="filterCourseSessions('editLecLevel', 'editLecSessionsContainer')"></select>
                     </div>
 
-                    <div class="input-group">
-                        <label style="color: var(--success-color); font-weight: bold;">ربط الكورس بحصص</label>
-                        <div id="editLecSessionsContainer" style="display: flex; gap: 10px; flex-wrap: wrap; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed var(--success-color); max-height: 120px; overflow-y: auto;">
-                        </div>
-                    </div>
+                    
 
                     <div class="input-group">
     <label>عدد المشاهدات المسموح بها (0 لعدد لا نهائي)</label>
     <input type="number" id="editLecMaxViews" class="custom-input" min="0">
 </div>
 
-                    <div class="input-group">
-                        <label>نوع الكورس</label>
-                        <select id="editLecType" class="custom-input" onchange="document.getElementById('editPriceContainer').style.display = this.value === 'paid' ? 'block' : 'none'">
-                            <option value="free">مجاني</option>
-                            <option value="paid">مدفوع</option>
-                        </select>
-                    </div>
+                    
 
-                    <div class="input-group" id="editPriceContainer" style="display: none;">
-                        <label>السعر (ج.م)</label>
-                        <input type="number" id="editLecPrice" class="custom-input" min="0">
-                    </div>
+                    
 
                     <div class="input-group" style="grid-column: span 2;">
                         <label>تغيير صورة الغلاف (اختر صورة جديدة أو اتركها كما هي)</label>
@@ -2022,18 +1997,22 @@
             </div>
             
             <div class="table-container card">
-                <table class="students-table" style="width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>كود الطالب</th>
-                            <th>الاسم</th>
-                            <th>المشاهدات</th>
-                            <th>تاريخ آخر مشاهدة</th>
-                        </tr>
-                    </thead>
-                    <tbody id="course-analytics-list">
-                        </tbody>
-                </table>
+           
+
+<!-- بهذا الكود الجديد -->
+<table class="students-table" style="width: 100%;">
+    <thead>
+        <tr>
+            <th>كود الطالب</th>
+            <th>الاسم</th>
+            <th>المشاهدات</th>
+            <th>تاريخ آخر مشاهدة</th>
+            <th>إجراء</th>
+        </tr>
+    </thead>
+    <tbody id="course-analytics-list">
+        </tbody>
+</table>
             </div>
         </div>
     </div>
