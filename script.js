@@ -30,7 +30,7 @@ let html5QrcodeScanner = null, currentScannerTarget = '';
 // ==========================================
 // 1. قواعد البيانات والتهيئة الأساسية
 // ==========================================
-const WHATSAPP_SERVER_URL = "https://accurately-python-progress-took.trycloudflare.com";
+const WHATSAPP_SERVER_URL = "https://edutrack-api.duckdns.org";
 
 const NOTIFICATIONS_SERVER_URL = "https://infections-muscles-letting-pee.trycloudflare.com";
 
@@ -292,8 +292,8 @@ function switchPage(pageId) {
         "atrisk": ["تحت الملاحظة 🚨", "الطلاب المعرضين للخطر (تأخر دراسي)"],
         "books": ["إدارة الكتب 📘", "حسابات الكتب والسناتر ونسب المبيعات"],
         "broadcast": ["الإرسال الجماعي 📢", "إرسال تنبيهات لكل الطلاب بضغطة زر"],
-        // 🔥 التعديل هنا: ضفنا صفحة المنصة عشان يقراها
-        "platform": ["إدارة المنصة 💻", "تحكم في المحتوى الرقمي، المحفظة، والامتحانات الإلكترونية"]
+    "platform": ["إدارة المنصة 💻", "تحكم في المحتوى الرقمي، المحفظة، والامتحانات الإلكترونية"], // <--- الفاصلة دي مهمة جداً
+    "bot": ["المساعد الذكي 🤖", "تحكم في الذكاء الاصطناعي الخاص بالرد التلقائي"]
     };
     
     if(titles[pageId]) { 
@@ -312,7 +312,11 @@ function switchPage(pageId) {
     if (pageId === "leaderboard") { populateDropdowns(); }
     if (pageId === "atrisk") { renderAtRiskStudents(); }
     if (pageId === "books") { renderBooksTable(); }
-    
+    if (pageId === "bot") {
+        document.getElementById('settingBotEnabled').checked = localStorage.getItem('botEnabled') === 'true';
+        document.getElementById('settingBotName').value = localStorage.getItem('botName') || 'أوكتو';
+        document.getElementById('settingBotInstructions').value = localStorage.getItem('botInstructions') || '';
+    }
     if (pageId === "broadcast") { 
         const select = document.getElementById('broadcastTarget');
         if(select) {
@@ -807,17 +811,20 @@ async function syncDataToBot() {
 
     // تجميع البيانات وضمان وجود أري الامتحانات الإلكترونية بدون تضارب
    const dataToSync = {
-        settings: {
-            teacherName: localStorage.getItem("teacherName") || "المدير",
-            centerName: localStorage.getItem("centerName") || "السنتر",
-            adminUser: localStorage.getItem("adminUser") || "shefo",
-           adminPass: localStorage.getItem("adminPass") || "12345",
-            adminPin: localStorage.getItem("adminPin") || "1234",
-            phoneNumbers: localStorage.getItem("teacherPhones") || "",
-            // السطرين دول 👇
-            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
-            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || ""
-        },
+            settings: {
+                teacherName: localStorage.getItem("teacherName") || "المدير",
+                centerName: localStorage.getItem("centerName") || "السنتر",
+                adminUser: localStorage.getItem("adminUser") || "shefo",
+                adminPass: localStorage.getItem("adminPass") || "12345",
+                adminPin: localStorage.getItem("adminPin") || "1234",
+                phoneNumbers: localStorage.getItem("teacherPhones") || "",
+                parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
+                studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",  // <--- الفاصلة دي هي اللي كانت ناقصة!
+                botEnabled: localStorage.getItem("botEnabled") === "true",
+                botName: localStorage.getItem("botName") || "المساعد",
+                botInstructions: localStorage.getItem("botInstructions") || ""
+            },
+            // ... (باقي الكود)
         teacherName: localStorage.getItem("teacherName") || "المدير",
         centerName: localStorage.getItem("centerName") || "السنتر",
         adminUser: localStorage.getItem("adminUser"),
@@ -6071,3 +6078,20 @@ window.addEventListener('popstate', function(event) {
 
     setTimeout(() => { window.isHistoryNavigating = false; }, 100);
 });
+
+
+
+window.saveBotSettings = function() {
+    let enabled = document.getElementById("settingBotEnabled").checked;
+    let name = document.getElementById("settingBotName").value.trim();
+    let instructions = document.getElementById("settingBotInstructions").value.trim();
+
+    localStorage.setItem("botEnabled", enabled);
+    localStorage.setItem("botName", name);
+    localStorage.setItem("botInstructions", instructions);
+
+    showToast("تم حفظ إعدادات المساعد الذكي بنجاح! 🤖");
+    
+    // رفع التعديلات فوراً للسيرفر عشان الـ AI يطبقها
+    if (typeof syncDataToBot === "function") syncDataToBot();
+};

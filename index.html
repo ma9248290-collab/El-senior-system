@@ -168,6 +168,7 @@
                     </div>
                     <ul class="dropdown-menu">
                         <li id="nav-backup" class="admin-only"><a href="#" onclick="switchPage('backup')">لوحة الإدارة ⚙️</a></li>
+                        <li id="nav-bot" class="admin-only"><a href="#" onclick="switchPage('bot')">المساعد الذكي 🤖</a></li>
                         <li><a href="#" onclick="openModal('settingsModal')" style="color: #8b5cf6;">إعدادات السيرفر ⚙️</a></li>
                     </ul>
                 </li>
@@ -1478,6 +1479,38 @@
             </div>
         </div>
 
+
+        <!-- صفحة المساعد الذكي -->
+<div id="bot-view" class="view-section admin-only" style="display: none;">
+    <section class="students-section">
+        <div class="admin-panel-card" style="border-top: 5px solid #8b5cf6;">
+            <h2 style="color: #8b5cf6; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">🤖</span> إعدادات المساعد الذكي للواتساب
+            </h2>
+            
+            <div style="background: var(--hover-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #8b5cf6;">
+                <p style="font-weight: bold; margin-bottom: 15px; color: var(--text-main);">💡 تحكم في عقل المساعد الآلي الذي يرد على الطلاب وأولياء الأمور 24/7:</p>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 16px; font-weight: bold; color: var(--success-color); background: rgba(16, 185, 129, 0.1); padding: 10px; border-radius: 8px; border: 1px solid var(--success-color);">
+                    <input type="checkbox" id="settingBotEnabled" style="width: 20px; height: 20px; accent-color: var(--success-color);">
+                    تفعيل المساعد الذكي للرد التلقائي
+                </label>
+            </div>
+
+            <div class="input-group">
+                <label style="font-weight: bold;">اسم المساعد (مثال: شيفو، أوكتو، ميرا)</label>
+                <input type="text" id="settingBotName" class="custom-input" placeholder="اكتب اسم المساعد هنا...">
+            </div>
+            
+            <div class="input-group">
+                <label style="font-weight: bold;">تعليمات وشخصية المساعد (System Prompt)</label>
+                <textarea id="settingBotInstructions" class="custom-input" rows="5" placeholder="مثال: تحدث بأسلوب محفز جداً، استخدم إيموجي كثيرة، لا تقدم أي وعود مالية أو خصومات للطلاب..."></textarea>
+            </div>
+            
+            <button class="save-btn" style="width: 100%; font-size: 18px; padding: 15px; background-color: #8b5cf6; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);" onclick="saveBotSettings()">💾 حفظ تشغيل وإعدادات المساعد</button>
+        </div>
+    </section>
+</div>
+
         </main>
     </div> 
 
@@ -2195,6 +2228,8 @@
             </div>
         </div>
     </div>
+
+    
 
 
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
