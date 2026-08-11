@@ -1787,32 +1787,51 @@
         </div>
     </div>
 
-    <div id="addStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('addStudentModal')">&times;</span><h2>تسجيل طالب جديد</h2><form id="addStudentForm" class="form-grid"><div class="input-group"><label>كود الطالب</label><input type="text" id="studentCode" required class="custom-input" style="font-weight: bold; color: var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="studentName" required class="custom-input"></div><div class="input-group">
-    <label>الصف</label>
-    <select id="studentLevel" required class="custom-input" onchange="filterGroupsByLevel('studentLevel', 'studentGroup'); toggleTrackDropdown('studentLevel', 'trackGroup');">
-        <option value="">اختر...</option>
-        <option value="الأول الثانوي">الأول الثانوي</option>
-        <option value="الثاني الثانوي">الثاني الثانوي</option>
-        <option value="الثالث الثانوي">الثالث الثانوي</option>
-    </select>
-</div>
-<div class="input-group" id="trackGroup" style="display:none;">
-    <label>المسار (للمرحلة الثانوية)</label>
-    <select id="studentTrack" class="custom-input" style="border-color: var(--primary-color);">
-        <option value="عام">ثانوي عام</option>
-        <option value="أزهر">ثانوي أزهر</option>
-    </select>
-</div>
-<div class="input-group">
-    <label>المجموعة</label>
-    <select id="studentGroup" required class="custom-input">
-        <option value="">اختر الصف أولاً...</option>
-    </select>
-</div>
-
-
-<div class="input-group"><label>المجموعة</label><select id="studentGroup" required class="custom-input"><option value="">اختر الصف أولاً...</option></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
-<div class="input-group">
+    <div id="addStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('addStudentModal')">&times;</span><h2>تسجيل طالب جديد</h2>
+       <form id="addStudentForm" class="form-grid">
+    <div class="input-group">
+        <label>السنتر التابع له الطالب</label>
+        <select id="studentCenterPrefix" required class="custom-input" onchange="updateGeneratedCode()">
+            <option value="">اختر السنتر لتوليد الكود...</option>
+            <option value="M">المهندس (M)</option>
+            <option value="F">الفضل (F)</option>
+            <option value="Q">القمة (Q)</option>
+            <option value="A">الأوائل (A)</option>
+            <option value="S">سمارت (S)</option>
+            <option value="Z">زون (Z)</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>كود الطالب</label>
+        <input type="text" id="studentCode" required class="custom-input" style="font-weight: bold; color: var(--primary-color); background-color: #f8fafc;" readonly>
+    </div>
+    <div class="input-group"><label>الاسم</label><input type="text" id="studentName" required class="custom-input"></div>
+    
+    <div class="input-group">
+        <label>الصف</label>
+        <select id="studentLevel" required class="custom-input" onchange="filterGroupsByLevel('studentLevel', 'studentGroup'); toggleTrackDropdown('studentLevel', 'trackGroup');">
+            <option value="">اختر...</option>
+            <option value="الأول الثانوي">الأول الثانوي</option>
+            <option value="الثاني الثانوي">الثاني الثانوي</option>
+            <option value="الثالث الثانوي">الثالث الثانوي</option>
+        </select>
+    </div>
+    <div class="input-group" id="trackGroup" style="display:none;">
+        <label>المسار</label>
+        <select id="studentTrack" class="custom-input" style="border-color: var(--primary-color);">
+            <option value="عام">عام</option>
+            <option value="أزهر">أزهر</option>
+            <option value="بكالوريا">بكالوريا</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>المجموعة</label>
+        <select id="studentGroup" required class="custom-input">
+            <option value="">اختر الصف أولاً...</option>
+        </select>
+    </div>
+    
+    <!-- تم إزالة تكرار المجموعة من هنا -->
     <label>هاتف الطالب <span style="color:var(--text-muted); font-size: 11px;">(أو اكتب 0 إذا لم يوجد)</span></label>
     <input type="text" id="studentPhone" required class="custom-input">
 </div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="parentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="studentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><!-- حقل الحالة الخاصة -->
@@ -1828,28 +1847,36 @@
 </div>
 
 <button type="submit" class="save-btn full-width">حفظ</button></form></div></div>
-    <div id="editStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('editStudentModal')">&times;</span><h2>تعديل بيانات الطالب ✏️</h2><form id="editStudentForm" class="form-grid"><input type="hidden" id="editStudentCodeOriginal"><div class="input-group"><label>الكود</label><input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="editStudentName" required class="custom-input"></div><div class="input-group">
-    <label>الصف</label>
-    <select id="editStudentLevel" required class="custom-input" onchange="filterGroupsByLevel('editStudentLevel', 'editStudentGroup'); toggleTrackDropdown('editStudentLevel', 'editTrackGroup');">
-        <option value="الأول الثانوي">الأول الثانوي</option>
-        <option value="الثاني الثانوي">الثاني الثانوي</option>
-        <option value="الثالث الثانوي">الثالث الثانوي</option>
-    </select>
-</div>
-<div class="input-group" id="editTrackGroup" style="display:none;">
-    <label>المسار</label>
-    <select id="editStudentTrack" class="custom-input" style="border-color: var(--primary-color);">
-        <option value="عام">ثانوي عام</option>
-        <option value="أزهر">ثانوي أزهر</option>
-    </select>
-</div>
-<div class="input-group">
-    <label>المجموعة</label>
-    <select id="editStudentGroup" required class="custom-input"></select>
-</div>
-
-<div class="input-group"><label>المجموعة</label><select id="editStudentGroup" required class="custom-input"></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
-<div class="input-group">
+    <div id="editStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('editStudentModal')">&times;</span><h2>تعديل بيانات الطالب ✏️</h2>
+       <form id="editStudentForm" class="form-grid">
+    <input type="hidden" id="editStudentCodeOriginal">
+    <div class="input-group">
+        <label>الكود (تعديل بحذر)</label>
+        <input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color);">
+    </div>
+    <div class="input-group"><label>الاسم</label><input type="text" id="editStudentName" required class="custom-input"></div>
+    <div class="input-group">
+        <label>الصف</label>
+        <select id="editStudentLevel" required class="custom-input" onchange="filterGroupsByLevel('editStudentLevel', 'editStudentGroup'); toggleTrackDropdown('editStudentLevel', 'editTrackGroup');">
+            <option value="الأول الثانوي">الأول الثانوي</option>
+            <option value="الثاني الثانوي">الثاني الثانوي</option>
+            <option value="الثالث الثانوي">الثالث الثانوي</option>
+        </select>
+    </div>
+    <div class="input-group" id="editTrackGroup" style="display:none;">
+        <label>المسار</label>
+        <select id="editStudentTrack" class="custom-input" style="border-color: var(--primary-color);">
+            <option value="عام">عام</option>
+            <option value="أزهر">أزهر</option>
+            <option value="بكالوريا">بكالوريا</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>المجموعة</label>
+        <select id="editStudentGroup" required class="custom-input"></select>
+    </div>
+    
+    <!-- تم إزالة تكرار المجموعة من هنا -->
     <label>هاتف الطالب <span style="color:var(--text-muted); font-size: 11px;">(أو اكتب 0 إذا لم يوجد)</span></label>
     <input type="text" id="editStudentPhone" required class="custom-input">
 </div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="editParentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="editStudentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><!-- حقل الحالة الخاصة (تعديل) -->
