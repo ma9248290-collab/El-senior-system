@@ -601,19 +601,22 @@ body {
                     </div>
 
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <div class="auth-input-group" style="flex: 2; margin:0;">
-                            <label>الصف الدراسي</label>
-                            <select id="regLevel" style="padding: 10px;">
-                                <option value="الصف الأول الثانوي">الصف الأول الثانوي</option>
-                                <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
-                                <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
-                            </select>
-                        </div>
-                        <div class="auth-input-group" style="flex: 1; margin:0;">
-                            <label>النوع</label>
-                            <select id="regGender" style="padding: 10px;"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
-                        </div>
-                    </div>
+    <div class="auth-input-group" style="flex: 2; margin:0;">
+        <label>الصف الدراسي</label>
+        <select id="regLevel" style="padding: 10px;" onchange="if(this.value.includes('ثانوي')){document.getElementById('regTrackGroup').style.display='block';}else{document.getElementById('regTrackGroup').style.display='none';}">
+            <option value="الصف الأول الثانوي">الصف الأول الثانوي</option>
+            <option value="الصف الثاني الثانوي">الصف الثاني الثانوي</option>
+            <option value="الصف الثالث الثانوي">الصف الثالث الثانوي</option>
+        </select>
+    </div>
+    <div class="auth-input-group" id="regTrackGroup" style="flex: 1; margin:0; display: block;">
+        <label>المسار</label>
+        <select id="regTrack" style="padding: 10px; border-color: var(--primary);">
+            <option value="عام">عام</option>
+            <option value="أزهر">أزهر</option>
+        </select>
+    </div>
+</div>
 
                     <!-- حقول السنتر -->
                     <div id="centerFields" style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -1186,7 +1189,12 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
                     totalItems += myExams.length;
                     myExams.forEach(e => { if (allSubs[e.id] && (allSubs[e.id][currentStudent.code] || allSubs[e.id][currentStudent.phone])) completedItems++; else if (e.status === "open") missingExams++; });
 
-                    let myLectures = window.allLectures.filter(l => l && (l.level === "all" || l.level === currentStudent.level));
+                   let myLectures = window.allLectures.filter(l => {
+    if (!l) return false;
+    let levelMatch = l.level === "all" || l.level === currentStudent.level;
+    let trackMatch = !l.track || l.track === 'all' || l.track === (currentStudent.track || 'عام');
+    return levelMatch && trackMatch;
+});
                     totalItems += myLectures.length;
                     let trackRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking.json`);
                     let allTracks = await trackRes.json() || {};
@@ -1265,6 +1273,7 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
             let type = document.getElementById("regType").value;
             let studentData = {
                 name: document.getElementById("regName").value.trim(),
+                track: document.getElementById("regTrackGroup").style.display !== 'none' ? document.getElementById("regTrack").value : "عام",
                 phone: document.getElementById("regPhone").value.trim() || "0",
                 parentPhone: document.getElementById("regParentPhone").value.trim() || "0",
                 level: document.getElementById("regLevel").value,
@@ -1517,10 +1526,12 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
                 let allSubs = await subRes.json() || {};
                 window.studentSubmissions = allSubs;
                 let myExams = allOnlineExams.filter(e => {
-                    if(!e || (e.status !== "open" && e.status !== "closed")) return false;
-                    let groupArray = Array.isArray(e.group) ? e.group : [e.group];
-                    return groupArray.includes(currentStudent.group) || groupArray.includes("all");
-                });
+    if(!e || (e.status !== "open" && e.status !== "closed")) return false;
+    let groupArray = Array.isArray(e.group) ? e.group : [e.group];
+    let groupMatch = groupArray.includes(currentStudent.group) || groupArray.includes("all");
+    let trackMatch = !e.track || e.track === 'all' || e.track === (currentStudent.track || 'عام');
+    return groupMatch && trackMatch;
+});
                 container.innerHTML = "";
                 if (myExams.length === 0) { container.innerHTML = `<div style="text-align:center; grid-column:1/-1; font-weight:bold;">لا توجد امتحانات إلكترونية حالياً.</div>`; return; }
                 

@@ -56,13 +56,22 @@
     <div class="dashboard-container" id="main-app" style="display: none;">
         
         <aside class="sidebar no-print">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px;">
-    <img src="logo.PNG" style="width: 70px; height: auto;">
-    <div style="text-align: right;">
-        <h2 class="logo" style="margin: 0; line-height: 1.1;">El-Senior</h2>
-        <span style="display: block; font-size: 13px; color: var(--primary-color); font-weight: 800; letter-spacing: 1px;">Sami Samir</span>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px;">
+        <img src="logo.PNG" style="width: 70px; height: auto;">
+        <div style="text-align: right;">
+            <h2 class="logo" style="margin: 0; line-height: 1.1;">El-Senior</h2>
+            <span style="display: block; font-size: 20px; color: var(--primary-color); font-weight: 800; letter-spacing: 1px;">Sami Samir</span>
+            
+            <!-- 🌐 الكود الجديد: مؤشر حالة الإنترنت -->
+            <div id="network-status-badge" style="display: flex; align-items: center; gap: 5px; margin-top: 5px; font-size: 11px; font-weight: bold; background: rgba(16, 185, 129, 0.1); padding: 3px 8px; border-radius: 20px; color: #10b981; width: max-content; transition: 0.3s;">
+                <span id="network-status-dot" style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 5px #10b981; transition: 0.3s;"></span>
+                <span id="network-status-text">متصل بالإنترنت</span>
+            </div>
+            <!-- نهاية الكود الجديد -->
+
+        </div>
     </div>
-</div>
+<!-- باقي القائمة الجانبية... -->
 
             <style>
                 /* 🎨 استايل القوائم المنسدلة (تم حل مشكلة السهم والتناسق) */
@@ -252,8 +261,19 @@
                         <div class="header-actions"><button class="add-btn exam-btn" onclick="quickExamForGroup()">⚡ امتحان مفاجئ</button><button class="add-btn" onclick="openAddStudentToGroupModal()">+ إضافة طالب هنا</button></div>
                     </div>
                     <div class="table-container">
-                        <table class="students-table"><thead><tr><th>الكود</th><th>اسم الطالب</th><th>رقم ولي الأمر</th><th>إجراء</th></tr></thead><tbody id="group-students-list"></tbody></table>
-                    </div>
+                        <table class="students-table">
+    <thead>
+        <tr>
+            <th>الكود</th>
+            <th>اسم الطالب والمسار</th>
+            <th style="text-align: center;">آخر 4 حصص</th>
+            <th>رقم ولي الأمر</th>
+            <th>إجراء</th>
+        </tr>
+    </thead>
+    <tbody id="group-students-list"></tbody>
+</table>
+</div>
                 </section>
             </div>
 
@@ -844,6 +864,15 @@
                     </select>
                 </div>
 
+                <div class="input-group">
+    <label>المسار المستهدف (للمنصة)</label>
+    <select id="lecTrack" class="custom-input">
+        <option value="all">عام وأزهر معاً (الكل)</option>
+        <option value="عام">طلاب العام فقط</option>
+        <option value="أزهر">طلاب الأزهر فقط</option>
+    </select>
+</div>
+
                 
 
                 <div class="input-group">
@@ -1407,6 +1436,15 @@
                                 <label>مدة الامتحان (بالدقائق)</label>
                                 <input type="number" id="onlineExamDuration" required class="custom-input" placeholder="مثال: 60" min="1">
                             </div>
+
+                            <div class="input-group">
+    <label>المسار المستهدف للامتحان</label>
+    <select id="onlineExamTrack" class="custom-input" style="border-color: #f59e0b;">
+        <option value="all">عام وأزهر معاً (الكل)</option>
+        <option value="عام">طلاب العام فقط</option>
+        <option value="أزهر">طلاب الأزهر فقط</option>
+    </select>
+</div>
                             <div class="input-group" style="display: flex; align-items: flex-end; padding-bottom: 10px;">
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: bold; color: var(--success-color);">
                                     <input type="checkbox" id="onlineExamAutoShowResult" style="width: 20px; height: 20px; accent-color: var(--success-color);" checked>
@@ -1749,16 +1787,84 @@
         </div>
     </div>
 
-    <div id="addStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('addStudentModal')">&times;</span><h2>تسجيل طالب جديد</h2><form id="addStudentForm" class="form-grid"><div class="input-group"><label>كود الطالب</label><input type="text" id="studentCode" required class="custom-input" style="font-weight: bold; color: var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="studentName" required class="custom-input"></div><div class="input-group"><label>الصف</label><select id="studentLevel" required class="custom-input" onchange="filterGroupsByLevel('studentLevel', 'studentGroup')"><option value="">اختر...</option><option value="الأول الثانوي">الأول الثانوي</option><option value="الثاني الثانوي">الثاني الثانوي</option><option value="الثالث الثانوي">الثالث الثانوي</option></select></div><div class="input-group"><label>المجموعة</label><select id="studentGroup" required class="custom-input"><option value="">اختر الصف أولاً...</option></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
+    <div id="addStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('addStudentModal')">&times;</span><h2>تسجيل طالب جديد</h2><form id="addStudentForm" class="form-grid"><div class="input-group"><label>كود الطالب</label><input type="text" id="studentCode" required class="custom-input" style="font-weight: bold; color: var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="studentName" required class="custom-input"></div><div class="input-group">
+    <label>الصف</label>
+    <select id="studentLevel" required class="custom-input" onchange="filterGroupsByLevel('studentLevel', 'studentGroup'); toggleTrackDropdown('studentLevel', 'trackGroup');">
+        <option value="">اختر...</option>
+        <option value="الأول الثانوي">الأول الثانوي</option>
+        <option value="الثاني الثانوي">الثاني الثانوي</option>
+        <option value="الثالث الثانوي">الثالث الثانوي</option>
+    </select>
+</div>
+<div class="input-group" id="trackGroup" style="display:none;">
+    <label>المسار (للمرحلة الثانوية)</label>
+    <select id="studentTrack" class="custom-input" style="border-color: var(--primary-color);">
+        <option value="عام">ثانوي عام</option>
+        <option value="أزهر">ثانوي أزهر</option>
+    </select>
+</div>
+<div class="input-group">
+    <label>المجموعة</label>
+    <select id="studentGroup" required class="custom-input">
+        <option value="">اختر الصف أولاً...</option>
+    </select>
+</div>
+
+
+<div class="input-group"><label>المجموعة</label><select id="studentGroup" required class="custom-input"><option value="">اختر الصف أولاً...</option></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
 <div class="input-group">
     <label>هاتف الطالب <span style="color:var(--text-muted); font-size: 11px;">(أو اكتب 0 إذا لم يوجد)</span></label>
     <input type="text" id="studentPhone" required class="custom-input">
-</div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="parentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="studentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><button type="submit" class="save-btn full-width">حفظ</button></form></div></div>
-    <div id="editStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('editStudentModal')">&times;</span><h2>تعديل بيانات الطالب ✏️</h2><form id="editStudentForm" class="form-grid"><input type="hidden" id="editStudentCodeOriginal"><div class="input-group"><label>الكود</label><input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="editStudentName" required class="custom-input"></div><div class="input-group"><label>الصف</label><select id="editStudentLevel" required class="custom-input" onchange="filterGroupsByLevel('editStudentLevel', 'editStudentGroup')"><option value="الأول الثانوي">الأول الثانوي</option><option value="الثاني الثانوي">الثاني الثانوي</option><option value="الثالث الثانوي">الثالث الثانوي</option></select></div><div class="input-group"><label>المجموعة</label><select id="editStudentGroup" required class="custom-input"></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
+</div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="parentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="studentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><!-- حقل الحالة الخاصة -->
+<div class="input-group full-width" style="background: rgba(245, 158, 11, 0.05); padding: 12px; border-radius: 8px; border: 1px dashed #f59e0b; margin-top: 10px;">
+    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #f59e0b; font-weight: bold; margin: 0;">
+        <input type="checkbox" id="studentIsSpecial" style="width: 20px; height: 20px; accent-color: #f59e0b; cursor: pointer;" onchange="document.getElementById('studentSpecialAmountDiv').style.display = this.checked ? 'block' : 'none';">
+        طالب حالة خاصة (تسعير مختلف / إعفاء) ⭐
+    </label>
+    <div id="studentSpecialAmountDiv" style="display: none; margin-top: 15px;">
+        <label style="color: var(--text-main);">المبلغ المخصص لهذا الطالب (ج.م): <span style="color:var(--text-muted); font-size:12px;">(اكتب 0 للإعفاء التام)</span></label>
+        <input type="number" id="studentSpecialAmount" class="custom-input" placeholder="مثال: 0 أو 20" min="0">
+    </div>
+</div>
+
+<button type="submit" class="save-btn full-width">حفظ</button></form></div></div>
+    <div id="editStudentModal" class="modal"><div class="modal-content student-modal"><span class="close-btn" onclick="closeModal('editStudentModal')">&times;</span><h2>تعديل بيانات الطالب ✏️</h2><form id="editStudentForm" class="form-grid"><input type="hidden" id="editStudentCodeOriginal"><div class="input-group"><label>الكود</label><input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color);"></div><div class="input-group"><label>الاسم</label><input type="text" id="editStudentName" required class="custom-input"></div><div class="input-group">
+    <label>الصف</label>
+    <select id="editStudentLevel" required class="custom-input" onchange="filterGroupsByLevel('editStudentLevel', 'editStudentGroup'); toggleTrackDropdown('editStudentLevel', 'editTrackGroup');">
+        <option value="الأول الثانوي">الأول الثانوي</option>
+        <option value="الثاني الثانوي">الثاني الثانوي</option>
+        <option value="الثالث الثانوي">الثالث الثانوي</option>
+    </select>
+</div>
+<div class="input-group" id="editTrackGroup" style="display:none;">
+    <label>المسار</label>
+    <select id="editStudentTrack" class="custom-input" style="border-color: var(--primary-color);">
+        <option value="عام">ثانوي عام</option>
+        <option value="أزهر">ثانوي أزهر</option>
+    </select>
+</div>
+<div class="input-group">
+    <label>المجموعة</label>
+    <select id="editStudentGroup" required class="custom-input"></select>
+</div>
+
+<div class="input-group"><label>المجموعة</label><select id="editStudentGroup" required class="custom-input"></select></div><!-- في ملف index.html ابحث عن خانة studentPhone -->
 <div class="input-group">
     <label>هاتف الطالب <span style="color:var(--text-muted); font-size: 11px;">(أو اكتب 0 إذا لم يوجد)</span></label>
     <input type="text" id="editStudentPhone" required class="custom-input">
-</div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="editParentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="editStudentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><button type="submit" class="save-btn full-width">تحديث</button></form></div></div>
+</div><div class="input-group"><label>هاتف ولي الأمر</label><input type="text" id="editParentPhone" required class="custom-input"></div><div class="input-group full-width"><label>الجنس</label><select id="editStudentGender" required class="custom-input"><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select></div><!-- حقل الحالة الخاصة (تعديل) -->
+<div class="input-group full-width" style="background: rgba(245, 158, 11, 0.05); padding: 12px; border-radius: 8px; border: 1px dashed #f59e0b; margin-top: 10px;">
+    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #f59e0b; font-weight: bold; margin: 0;">
+        <input type="checkbox" id="editStudentIsSpecial" style="width: 20px; height: 20px; accent-color: #f59e0b; cursor: pointer;" onchange="document.getElementById('editStudentSpecialAmountDiv').style.display = this.checked ? 'block' : 'none';">
+        طالب حالة خاصة (تسعير مختلف / إعفاء) ⭐
+    </label>
+    <div id="editStudentSpecialAmountDiv" style="display: none; margin-top: 15px;">
+        <label style="color: var(--text-main);">المبلغ المخصص لهذا الطالب (ج.م):</label>
+        <input type="number" id="editStudentSpecialAmount" class="custom-input" placeholder="مثال: 0 أو 20" min="0">
+    </div>
+</div>
+
+<button type="submit" class="save-btn full-width">تحديث</button></form></div></div>
     
     <div id="addSessionModal" class="modal"><div class="modal-content"><span class="close-btn" onclick="closeModal('addSessionModal')">&times;</span><h2>فتح حصة 🎯</h2><form id="addSessionForm"><div class="input-group"><label>الصف</label><select id="sessionLevelSelect" class="custom-input" onchange="filterGroupsByLevel('sessionLevelSelect', 'sessionGroupSelect')" required><option value="">اختر...</option><option value="الأول الثانوي">الأول الثانوي</option><option value="الثاني الثانوي">الثاني الثانوي</option><option value="الثالث الثانوي">الثالث الثانوي</option></select></div><div class="input-group"><label>المجموعة</label><select id="sessionGroupSelect" required class="custom-input"><option value="">اختر الصف أولاً...</option></select></div><div class="input-group"><label>التاريخ</label><input type="date" id="sessionDate" required class="custom-input"></div><div class="input-group"><label>الموضوع</label><input type="text" id="sessionTopic" class="custom-input"></div><div class="premium-box" style="margin-top: 20px; padding: 15px; border: 1px dashed var(--primary-color); border-radius: 8px; background: rgba(59, 130, 246, 0.05);"><h4 style="margin-bottom: 10px; color: var(--primary-color);">✨ أوتوماتيك:</h4><label style="display: flex; gap: 10px;"><input type="checkbox" id="autoExamCheck" onchange="toggleAutoInputs()"> إنشاء امتحان</label><input type="number" id="autoExamScore" placeholder="الدرجة؟" class="custom-input" style="display: none; margin-bottom: 15px;" min="1"><label style="display: flex; gap: 10px;"><input type="checkbox" id="autoHwCheck" onchange="toggleAutoInputs()"> تكليف واجب</label><input type="number" id="autoHwScore" placeholder="الدرجة؟" class="custom-input" style="display: none; margin-top: 10px;" min="1"></div><button type="submit" class="save-btn" style="margin-top: 20px;">إنشاء الحصة</button></form></div></div>
     <div id="addHwModal" class="modal"><div class="modal-content"><span class="close-btn" onclick="closeModal('addHwModal')">&times;</span><h2>واجب جديد</h2><form id="addHwForm"><div class="input-group"><select id="hwLevelSelect" class="custom-input" onchange="filterGroupsByLevel('hwLevelSelect', 'hwGroupSelect')" required><option value="">الصف...</option><option value="الأول الثانوي">الأول الثانوي</option><option value="الثاني الثانوي">الثاني الثانوي</option><option value="الثالث الثانوي">الثالث الثانوي</option></select></div><div class="input-group"><select id="hwGroupSelect" required class="custom-input"><option value="">المجموعة...</option></select></div><div class="input-group"><input type="text" id="hwName" required placeholder="الاسم/الصفحة" class="custom-input"></div><div class="input-group"><input type="number" id="hwMaxScore" required min="1" placeholder="الدرجة من" class="custom-input"></div><div class="input-group"><input type="date" id="hwDate" required class="custom-input"></div><button type="submit" class="save-btn" style="background-color: var(--hw-color);">إنشاء</button></form></div></div>
@@ -1928,6 +2034,15 @@
                                 <label>مدة الامتحان (بالدقائق)</label>
                                 <input type="number" id="onlineExamDuration" required class="custom-input" placeholder="مثال: 60" min="1">
                             </div>
+
+                            <div class="input-group">
+    <label>المسار المستهدف للامتحان</label>
+    <select id="onlineExamTrack" class="custom-input" style="border-color: #f59e0b;">
+        <option value="all">عام وأزهر معاً (الكل)</option>
+        <option value="عام">طلاب العام فقط</option>
+        <option value="أزهر">طلاب الأزهر فقط</option>
+    </select>
+</div>
                             <div class="input-group" style="display: flex; align-items: flex-end; padding-bottom: 10px;">
                                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: bold; color: var(--success-color);">
                                     <input type="checkbox" id="onlineExamAutoShowResult" style="width: 20px; height: 20px; accent-color: var(--success-color);" checked>
@@ -1974,7 +2089,15 @@
                         <label>الصف الدراسي المستهدف</label>
                         <select id="editLecLevel" class="custom-input" onchange="filterCourseSessions('editLecLevel', 'editLecSessionsContainer')"></select>
                     </div>
-
+                    
+                    <div class="input-group">
+    <label>المسار المستهدف</label>
+    <select id="editLecTrack" class="custom-input">
+        <option value="all">عام وأزهر معاً (الكل)</option>
+        <option value="عام">طلاب العام فقط</option>
+        <option value="أزهر">طلاب الأزهر فقط</option>
+    </select>
+</div>
                     
 
                     <div class="input-group">
