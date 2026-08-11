@@ -344,11 +344,11 @@ function toggleTheme() {
 // 12. نظام التفعيل وفصل البيانات (Multi-Tenancy) والمزامنة
 // ==========================================
 let isFirebaseLoaded = false;
-let licenseKey = localStorage.getItem("licenseKey"); // بنقرأ الكود من جهاز المدرس
+let licenseKey = "ElSenior_System_Master"; // 🔒 تثبيت إجباري للسينيور
 
-// الدالة دي بتولد مسار الداتابيز المخصوص للمدرس بناءً على كوده!
+// الدالة دي بتولد مسار الداتابيز المخصوص للمدرس
 function getFirebaseUrl() {
-    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${licenseKey}/data.json`;
+    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/data.json`;
 }
 
 // ==========================================
@@ -371,8 +371,8 @@ if(loginForm) {
     newLoginForm.addEventListener("submit", async function(e) {
         e.preventDefault();
         
-        // 🔒 تثبيت كود السنتر في الخلفية لنسخة El-Senior
-        let code = "ElSenior_System_Master"; 
+        // 🔒 تثبيت كود السنتر في الخلفية لنسخة السينيور
+let code = "ElSenior_System_Master";
         
         let user = document.getElementById("loginUsername").value.trim();
         let pass = document.getElementById("loginPassword").value.trim();
@@ -672,9 +672,8 @@ async function loadDataFromFirebase() {
         isFirebaseLoaded = true; return; 
     }
     
-    // 🔥 تعريف كود السنتر اللي كان بيعمل إيرور في الخفاء
-    let currentLicenseKey = localStorage.getItem("licenseKey"); 
-    if(!currentLicenseKey) return; 
+    // 🔥 تعريف كود السنتر (تثبيت إجباري لضمان العزل لنسخة السينيور)
+let currentLicenseKey = "ElSenior_System_Master";
     
     try {
         let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${currentLicenseKey}.json`);
@@ -3557,9 +3556,7 @@ let currentGradingStudentPhone = null;
 let currentQuestions = [];
 
 window.getSafeUid = function() {
-    let uid = localStorage.getItem("licenseKey");
-    if (!uid) console.error("لم يتم العثور على ID المدرس (licenseKey)!");
-    return uid;
+    return "ElSenior_System_Master"; // 🔒 التثبيت النهائي لمسار الداتا في كل الـ Fetches
 };
 
 // 1. تعديل دالة switchPlatformTab (عشان تعبي قائمة الصفوف بدل المجموعات)
@@ -6095,3 +6092,56 @@ window.saveBotSettings = function() {
     // رفع التعديلات فوراً للسيرفر عشان الـ AI يطبقها
     if (typeof syncDataToBot === "function") syncDataToBot();
 };
+
+
+// ==========================================
+// 🌐 مراقبة حالة الاتصال بالإنترنت والمزامنة الذكية
+// ==========================================
+function updateNetworkStatus(isOnline, isInitialLoad = false) {
+    const badge = document.getElementById('network-status-badge');
+    const dot = document.getElementById('network-status-dot');
+    const text = document.getElementById('network-status-text');
+    
+    if (!badge || !dot || !text) return;
+
+    if (isOnline) {
+        // 🟢 حالة الاتصال (Online)
+        badge.style.background = 'rgba(16, 185, 129, 0.1)';
+        badge.style.color = '#10b981';
+        dot.style.background = '#10b981';
+        dot.style.boxShadow = '0 0 5px #10b981';
+        text.innerText = 'متصل بالإنترنت';
+        
+        // لو النت لسه راجع حالا (مش أول تحميل للصفحة)، نرفع الداتا للسيرفر وننبه المدرس
+        if (!isInitialLoad) {
+            if (typeof syncDataToBot === 'function') {
+                syncDataToBot(); // مزامنة البيانات المتراكمة
+            }
+            showToast("تم عودة الإنترنت، وجاري مزامنة بياناتك مع السيرفر 🔄✅", "success");
+        }
+    } else {
+        // 🔴 حالة الانقطاع (Offline)
+        badge.style.background = 'rgba(239, 68, 68, 0.1)';
+        badge.style.color = '#ef4444';
+        dot.style.background = '#ef4444';
+        dot.style.boxShadow = '0 0 5px #ef4444';
+        text.innerText = 'الإنترنت فاصل';
+        
+        // تنبيه المدرس إن السيستم شغال أوفلاين
+        if (!isInitialLoad) {
+            showToast("انقطع الاتصال بالإنترنت! النظام يعمل الآن في وضع الأوفلاين ⚠️", "error");
+        }
+    }
+}
+
+// الاستماع لتغيرات الشبكة لحظياً
+window.addEventListener('online', () => updateNetworkStatus(true, false));
+window.addEventListener('offline', () => updateNetworkStatus(false, false));
+
+// فحص الحالة أول ما الصفحة تفتح
+document.addEventListener('DOMContentLoaded', () => {
+    // تشغيل الفحص المبدئي
+    setTimeout(() => {
+        updateNetworkStatus(navigator.onLine, true);
+    }, 500);
+});
