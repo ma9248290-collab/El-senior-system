@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم المدرس | هيستوريا</title>
+    <title>لوحة تحكم المدرس | El-Senior</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -23,9 +23,9 @@
         <div class="login-card">
         <div style="text-align: center; margin-top: 10px; margin-bottom: 0;">
     <!-- الأخطبوط اللي بيشاور (متوسط الحجم وجوه الكارت) -->
-    <img src="logo.png" style="width: 80px; height: auto;">
+    <img src="logo.PNG" style="width: 80px; height: auto;">
 </div>
-           <h2 class="logo" style="margin-bottom: 5px;">هيستوريا <span class="dot">.</span></h2>
+           <h2 class="logo" style="margin-bottom: 5px;">El-Senior <span class="dot">.</span></h2>
 <span style="display: block; font-size: 16px; color: var(--primary-color); font-weight: 900; margin-bottom: 15px;">Sami Samir</span>
             <h3 style="margin-bottom: 20px; color: var(--text-main);">تسجيل الدخول</h3>
             <form id="loginForm">
@@ -57,9 +57,9 @@
         
         <aside class="sidebar no-print">
     <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 30px;">
-        <img src="logo.png" style="width: 70px; height: auto;">
+        <img src="logo.PNG" style="width: 70px; height: auto;">
         <div style="text-align: right;">
-            <h2 class="logo" style="margin: 0; line-height: 1.1;">هيستوريا</h2>
+            <h2 class="logo" style="margin: 0; line-height: 1.1;">El-Senior</h2>
             <span style="display: block; font-size: 20px; color: var(--primary-color); font-weight: 800; letter-spacing: 1px;">Sami Samir</span>
             
             <!-- 🌐 الكود الجديد: مؤشر حالة الإنترنت -->
@@ -472,7 +472,7 @@
                     <h2 style="color: var(--primary-color); margin-bottom: 5px;">الماليات وإدارة الخزنة 💰</h2>
                     <p style="color: var(--text-muted); font-size: 14px;">إدارة إيرادات ومصروفات الحصة (دعم الدفع بالحصة والشهر)</p>
                 </div>
-                <img src="logo.png" style="width: 80px; height: auto;">
+                <img src="logo.PNG" style="width: 80px; height: auto;">
             </div>
 
             <!-- 1. فلاتر اختيار الحصة -->
@@ -554,7 +554,7 @@
 
             <div id="leaderboard-view" class="view-section" style="display: none;">
                 <section class="students-section"><div class="section-header"><div style="display: flex; align-items: center; gap: 15px;">
-    <img src="logo.png" style="width: 70px; height: 70px;">
+    <img src="logo.PNG" style="width: 70px; height: 70px;">
     <h2 style="margin: 0;">لوحة الشرف 🏆</h2>
 </div><div style="display: flex; gap: 10px;"><select id="leaderboardLevel" class="custom-input" style="width: 150px;" onchange="filterGroupsByLevel('leaderboardLevel', 'leaderboardGroup')"><option value="">الصف...</option><option value="الأول الثانوي">الأول الثانوي</option><option value="الثاني الثانوي">الثاني الثانوي</option><option value="الثالث الثانوي">الثالث الثانوي</option></select><select id="leaderboardGroup" class="custom-input" style="width: 200px;" onchange="generateLeaderboard()"><option value="">المجموعة...</option></select></div></div><div id="leaderboard-results" class="stats-grid" style="grid-template-columns: 1fr;"></div></section>
             </div>
@@ -1555,7 +1555,7 @@
     <!-- النوافذ المنبثقة (Modals) مكانها الصح بره الـ main -->
 <div id="globalAnnouncementModal" class="modal" style="z-index: 1000000;">
         <div class="modal-content" style="width: 450px; text-align: center; border-top: 5px solid var(--primary-color);">
-            <img src="logo.png" style="width: 80px; height: 80px; margin: 0 auto 15px auto; display: block;">
+            <img src="logo.PNG" style="width: 80px; height: 80px; margin: 0 auto 15px auto; display: block;">
             
             <h2 id="globalAnnTitle" style="color: var(--primary-color); margin-bottom: 15px; font-size: 22px;">تحديث جديد!</h2>
             
@@ -1568,7 +1568,7 @@
     <div id="customConfirmModal" class="modal">
         <div class="modal-content" style="width: 350px; text-align: center; margin: 20% auto;">
             <!-- 🐙 أخطبوط التحذير -->
-            <img src="logo.png" style="width: 80px; height: 80px; margin: 0 auto 15px auto; display: block;">
+            <img src="logo.PNG" style="width: 80px; height: 80px; margin: 0 auto 15px auto; display: block;">
             
             <h3 id="confirmMessage" style="margin-bottom: 25px; color: var(--text-main);">هل أنت متأكد؟</h3>
             <div style="display: flex; gap: 10px;">
@@ -2010,7 +2010,7 @@
 <!-- زرار فتح الشات -->
 <button id="shefo-assistant-btn" onclick="openShefoChat()" style="width: 75px; height: 75px; padding: 0; border-radius: 50%; display: flex; justify-content: center; align-items: center; opacity: 0.9; transition: all 0.3s ease; box-shadow: 0 5px 15px rgba(0,0,0,0.15); border: 2px solid #e2e8f0; background: white;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.1)';" onmouseout="this.style.opacity='0.9'; this.style.transform='scale(1)';">
     <!-- اللوجو -->
-    <img src="logo.png" style="width: 55px; height: 55px; min-width: 55px; margin: 0;">
+    <img src="logo.PNG" style="width: 55px; height: 55px; min-width: 55px; margin: 0;">
 </button>
 
 <!-- نافذة شات ميرا (WhatsApp Style) -->
@@ -2022,7 +2022,7 @@
                <div class="shefo-avatar-chat" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; display: flex; justify-content: center; align-items: center; border-radius: 50%; width: 45px; height: 45px; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);">
     <div class="shefo-avatar-chat" style="background: transparent; box-shadow: none; padding: 0;">
     <!-- أخطبوط الدعم الفني مصغر -->
-    <img src="logo.png" style="width: 50px; height: 50px;">
+    <img src="logo.PNG" style="width: 50px; height: 50px;">
 </div>
         <path d="M12 8V4H8"></path>
         <rect width="16" height="12" x="4" y="8" rx="2"></rect>
@@ -2100,7 +2100,7 @@
     <div id="demoRegistrationModal" class="login-overlay" style="display: none; z-index: 10000000;">
         <div class="login-card" style="width: 400px;">
             <h2 style="color: var(--primary); margin-bottom: 10px;">أهلاً بك في النسخة التجريبية 🚀</h2>
-            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">يرجى إدخال بياناتك لبدء تجربة هيستوريا لمدة 7 أيام مجاناً</p>
+            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">يرجى إدخال بياناتك لبدء تجربة El-Senior لمدة 7 أيام مجاناً</p>
             <form id="demoRegistrationForm">
                 <div class="input-group" style="text-align: right;">
                     <label>الاسم</label>
@@ -2345,7 +2345,7 @@
     <div id="newCodesModal" class="modal" style="z-index: 1000000;">
         <div class="modal-content" style="width: 500px; max-width: 95%; text-align: center; border-top: 5px solid var(--success-color);">
             <span class="close-btn" onclick="closeModal('newCodesModal')">&times;</span>
-            <img src="logo.png" style="width: 80px; height: 80px; margin: 0 auto 15px auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">
+            <img src="logo.PNG" style="width: 80px; height: 80px; margin: 0 auto 15px auto; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">
 
             <h2 style="color: var(--success-color); margin-bottom: 10px;">تم التوليد بنجاح! 🎉</h2>
             <p style="color: var(--text-muted); margin-bottom: 20px;">تم إنشاء <span id="newCodesCountDisplay" style="font-weight: 900; color: var(--primary-color); font-size: 18px;">0</span> أكواد بقيمة <span id="newCodesAmountDisplay" style="font-weight: 900; color: var(--primary-color); font-size: 18px;">0</span> ج.م للكود الواحد.</p>
@@ -2366,7 +2366,7 @@
     <div id="reportResultsModal" class="modal" style="z-index: 1000005;">
         <div class="modal-content" style="width: 500px; text-align: center; border-top: 5px solid #10b981;">
             <span class="close-btn" onclick="closeModal('reportResultsModal')">&times;</span>
-            <img src="logo.png" style="width: 80px; height: 80px; margin: 0 auto 15px auto;">
+            <img src="logo.PNG" style="width: 80px; height: 80px; margin: 0 auto 15px auto;">
             
             <h2 style="color: #10b981; margin-bottom: 10px;">إحصائيات إرسال الواتساب 🚀</h2>
             <p style="color: var(--text-muted); margin-bottom: 25px; font-weight: bold;">إليك نتيجة تسليم التقارير لأولياء الأمور والطلاب:</p>
