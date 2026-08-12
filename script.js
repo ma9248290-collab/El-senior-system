@@ -781,6 +781,9 @@ let currentLicenseKey = "ElSenior_System_Master";
             exams = (data.exams || []).filter(i => i !== null).map(e => ({...e, grades: e.grades || {}}));
             homeworks = (data.homeworks || []).filter(i => i !== null).map(h => ({...h, grades: h.grades || {}}));
             
+            // 🛑 إيقاف المزامنة العكسية أثناء استقبال البيانات من جهاز آخر
+            window.isIncomingSync = true; 
+            
             localStorage.setItem("students", JSON.stringify(students));
             localStorage.setItem("classSessions", JSON.stringify(classSessions));
             localStorage.setItem("exams", JSON.stringify(exams));
@@ -790,8 +793,10 @@ let currentLicenseKey = "ElSenior_System_Master";
             localStorage.setItem("financeRecords", JSON.stringify(financeRecords));
             localStorage.setItem("expenses", JSON.stringify(expenses));
             localStorage.setItem("books", JSON.stringify(books));
-           
             localStorage.setItem("onlineExams", JSON.stringify(onlineExams));
+            
+            // 🟢 إعادة تشغيل المزامنة للمستخدم
+            window.isIncomingSync = false;
 
             renderTable();
             if (document.getElementById("groups-list")) renderGroupCards();
@@ -812,57 +817,66 @@ async function syncDataToBot() {
     let isDemo = localStorage.getItem("is_demo_mode") === "true";
     if (!isDemo && (!isFirebaseLoaded || !licenseKey)) return; 
 
-    // تجميع البيانات وضمان وجود أري الامتحانات الإلكترونية بدون تضارب
-   const dataToSync = {
-            settings: {
-                teacherName: localStorage.getItem("teacherName") || "المدير",
-                centerName: localStorage.getItem("centerName") || "السنتر",
-                adminUser: localStorage.getItem("adminUser") || "shefo",
-                adminPass: localStorage.getItem("adminPass") || "12345",
-                adminPin: localStorage.getItem("adminPin") || "1234",
-                phoneNumbers: localStorage.getItem("teacherPhones") || "",
-                parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
-                studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",  // <--- الفاصلة دي هي اللي كانت ناقصة!
-                botEnabled: localStorage.getItem("botEnabled") === "true",
-                botName: localStorage.getItem("botName") || "المساعد",
-                botInstructions: localStorage.getItem("botInstructions") || ""
-            },
-            // ... (باقي الكود)
+    // تجميع البيانات
+    const dataToSync = {
+        settings: {
+            teacherName: localStorage.getItem("teacherName") || "المدير",
+            centerName: localStorage.getItem("centerName") || "السنتر",
+            adminUser: localStorage.getItem("adminUser") || "shefo",
+            adminPass: localStorage.getItem("adminPass") || "12345",
+            adminPin: localStorage.getItem("adminPin") || "1234",
+            phoneNumbers: localStorage.getItem("teacherPhones") || "",
+            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
+            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
+            botEnabled: localStorage.getItem("botEnabled") === "true",
+            botName: localStorage.getItem("botName") || "المساعد",
+            botInstructions: localStorage.getItem("botInstructions") || ""
+        },
         teacherName: localStorage.getItem("teacherName") || "المدير",
         centerName: localStorage.getItem("centerName") || "السنتر",
         adminUser: localStorage.getItem("adminUser"),
         adminPass: localStorage.getItem("adminPass"),
         adminPin: localStorage.getItem("adminPin"),
         
-        students, classSessions, exams, homeworks, schedule, groups, financeRecords, expenses, books,monthlyPayments: monthlyPayments,
-        onlineExams: onlineExams // ضفناها هنا عشان الفايربيز يحفظ هيكل الامتحانات
-        
+        students, classSessions, exams, homeworks, schedule, groups, financeRecords, expenses, books, monthlyPayments: monthlyPayments,
+        onlineExams: onlineExams
     };
 
-    // داخل دالة syncDataToBot()
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
-    try {
-        // 🔥 تحديث الرابط هنا
-        await fetch(`${WHATSAPP_SERVER_URL}/sync-database`, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(dataToSync) 
-        });
-    } catch (e) {}
-}
+    // 🌟 تحديد وقت التحديث المحلي عشان الجهاز ميعملش ريفريش لنفسه
+    window.lastLocalSyncTime = Date.now();
+
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+        try {
+            await fetch(`${WHATSAPP_SERVER_URL}/sync-database`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(dataToSync) 
+            });
+        } catch (e) {}
+    }
 
     if (isDemo) return;
 
     try {
+        // رفع البيانات الأساسية
         await fetch(getFirebaseUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
+        
+        // 🚀 إرسال إشارة للسيرفر (جرس) إن فيه تعديل حصل في نفس اللحظة
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(window.lastLocalSyncTime)
+        });
     } catch (e) {}
-}
+}   
 
+window.isIncomingSync = false; // فلاج عشان نمنع الـ Loop
 ["students", "classSessions", "exams", "homeworks", "schedule", "groups", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
     const originalSetItem = localStorage.setItem;
     localStorage.setItem = function(k, v) {
         originalSetItem.apply(this, arguments);
-        if(key === k) syncDataToBot();
+        // لو التحديث ده إحنا اللي عاملينه (مش جي من جهاز تاني)، ارفعه للسيرفر
+        if(key === k && !window.isIncomingSync) syncDataToBot();
     };
 });
 
@@ -1035,14 +1049,14 @@ window.updateGeneratedCode = function() {
         document.getElementById("studentCode").value = "";
     }
 };
-document.getElementById("addStudentForm")?.addEventListener("submit", async function(e) { 
-    e.preventDefault(); 
+// دالة مساعدة لحفظ الطالب تعمل مع الزرارين (حفظ وإنهاء / حفظ وإضافة)
+window.processStudentSaving = async function(keepOpen) {
     const code = document.getElementById("studentCode").value.trim(); 
     const name = document.getElementById("studentName").value.trim(); 
     const level = document.getElementById("studentLevel").value; 
     const gender = document.getElementById("studentGender").value; 
     const trackGroup = document.getElementById("trackGroup").style.display;
-const track = trackGroup !== 'none' ? document.getElementById("studentTrack").value : "عام";
+    const track = trackGroup !== 'none' ? document.getElementById("studentTrack").value : "عام";
     
     const phoneEl = document.getElementById("studentPhone");
     const phone = phoneEl && phoneEl.value.trim() !== "" ? phoneEl.value.trim() : "0"; 
@@ -1071,63 +1085,85 @@ const track = trackGroup !== 'none' ? document.getElementById("studentTrack").va
 
     // حفظ الطالب في النظام
     let isSpecialCase = document.getElementById("studentIsSpecial") ? document.getElementById("studentIsSpecial").checked : false;
-let specialAmount = isSpecialCase ? (parseFloat(document.getElementById("studentSpecialAmount").value) || 0) : 0;
+    let specialAmount = isSpecialCase ? (parseFloat(document.getElementById("studentSpecialAmount").value) || 0) : 0;
 
-students.push({ code, name, level, gender, phone, parentPhone, group, behaviorPoints: 0, isSpecialCase: isSpecialCase, specialAmount: specialAmount }); 
+    students.push({ code, name, level, gender, phone, parentPhone, group, track, behaviorPoints: 0, isSpecialCase: isSpecialCase, specialAmount: specialAmount }); 
 
-// تصفير المربع بعد الحفظ
-if(document.getElementById("studentIsSpecial")) {
-    document.getElementById("studentIsSpecial").checked = false;
-    document.getElementById("studentSpecialAmountDiv").style.display = 'none';
-    document.getElementById("studentSpecialAmount").value = '';
-}
     localStorage.setItem("students", JSON.stringify(students)); 
     
     if(typeof addSystemLog === "function") addSystemLog("إضافة طالب 🎓", `تسجيل الطالب: ${name} (كود: ${code}) في ${group}`);
 
-    // =========================================================
-    // 🌟 إرسال رسالة واتساب شيك واحترافية للطالب وولي الأمر
-    // =========================================================
+    // إرسال الواتساب
     const portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
     const teacherName = localStorage.getItem("teacherName") || "Sami Samir";
     const centerName = localStorage.getItem("centerName") || "El-Senior";
 
-    const welcomeMsg = `🌟 *مرحبًا بك في كتيبة الأوائل مع ${centerName}* 🌟\n` +
-                       `*مستر / ${teacherName}*\n\n` +
-                       `أهلاً بك يا بطل/ة: *${name}* 👑\n` +
-                       `تم تسجيل بياناتك بنجاح في المنصة التعليمية 🎉\n\n` +
-                       `📌 *بيانات حسابك في النظام:*\n` +
-                       `▫️ *كود الطالب:* \`${code}\`\n` +
-                       `▫️ *الصف الدراسي:* ${level}\n` +
-                       `▫️ *المجموعة:* ${group}\n\n` +
-                       `🔗 *رابط الدخول للمنصة التعليمية:*\n` +
-                       `${portalLink}\n\n` +
-                       `💡 *تنبيه:* استخدم كود الطالب ورقم هاتف ولي الأمر لتسجيل الدخول لمتابعة المحاضرات والامتحانات ونتائجك أولاً بأول.\n\n` +
-                       `مع تمنياتنا لك بالتفوق والدرجة النهائية! 🎯💪`;
+    const welcomeMsg = `🌟 *مرحبًا بك في كتيبة الأوائل مع ${centerName}* 🌟\n*مستر / ${teacherName}*\n\nأهلاً بك يا بطل/ة: *${name}* 👑\nتم تسجيل بياناتك بنجاح في المنصة التعليمية 🎉\n\n📌 *بيانات حسابك في النظام:*\n▫️ *كود الطالب:* \`${code}\`\n▫️ *الصف الدراسي:* ${level}\n▫️ *المجموعة:* ${group}\n\n🔗 *رابط الدخول للمنصة التعليمية:*\n${portalLink}\n\n💡 *تنبيه:* استخدم كود الطالب ورقم هاتف ولي الأمر لتسجيل الدخول لمتابعة المحاضرات والامتحانات ونتائجك أولاً بأول.\n\nمع تمنياتنا لك بالتفوق والدرجة النهائية! 🎯💪`;
 
     if (typeof sendAutoWhatsApp === "function") {
-        // إرسال للطالب (إذا كان مختلفاً عن ولي الأمر)
         if (phone !== "0" ) {
             setTimeout(() => sendAutoWhatsApp(phone, welcomeMsg), 2500);
         }
     }
 
-    this.reset(); 
-    closeModal('addStudentModal'); 
+    // 🔥 السحر هنا: تحديث الواجهات والجداول تلقائياً بدون ريفريش 🔥
     renderTable(); 
-    showToast("تم تسجيل الطالب وإرسال رسالة الترحيب بنجاح ✅"); 
+    if (typeof renderGroupCards === "function") renderGroupCards();
+    if (typeof renderGroupStudentsTable === "function" && document.getElementById("group-details-view")?.style.display === "block") {
+        renderGroupStudentsTable();
+    }
+    if (document.getElementById("dashboard-view")?.style.display === "block") {
+        document.getElementById("total-students").innerText = students.length;
+    }
+
+    // المزامنة مع السيرفر
+    if (typeof syncDataToBot === "function") syncDataToBot();
+
+    if (keepOpen) {
+        // لو ضغط "حفظ وإضافة آخر"
+        showToast("تم الحفظ! جاهز لإضافة الطالب التالي ➕");
+        
+        // تفريغ البيانات الشخصية بس
+        document.getElementById("studentName").value = "";
+        document.getElementById("studentPhone").value = "";
+        document.getElementById("parentPhone").value = "";
+        
+        if(document.getElementById("studentIsSpecial")) {
+            document.getElementById("studentIsSpecial").checked = false;
+            document.getElementById("studentSpecialAmountDiv").style.display = 'none';
+            document.getElementById("studentSpecialAmount").value = '';
+        }
+        
+        // توليد الكود اللي عليه الدور تلقائياً
+        window.updateGeneratedCode(); 
+        
+        // التركيز على خانة الاسم عشان تكتب على طول
+        document.getElementById("studentName").focus();
+    } else {
+        // لو ضغط "حفظ وإنهاء"
+        showToast("تم تسجيل الطالب بنجاح ✅"); 
+        document.getElementById("addStudentForm").reset(); 
+        closeModal('addStudentModal'); 
+    }
+};
+
+// ربط الدالة بزر (حفظ وإنهاء)
+document.getElementById("addStudentForm")?.addEventListener("submit", async function(e) { 
+    e.preventDefault(); 
+    await processStudentSaving(false);
 });
 
-function renderTable() { 
-    const tbody = document.getElementById("students-list"); 
-    if(!tbody) return;
-    tbody.innerHTML = ""; 
-    students.forEach((student) => { 
-    let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
-    tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
-});
-    document.getElementById("total-students").innerText = students.length; 
-}
+// دالة زر (حفظ وإضافة آخر)
+window.saveAndAddAnotherStudent = async function() {
+    const form = document.getElementById("addStudentForm");
+    if (form.checkValidity()) {
+        await processStudentSaving(true);
+    } else {
+        form.reportValidity(); // لإظهار التنبيهات لو خانة ناقصة
+    }
+};
+
+
 
 function searchStudent() { 
     const filter = document.getElementById("searchInput").value.toLowerCase(); 
@@ -1143,7 +1179,6 @@ function searchStudent() {
 }
 
 
-function backToStudents() { currentStudentProfileCode = null; document.getElementById("students-overview").style.display = "block"; document.getElementById("student-profile-view").style.display = "none"; }
 
 
 
@@ -1184,9 +1219,21 @@ window.openEditStudentModal = function() {
         document.getElementById('editStudentCodeOriginal').value = student.code;
         document.getElementById('editStudentCode').value = student.code; 
         document.getElementById('editStudentName').value = student.name; 
+        
+        // 💡 السطر الجديد: قراءة حرف السنتر من كود الطالب الحالي
+        const prefixSelect = document.getElementById('editStudentCenterPrefix');
+        if (prefixSelect) {
+            let match = student.code.match(/^[a-zA-Z]+/); // يمسك الحروف الانجليزية من الكود
+            if (match) {
+                prefixSelect.value = match[0].toUpperCase();
+            } else {
+                prefixSelect.value = ""; // لو الكود أرقام بس (أونلاين مثلا)
+            }
+        }
+
         document.getElementById('editStudentLevel').value = student.level; 
         document.getElementById('editStudentTrack').value = student.track || "عام";
-toggleTrackDropdown('editStudentLevel', 'editTrackGroup');
+        toggleTrackDropdown('editStudentLevel', 'editTrackGroup');
         
         filterGroupsByLevel('editStudentLevel', 'editStudentGroup');
         
@@ -1197,16 +1244,15 @@ toggleTrackDropdown('editStudentLevel', 'editTrackGroup');
 
         document.getElementById('editStudentGender').value = student.gender; 
         
-        // 🚀 الإصلاح الذكي: البحث عن الخانة بالاسم الجديد أو سحبها من داخل النافذة مباشرة
         const phoneInput = document.getElementById('editStudentPhone') || document.querySelector('#editStudentModal input[id="studentPhone"]');
         if(phoneInput) phoneInput.value = student.phone; 
         
         document.getElementById('editParentPhone').value = student.parentPhone; 
         if (document.getElementById('editStudentIsSpecial')) {
-    document.getElementById('editStudentIsSpecial').checked = student.isSpecialCase || false;
-    document.getElementById('editStudentSpecialAmountDiv').style.display = student.isSpecialCase ? 'block' : 'none';
-    document.getElementById('editStudentSpecialAmount').value = student.specialAmount !== undefined ? student.specialAmount : "";
-}
+            document.getElementById('editStudentIsSpecial').checked = student.isSpecialCase || false;
+            document.getElementById('editStudentSpecialAmountDiv').style.display = student.isSpecialCase ? 'block' : 'none';
+            document.getElementById('editStudentSpecialAmount').value = student.specialAmount !== undefined ? student.specialAmount : "";
+        }
         openModal('editStudentModal'); 
     } 
 };
@@ -1280,7 +1326,34 @@ function renderGroupCards() {
     document.getElementById("total-groups").innerText = groups.length; 
 }
 
-function deleteGroup(index) { customConfirm("حذف هذه المجموعة نهائياً؟", () => { groups.splice(index, 1); localStorage.setItem("groups", JSON.stringify(groups)); renderGroupCards(); }); }
+function deleteGroup(index) { 
+    customConfirm("حذف هذه المجموعة نهائياً؟", () => { 
+        
+        // 1. طلب الرقم السري للإدارة
+        const enteredPin = prompt("⚠️ الإجراء يتطلب صلاحية المدير!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد حذف المجموعة:");
+
+        // 2. لو المستخدم ضغط (إلغاء / Cancel)
+        if (enteredPin === null) return; 
+
+        // 3. جلب الرقم السري الأصلي المحفوظ في النظام
+        const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+
+        // 4. التحقق من صحة الرقم السري
+        if (enteredPin !== currentAdminPin) {
+            showToast("الرقم السري غير صحيح! تم إلغاء عملية الحذف.", "error");
+            return;
+        }
+
+        // 5. لو الرقم صحيح، يتم حذف المجموعة فعلياً
+        groups.splice(index, 1); 
+        localStorage.setItem("groups", JSON.stringify(groups)); 
+        renderGroupCards(); 
+        showToast("تم حذف المجموعة بنجاح 🗑️");
+
+        // 6. مزامنة التعديل مع السيرفر لضمان مسحها من قاعدة البيانات
+        if (typeof syncDataToBot === "function") syncDataToBot();
+    }); 
+}
 
 
 
@@ -1406,7 +1479,7 @@ window.renderGroupStudentsTable = function() {
             <td><strong style="color:var(--primary-color); font-size: 16px;">${student.code}</strong></td>
             <td>
                 <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                    <strong style="font-size: 14px;">${student.name}</strong>
+                    <strong style="font-size: 14px;">${student.name} ${student.isSpecialCase ? `<span style="cursor: help; font-size: 13px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : ''}</strong>
                     ${trackBadge}
                 </div>
             </td>
@@ -2174,65 +2247,7 @@ function toggleSessionStatus(id) {
 function updateBroadcastCount() { const target = document.getElementById('broadcastTarget').value; document.getElementById('targetCount').innerText = target === 'all' ? students.length : students.filter(s => s.group === target).length; }
 
 
-// ==========================================
-// 1. عرض ملف الطالب كاملاً بالجداول والباركود + زراير الواتساب
-// ==========================================
-window.openStudentProfile = function(code) {
-    const student = students.find(s => s.code === code); if(!student) return;
-    switchPage('students'); currentStudentProfileCode = code;
-    document.getElementById("students-overview").style.display = "none"; document.getElementById("student-profile-view").style.display = "block";
-    document.getElementById("profile-name").innerText = student.name; document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
-    if (typeof JsBarcode !== 'undefined') JsBarcode("#studentProfileBarcode", student.code, { format: "CODE128", lineColor: "#0f172a", width: 2, height: 40, displayValue: false });
-    if(document.getElementById("profile-phone")) document.getElementById("profile-phone").innerText = student.phone;
-    if(document.getElementById("profile-parent")) document.getElementById("profile-parent").innerText = student.parentPhone;
-    if(document.getElementById("profile-level")) document.getElementById("profile-level").innerText = student.level;
-    if(document.getElementById("profile-gender")) document.getElementById("profile-gender").innerText = student.gender;
-    document.getElementById("profile-behavior-points").innerText = student.behaviorPoints || 0; 
 
-    // 🔥 التعديل هنا: تشغيل زراير الواتساب للطالب وولي الأمر
-    let waStudentBtn = document.getElementById("wa-student-btn");
-    if (waStudentBtn) {
-        waStudentBtn.onclick = function() {
-            if(student.phone && student.phone !== "0" && student.phone !== "") {
-                window.open(`https://wa.me/20${student.phone.replace(/^0+/, '')}`, '_blank');
-            } else {
-                showToast("رقم هاتف الطالب غير مسجل!", "error");
-            }
-        };
-    }
-
-    let waParentBtn = document.getElementById("wa-parent-btn");
-    if (waParentBtn) {
-        waParentBtn.onclick = function() {
-            if(student.parentPhone && student.parentPhone !== "0" && student.parentPhone !== "") {
-                window.open(`https://wa.me/20${student.parentPhone.replace(/^0+/, '')}`, '_blank');
-            } else {
-                showToast("رقم ولي الأمر غير مسجل!", "error");
-            }
-        };
-    }
-
-    // جداول الإحصائيات (حضور، امتحانات، واجبات)
-    const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
-    let attended = 0; const attTbody = docuent.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
-    groupSessions.forEach(s => { 
-    const st = s.attendance[student.code] || s.attendance[student.phone]; 
-    if(st === 'present' || st === 'late') attended++; 
-    const badge = st === 'present' ? `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>` : st === 'late' ? `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>` : st === 'absent' ? `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>` : `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`; 
-    if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
-});
-    document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
-
-    const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
-    let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
-    groupExams.forEach(e => { let g = e.grades[student.code] !== undefined ? e.grades[student.code] : e.grades[student.phone]; if(g !== undefined) { tExam += parseFloat(e.maxScore); sExam += parseFloat(g); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${e.maxScore}</td></tr>`; });
-    document.getElementById("profile-exams").innerText = `${tExam > 0 ? Math.round((sExam / tExam) * 100) : 0}%`;
-
-    const groupHw = homeworks.filter(h => h.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
-    let tHw = 0, sHw = 0; const hwTbody = document.getElementById("profile-hw-list"); if(hwTbody) hwTbody.innerHTML = "";
-    groupHw.forEach(h => { let g = h.grades[student.code] !== undefined ? h.grades[student.code] : h.grades[student.phone]; if(g !== undefined) { tHw += parseFloat(h.maxScore); sHw += parseFloat(g); } if(hwTbody) hwTbody.innerHTML += `<tr><td>${h.name}</td><td>${h.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${h.maxScore}</td></tr>`; });
-    document.getElementById("profile-hw").innerText = `${tHw > 0 ? Math.round((sHw / tHw) * 100) : 0}%`;
-};
 
 
 // ==========================================
@@ -2719,55 +2734,7 @@ if (!document.getElementById('qrScript')) {
     document.head.appendChild(script);
 }
 
-setInterval(async () => {
-    const nodeStatus = document.getElementById("nodeStatus");
-    const waStatus = document.getElementById("waStatus");
-    const qrContainer = document.getElementById("qrContainer");
-    const qrImage = document.getElementById("qrImage");
 
-    if(!nodeStatus) return;
-
-    try {
-        // 🔥 ضفنا الهيدر ngrok-skip-browser-warning عشان نتخطى صفحة التحذير
-        const response = await fetch(`${WHATSAPP_SERVER_URL}/status?clientId=${getSafeUid()}`, {
-            headers: {
-                'ngrok-skip-browser-warning': 'true',
-                'Content-Type': 'application/json'
-            }
-        });
-        const data = await response.json();
-        
-        nodeStatus.innerHTML = '<span class="status-online">● يعمل (Online)</span>';
-        
-        if (data.status === 'connected') {
-            waStatus.innerHTML = '<span class="status-online">متصل ✅</span>';
-            if(qrContainer) qrContainer.style.display = "none";
-        } else if (data.status === 'need_scan') {
-            waStatus.innerHTML = '<span class="status-offline">بانتظار المسح 📱</span>';
-            if(qrContainer) {
-                qrContainer.style.display = "block";
-                // 🔥 ضفنا الهيدر هنا كمان عند جلب الباركود
-                const qrResp = await fetch(`${WHATSAPP_SERVER_URL}/qr?clientId=${getSafeUid()}`, {
-                    headers: {
-                        'ngrok-skip-browser-warning': 'true',
-                        'Content-Type': 'application/json'
-                    }
-                });
-                const qrData = await qrResp.json();
-                if (qrData.qr) {
-                    qrImage.innerHTML = "";
-                    new QRCode(qrImage, { text: qrData.qr, width: 200, height: 200 });
-                }
-            }
-        } else {
-            waStatus.innerHTML = 'جاري التهيئة...';
-        }
-    } catch (e) {
-        nodeStatus.innerHTML = '<span class="status-offline">● متوقف (Offline)</span>';
-        waStatus.innerHTML = '---';
-        if(qrContainer) qrContainer.style.display = "none";
-    }
-}, 5000);
 
 
 // ==========================================
@@ -5500,12 +5467,66 @@ window.renderGradesTable = function(itemDetails, tbodyId, saveFunction, itemId, 
 
 
 
+window.profileSourceView = 'students';
+
+window.backToStudents = function(fromHistory = false) { 
+    currentStudentProfileCode = null; 
+    document.getElementById("student-profile-view").style.display = "none";
+    
+    // التوجيه الذكي بناءً على المكان اللي جينا منه
+    if (window.profileSourceView === 'group' && currentActiveGroup) {
+        // 1. إظهار قسم المجموعات الرئيسي وإخفاء باقي الأقسام
+        document.querySelectorAll(".view-section").forEach(el => el.style.display = "none");
+        document.getElementById("groups-view").style.display = "block";
+        
+        // 2. تظبيط القائمة الجانبية (تنشيط زر المجموعات)
+        document.querySelectorAll(".nav-links li").forEach(el => el.classList.remove("active"));
+        if(document.getElementById("nav-groups")) document.getElementById("nav-groups").classList.add("active");
+
+        // 3. إظهار تفاصيل المجموعة وإخفاء كروت المجموعات
+        document.getElementById("groups-overview").style.display = "none";
+        document.getElementById("group-details-view").style.display = "block";
+        
+        // 4. إعادة رسم جدول المجموعة عشان نضمن إن الداتا موجودة
+        if(typeof renderGroupStudentsTable === "function") renderGroupStudentsTable();
+
+        // 5. تسجيل الخطوة في الهيستوري (عشان زرار المتصفح)
+        if (!fromHistory && !window.isHistoryNavigating) {
+            history.pushState({ page: 'group-details', type: 'sub', id: currentActiveGroup }, '', `#group-${currentActiveGroup}`);
+        }
+    } else {
+        // الرجوع الطبيعي لصفحة إدارة الطلاب
+        document.querySelectorAll(".view-section").forEach(el => el.style.display = "none");
+        document.getElementById("students-view").style.display = "block";
+        
+        document.querySelectorAll(".nav-links li").forEach(el => el.classList.remove("active"));
+        if(document.getElementById("nav-students")) document.getElementById("nav-students").classList.add("active");
+
+        document.getElementById("students-overview").style.display = "block"; 
+        document.getElementById("student-profile-view").style.display = "none";
+        
+        if(typeof renderTable === "function") renderTable();
+
+        if (!fromHistory && !window.isHistoryNavigating) {
+            history.pushState({ page: 'students', type: 'main' }, '', `#students`);
+        }
+    }
+};
+
 window.openStudentProfile = function(code) {
     const student = students.find(s => s.code === code); if(!student) return;
     
+    // 💡 تسجيل المكان اللي فتحنا منه الملف
+    window.profileSourceView = document.getElementById("group-details-view")?.style.display === "block" ? 'group' : 'students';
+    
     switchPage('students'); currentStudentProfileCode = code;
-    document.getElementById("students-overview").style.display = "none"; document.getElementById("student-profile-view").style.display = "block";
-    document.getElementById("profile-name").innerText = student.name; document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
+    document.getElementById("students-overview").style.display = "none"; 
+    document.getElementById("group-details-view").style.display = "none"; // إخفاء المجموعة لو كانت مفتوحة
+    document.getElementById("student-profile-view").style.display = "block";
+    
+    let specialBadge = student.isSpecialCase ? `<span style="font-size: 14px; margin-right: 5px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
+    document.getElementById("profile-name").innerHTML = student.name + specialBadge; 
+    document.getElementById("profile-code-group").innerText = `${student.code} | المجموعة: ${student.group}`;
     
     if (typeof JsBarcode !== 'undefined') JsBarcode("#studentProfileBarcode", student.code, { format: "CODE128", lineColor: "#0f172a", width: 2, height: 40, displayValue: false });
     
@@ -5515,37 +5536,32 @@ window.openStudentProfile = function(code) {
     if(document.getElementById("profile-gender")) document.getElementById("profile-gender").innerText = student.gender;
     document.getElementById("profile-behavior-points").innerText = student.behaviorPoints || 0; 
 
-    // 🔥 التعديل هنا: تشغيل زراير الواتساب للطالب وولي الأمر
+    // زراير الواتساب
     let waStudentBtn = document.getElementById("wa-student-btn");
     if (waStudentBtn) {
         waStudentBtn.onclick = function() {
-            if(student.phone && student.phone !== "0" && student.phone !== "") {
-                window.open(`https://wa.me/20${student.phone.replace(/^0+/, '')}`, '_blank');
-            } else {
-                showToast("رقم هاتف الطالب غير مسجل!", "error");
-            }
+            if(student.phone && student.phone !== "0" && student.phone !== "") window.open(`https://wa.me/20${student.phone.replace(/^0+/, '')}`, '_blank');
+            else showToast("رقم هاتف الطالب غير مسجل!", "error");
         };
     }
 
     let waParentBtn = document.getElementById("wa-parent-btn");
     if (waParentBtn) {
         waParentBtn.onclick = function() {
-            if(student.parentPhone && student.parentPhone !== "0" && student.parentPhone !== "") {
-                window.open(`https://wa.me/20${student.parentPhone.replace(/^0+/, '')}`, '_blank');
-            } else {
-                showToast("رقم ولي الأمر غير مسجل!", "error");
-            }
+            if(student.parentPhone && student.parentPhone !== "0" && student.parentPhone !== "") window.open(`https://wa.me/20${student.parentPhone.replace(/^0+/, '')}`, '_blank');
+            else showToast("رقم ولي الأمر غير مسجل!", "error");
         };
     }
 
+    // جداول الإحصائيات (حضور، امتحانات، واجبات)
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
     groupSessions.forEach(s => { 
-    const st = s.attendance[student.code] || s.attendance[student.phone]; 
-    if(st === 'present' || st === 'late') attended++; 
-    const badge = st === 'present' ? `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>` : st === 'late' ? `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>` : st === 'absent' ? `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>` : `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`; 
-    if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
-});
+        const st = s.attendance[student.code] || s.attendance[student.phone]; 
+        if(st === 'present' || st === 'late') attended++; 
+        const badge = st === 'present' ? `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>` : st === 'late' ? `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>` : st === 'absent' ? `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>` : `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`; 
+        if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
+    });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
 
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -5558,6 +5574,20 @@ window.openStudentProfile = function(code) {
     groupHw.forEach(h => { let g = h.grades[student.code] !== undefined ? h.grades[student.code] : h.grades[student.phone]; if(g !== undefined) { tHw += parseFloat(h.maxScore); sHw += parseFloat(g); } if(hwTbody) hwTbody.innerHTML += `<tr><td>${h.name}</td><td>${h.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${h.maxScore}</td></tr>`; });
     document.getElementById("profile-hw").innerText = `${tHw > 0 ? Math.round((sHw / tHw) * 100) : 0}%`;
 };
+
+function renderTable() { 
+    const tbody = document.getElementById("students-list"); 
+    if(!tbody) return;
+    tbody.innerHTML = ""; 
+    students.forEach((student) => { 
+        let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
+        // 💡 إضافة النجمة هنا
+        let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
+        
+        tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name} ${specialBadge}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
+    });
+    document.getElementById("total-students").innerText = students.length; 
+}
 
 window.generateAdvancedReport = function() {
     const type = document.getElementById("reportType").value; const groupFilter = document.getElementById("reportGroup").value; const fromDate = document.getElementById("reportDateFrom").value; const toDate = document.getElementById("reportDateTo").value;
@@ -6126,14 +6156,42 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 2. تحديد الصفحة الحالية عند فتح السيستم
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if(sessionStorage.getItem("isLoggedIn") === "true") {
-            // تسجيل الرئيسية كأول نقطة في الهيستوري
-            history.replaceState({ page: 'dashboard', type: 'main' }, '', '#dashboard');
+            // قراءة الرابط الحالي
+            let hash = window.location.hash.replace('#', '');
+            
+            if (hash && hash !== 'dashboard') {
+                // التوجيه التلقائي للمكان اللي كنت فيه
+                if (hash.startsWith('student-')) {
+                    let id = hash.replace('student-', '');
+                    window.openStudentProfile(id, true);
+                } else if (hash.startsWith('group-')) {
+                    let id = decodeURIComponent(hash.replace('group-', ''));
+                    window.openGroupDetails(id, true);
+                } else if (hash.startsWith('session-')) {
+                    let id = hash.replace('session-', '');
+                    window.openSessionDetails(id, true);
+                } else if (hash.startsWith('exam-')) {
+                    let id = hash.replace('exam-', '');
+                    window.openExamDetails(id, true);
+                } else if (hash.startsWith('online-exam-')) {
+                    let id = hash.replace('online-exam-', '');
+                    window.openOnlineExamDetails(id, true);
+                } else if (hash.startsWith('hw-')) {
+                    let id = hash.replace('hw-', '');
+                    window.openHwDetails(id, true);
+                } else {
+                    window.switchPage(hash, true);
+                }
+            } else {
+                // لو مفيش رابط محدد، ارجع للرئيسية
+                history.replaceState({ page: 'dashboard', type: 'main' }, '', '#dashboard');
+                window.switchPage('dashboard', true);
+            }
         }
-    }, 1500);
+    }, 1500); // بنستنى ثانية ونص لحد ما الفايربيز يحمل الداتا
 });
 
 // 3. تتبع التنقل بين التابات الرئيسية
@@ -6314,3 +6372,66 @@ window.toggleTrackDropdown = function(levelId, trackGroupId) {
         trackGroup.style.display = 'none';
     }
 };
+
+
+
+window.updateEditGeneratedCode = function() {
+    let prefix = document.getElementById("editStudentCenterPrefix").value;
+    if (prefix) {
+        document.getElementById("editStudentCode").value = window.generateStudentCode(prefix);
+    }
+};
+
+// ==========================================
+// 🚀 محرك المزامنة اللحظية الفائقة (Live Server-Sent Events)
+// ==========================================
+function startRealTimeSync() {
+    if (sessionStorage.getItem("isLoggedIn") !== "true" || localStorage.getItem("is_demo_mode") === "true") return;
+
+    // الاتصال المباشر والمستمر بالفايربيز بدون ضغط على السيرفر
+    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`;
+    const source = new EventSource(syncUrl);
+
+    source.addEventListener('put', async function(e) {
+        try {
+            const payload = JSON.parse(e.data);
+            const serverTime = payload.data; // الوقت اللي جاي من السيرفر
+
+            // لو فيه تحديث جديد من جهاز تاني (وقت التحديث أكبر من الوقت اللي عندي)
+            if (serverTime && (!window.lastLocalSyncTime || serverTime > window.lastLocalSyncTime)) {
+                console.log("⚡ [SYNC] تم رصد تغيير من جهاز آخر، يتم تحديث الواجهة فوراً...");
+                
+                // استدعاء البيانات الجديدة بصمت
+                await loadDataFromFirebase();
+                
+                // تحديث فوري للشاشات المفتوحة قدام السكرتارية
+                if (document.getElementById("students-overview")?.style.display === "block") renderTable();
+                if (document.getElementById("groups-overview")?.style.display === "block" && typeof renderGroupCards === "function") renderGroupCards();
+                if (document.getElementById("group-details-view")?.style.display === "block" && typeof renderGroupStudentsTable === "function") renderGroupStudentsTable();
+                if (document.getElementById("dashboard-view")?.style.display === "block") document.getElementById("total-students").innerText = students.length;
+                if (document.getElementById("finance-view")?.style.display === "block") renderFinanceTable();
+                
+                // تحديث شاشة الحضور لو مفتوحة
+                if (document.getElementById("session-details-view")?.style.display === "block" && currentActiveSessionId) {
+                    const session = classSessions.find(s => s.id === currentActiveSessionId);
+                    if(session) renderAttendanceTable(session);
+                }
+            }
+        } catch (err) {
+            console.error("Sync Error:", err);
+        }
+    });
+
+    source.onerror = function() {
+        // إعادة المحاولة عند انقطاع الاتصال
+        source.close();
+        setTimeout(startRealTimeSync, 5000);
+    };
+}
+
+// تشغيل محرك المزامنة بمجرد فتح السيستم
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        startRealTimeSync();
+    }, 3000); // بنستنى 3 ثواني لحد ما السيستم يحمل عشان منعملش تعارض
+});

@@ -1874,7 +1874,10 @@
                 </div>
             </div>
 
-            <button type="submit" class="save-btn full-width" style="margin-top: 15px; font-size: 18px;">حفظ بيانات الطالب ✅</button>
+            <div style="display: flex; gap: 10px; margin-top: 15px; grid-column: span 2;">
+    <button type="button" class="save-btn" style="flex: 1; background: #f59e0b; margin: 0; font-size: 16px;" onclick="saveAndAddAnotherStudent()">حفظ وإضافة طالب جديد ➕</button>
+    <button type="submit" class="save-btn" style="flex: 1; background: #10b981; margin: 0; font-size: 16px;">حفظ وإنهاء ✅</button>
+</div>
         </form>
     </div>
 </div>
@@ -1886,15 +1889,31 @@
         <form id="editStudentForm" class="form-grid">
             <input type="hidden" id="editStudentCodeOriginal">
             
-            <!-- الصف الأول: الكود والاسم -->
+            <!-- الصف الأول: السنتر والكود -->
             <div class="input-group">
-                <label>كود الطالب (تعديل بحذر)</label>
-                <input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color); letter-spacing: 1px;">
+                <label>نقل لسنتر آخر؟ (لتغيير الكود)</label>
+                <select id="editStudentCenterPrefix" class="custom-input" onchange="updateEditGeneratedCode()">
+                    <option value="">بدون تغيير...</option>
+                    <option value="M">المهندس (M)</option>
+                    <option value="F">الفضل (F)</option>
+                    <option value="Q">القمة (Q)</option>
+                    <option value="A">الأوائل (A)</option>
+                    <option value="S">سمارت (S)</option>
+                    <option value="Z">زون (Z)</option>
+                </select>
             </div>
             <div class="input-group">
+                <label>كود الطالب</label>
+                <input type="text" id="editStudentCode" required class="custom-input" style="font-weight:bold; color:var(--primary-color); letter-spacing: 1px;">
+            </div>
+
+            <!-- الصف المضاف للاسم عشان التنسيق يفضل مظبوط -->
+            <div class="input-group full-width" style="grid-column: span 2;">
                 <label>الاسم</label>
                 <input type="text" id="editStudentName" required class="custom-input">
             </div>
+
+            <!-- الصف الثاني: الصف والمسار (سيبه زي ما هو عندك) -->
 
             <!-- الصف الثاني: الصف والمسار -->
             <div class="input-group">
