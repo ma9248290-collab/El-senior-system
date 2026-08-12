@@ -201,7 +201,11 @@ document.getElementById('confirmYesBtn')?.addEventListener('click', function() {
 
 function openModal(modalId) { 
     document.getElementById(modalId).style.display = "block"; 
-    if(modalId === 'addStudentModal') document.getElementById('studentCode').value = generateStudentCode(); 
+    if(modalId === 'addStudentModal') {
+        let prefixEl = document.getElementById('studentCenterPrefix');
+        if (prefixEl) prefixEl.value = '';
+        document.getElementById('studentCode').value = ''; 
+    }
     if(modalId === 'addSessionModal') { document.getElementById('sessionDate').valueAsDate = new Date(); toggleAutoInputs(); } 
     if(modalId === 'addExamModal') document.getElementById('examDate').valueAsDate = new Date(); 
     if(modalId === 'addHwModal') document.getElementById('hwDate').valueAsDate = new Date(); 
@@ -983,14 +987,62 @@ function filterGroupsByLevel(levelSelectId, groupSelectId) {
     if(level) { groups.filter(g => g.level === level).forEach(g => { groupSelect.innerHTML += `<option value="${g.name}">${g.name}</option>`; }); }
 }
 
-function generateStudentCode() { let maxId = 0; students.forEach(s => { let num = parseInt(s.code, 10); if (!isNaN(num) && num > maxId) maxId = num; }); return (maxId + 1).toString(); }
+window.generateStudentCode = function(prefix = null) { 
+    if (prefix) {
+        let lastNum = 2000; // البداية الافتراضية لو السنتر ده لسه مفيش فيه ولا طالب
+        
+        // 💡 السحر هنا: بنلف في مصفوفة الطلاب بالعكس (من آخر طالب اتسجل لأول طالب)
+        for (let i = students.length - 1; i >= 0; i--) {
+            let s = students[i];
+            // لو لقينا طالب الكود بتاعه بيبدأ بحرف السنتر اللي اخترناه
+            if (s.code && String(s.code).startsWith(prefix + "-")) {
+                let num = parseInt(String(s.code).split("-")[1], 10);
+                if (!isNaN(num)) {
+                    lastNum = num; // بناخد رقمه
+                    break; // 🛑 ونوقف بحث فوراً لأننا خلاص لقينا "آخر" واحد اتسجل في السنتر ده
+                }
+            }
+        }
+        
+        // بنرجع الرقم مضاف ليه 1
+        return prefix + "-" + (lastNum + 1).toString();
+        
+    } else {
+        // دعم للنظام القديم أو الطلاب الأونلاين (أرقام فقط)
+        let maxId = 0; 
+        students.forEach(s => { 
+            let num = parseInt(s.code, 10); 
+            if (!isNaN(num) && num > maxId) maxId = num; 
+        }); 
+        return (maxId + 1).toString(); 
+    }
+};
 
+// الدالة دي بتفضل زي ما هي مفيهاش تغيير
+window.updateGeneratedCode = function() {
+    let prefix = document.getElementById("studentCenterPrefix").value;
+    if (prefix) {
+        document.getElementById("studentCode").value = generateStudentCode(prefix);
+    } else {
+        document.getElementById("studentCode").value = "";
+    }
+};
+window.updateGeneratedCode = function() {
+    let prefix = document.getElementById("studentCenterPrefix").value;
+    if (prefix) {
+        document.getElementById("studentCode").value = generateStudentCode(prefix);
+    } else {
+        document.getElementById("studentCode").value = "";
+    }
+};
 document.getElementById("addStudentForm")?.addEventListener("submit", async function(e) { 
     e.preventDefault(); 
     const code = document.getElementById("studentCode").value.trim(); 
     const name = document.getElementById("studentName").value.trim(); 
     const level = document.getElementById("studentLevel").value; 
     const gender = document.getElementById("studentGender").value; 
+    const trackGroup = document.getElementById("trackGroup").style.display;
+const track = trackGroup !== 'none' ? document.getElementById("studentTrack").value : "عام";
     
     const phoneEl = document.getElementById("studentPhone");
     const phone = phoneEl && phoneEl.value.trim() !== "" ? phoneEl.value.trim() : "0"; 
@@ -1018,7 +1070,17 @@ document.getElementById("addStudentForm")?.addEventListener("submit", async func
     if(duplicate) return showToast(`مسجل مسبقاً: ${duplicate.name}`, "error");
 
     // حفظ الطالب في النظام
-    students.push({ code, name, level, gender, phone, parentPhone, group, behaviorPoints: 0 }); 
+    let isSpecialCase = document.getElementById("studentIsSpecial") ? document.getElementById("studentIsSpecial").checked : false;
+let specialAmount = isSpecialCase ? (parseFloat(document.getElementById("studentSpecialAmount").value) || 0) : 0;
+
+students.push({ code, name, level, gender, phone, parentPhone, group, behaviorPoints: 0, isSpecialCase: isSpecialCase, specialAmount: specialAmount }); 
+
+// تصفير المربع بعد الحفظ
+if(document.getElementById("studentIsSpecial")) {
+    document.getElementById("studentIsSpecial").checked = false;
+    document.getElementById("studentSpecialAmountDiv").style.display = 'none';
+    document.getElementById("studentSpecialAmount").value = '';
+}
     localStorage.setItem("students", JSON.stringify(students)); 
     
     if(typeof addSystemLog === "function") addSystemLog("إضافة طالب 🎓", `تسجيل الطالب: ${name} (كود: ${code}) في ${group}`);
@@ -1060,7 +1122,10 @@ function renderTable() {
     const tbody = document.getElementById("students-list"); 
     if(!tbody) return;
     tbody.innerHTML = ""; 
-    students.forEach((student) => { tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name}</td><td>${student.level}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; }); 
+    students.forEach((student) => { 
+    let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
+    tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
+});
     document.getElementById("total-students").innerText = students.length; 
 }
 
@@ -1120,6 +1185,8 @@ window.openEditStudentModal = function() {
         document.getElementById('editStudentCode').value = student.code; 
         document.getElementById('editStudentName').value = student.name; 
         document.getElementById('editStudentLevel').value = student.level; 
+        document.getElementById('editStudentTrack').value = student.track || "عام";
+toggleTrackDropdown('editStudentLevel', 'editTrackGroup');
         
         filterGroupsByLevel('editStudentLevel', 'editStudentGroup');
         
@@ -1135,6 +1202,11 @@ window.openEditStudentModal = function() {
         if(phoneInput) phoneInput.value = student.phone; 
         
         document.getElementById('editParentPhone').value = student.parentPhone; 
+        if (document.getElementById('editStudentIsSpecial')) {
+    document.getElementById('editStudentIsSpecial').checked = student.isSpecialCase || false;
+    document.getElementById('editStudentSpecialAmountDiv').style.display = student.isSpecialCase ? 'block' : 'none';
+    document.getElementById('editStudentSpecialAmount').value = student.specialAmount !== undefined ? student.specialAmount : "";
+}
         openModal('editStudentModal'); 
     } 
 };
@@ -1172,10 +1244,14 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
         students[studentIndex].code = newCode; 
         students[studentIndex].name = name; 
         students[studentIndex].level = document.getElementById('editStudentLevel').value; 
+        students[studentIndex].track = document.getElementById('editTrackGroup').style.display !== 'none' ? document.getElementById('editStudentTrack').value : "عام";
         students[studentIndex].gender = document.getElementById('editStudentGender').value; 
         students[studentIndex].phone = phone; 
         students[studentIndex].parentPhone = parentPhone; 
         students[studentIndex].group = document.getElementById('editStudentGroup').value; 
+        let isSpecial = document.getElementById('editStudentIsSpecial').checked;
+students[studentIndex].isSpecialCase = isSpecial;
+students[studentIndex].specialAmount = isSpecial ? (parseFloat(document.getElementById('editStudentSpecialAmount').value) || 0) : 0;
         
         // تحديث الرقم في باقي الجداول لو اتغير
         if(oldPhone !== phone) { 
@@ -1274,15 +1350,77 @@ document.getElementById('editGroupFormModal')?.addEventListener('submit', functi
 function openGroupDetails(groupName) { currentActiveGroup = groupName; document.getElementById("groups-overview").style.display = "none"; document.getElementById("group-details-view").style.display = "block"; document.getElementById("current-group-title").innerText = `مجموعة: ${groupName}`; renderGroupStudentsTable(); }
 function backToGroups() { currentActiveGroup = null; document.getElementById("groups-overview").style.display = "block"; document.getElementById("group-details-view").style.display = "none"; renderGroupCards(); }
 
-function renderGroupStudentsTable() { 
+window.renderGroupStudentsTable = function() { 
     const tbody = document.getElementById("group-students-list"); 
     tbody.innerHTML = ""; 
     const groupStudents = students.filter(s => s.group === currentActiveGroup); 
-    if(groupStudents.length === 0) return tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">لا يوجد طلاب</td></tr>`; 
+    
+    if(groupStudents.length === 0) {
+        return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
+    }
+
+    // 1. استخراج آخر 4 حصص لهذه المجموعة وترتيبهم من الأقدم للأحدث
+    let last4Sessions = classSessions
+        .filter(s => s.group === currentActiveGroup)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .slice(-4);
+
     groupStudents.forEach((student) => { 
-        tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name}</td><td>${student.parentPhone}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button><button class="icon-btn danger admin-only" style="margin-right: 5px;" onclick="removeStudentFromGroup('${student.code}')">❌ إزالة</button></td></tr>`; 
+        // 2. تصميم بادج المسار (عام / أزهر / بكالوريا)
+        let trackName = student.track || 'عام';
+        let trackBadge = `<span style="font-size: 11px; background: rgba(59, 130, 246, 0.1); color: var(--primary-color); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); margin-top: 5px; display: inline-block; font-weight: bold;">🎓 ${trackName}</span>`;
+
+        // 3. تصميم نقط الحضور (آخر 4 حصص)
+        let attendanceDotsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;" dir="rtl">`;
+        
+        // هنعمل لوب 4 مرات عشان دايماً نعرض 4 نقط (حتى لو الجروب لسه مفيش فيه 4 حصص)
+        for(let i = 0; i < 4; i++) {
+            let session = last4Sessions[i];
+            let dotColor = "#e2e8f0"; // لون رصاصي افتراضي (لو مفيش حصة أو متسجلش)
+            let tooltipText = "لا توجد حصة / لم يسجل";
+
+            if (session) {
+                let status = session.attendance[student.code] || session.attendance[student.phone];
+                if (status === 'present') { 
+                    dotColor = "#10b981"; // أخضر - حاضر
+                    tooltipText = `${session.date}: حاضر ✅`; 
+                }
+                else if (status === 'late') { 
+                    dotColor = "#f59e0b"; // أصفر/برتقالي - متأخر
+                    tooltipText = `${session.date}: متأخر ⏳`; 
+                }
+                else if (status === 'absent') { 
+                    dotColor = "#ef4444"; // أحمر - غائب
+                    tooltipText = `${session.date}: غائب ❌`; 
+                }
+            }
+
+            // رسم النقطة (مع إضافة Tooltip يظهر التفاصيل لما تقف عليها بالماوس)
+            attendanceDotsHtml += `<span style="width: 14px; height: 14px; border-radius: 50%; background-color: ${dotColor}; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); cursor: help;" title="${tooltipText}"></span>`;
+        }
+        attendanceDotsHtml += `</div>`;
+
+        // 4. رسم الصف في الجدول
+        tbody.innerHTML += `
+        <tr>
+            <td><strong style="color:var(--primary-color); font-size: 16px;">${student.code}</strong></td>
+            <td>
+                <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                    <strong style="font-size: 14px;">${student.name}</strong>
+                    ${trackBadge}
+                </div>
+            </td>
+            <td>${attendanceDotsHtml}</td>
+            <td style="direction: ltr;">${student.parentPhone}</td>
+            <td>
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="profile-btn" onclick="openStudentProfile('${student.code}')" style="margin:0;">👤 الملف</button>
+                    <button class="icon-btn danger admin-only" onclick="removeStudentFromGroup('${student.code}')" title="إزالة من المجموعة">❌</button>
+                </div>
+            </td>
+        </tr>`; 
     }); 
-}
+};
 
 function removeStudentFromGroup(code) { customConfirm("إزالة هذا الطالب من المجموعة؟", () => { const student = students.find(s => s.code === code); if(student) { student.group = ""; localStorage.setItem("students", JSON.stringify(students)); renderGroupStudentsTable(); renderGroupCards(); showToast("تمت الإزالة"); } }); }
 
@@ -1349,6 +1487,14 @@ document.getElementById('attendanceBarcode')?.addEventListener('keypress', funct
             // 2. التحضير الفعلي بالكود
             markAttendance(student.code, attStatus); 
             showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`); 
+            // 🔔 تنبيه صامت ومرئي فقط للحالات الخاصة
+if (student.isSpecialCase) {
+    let alertBox = document.createElement('div');
+    alertBox.innerHTML = `⭐ <b>حالة خاصة:</b> ${student.name} يدفع <b>(${student.specialAmount} ج.م)</b>`;
+    alertBox.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#f59e0b; color:white; padding:12px 30px; border-radius:30px; font-weight:900; font-size:16px; z-index:9999999; box-shadow:0 10px 25px rgba(245, 158, 11, 0.4); text-align:center; animation: slideInLeftToast 0.4s ease-out forwards;";
+    document.body.appendChild(alertBox);
+    setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(()=>alertBox.remove(), 400); }, 4000);
+}
             
             // 3. التحقق من تفعيل الدفع السريع
             let autoPaymentEnabled = document.getElementById('autoPaymentCheckbox')?.checked;
@@ -1384,8 +1530,17 @@ window.openQuickPaymentModal = function(student) {
     // لو المدرس مخلي السعر 0، مفيش داعي نطلع شاشة الدفع أصلاً
     if(groupPrice === 0) return;
 
-    document.getElementById("qpStudentName").innerText = student.name;
-    document.getElementById("qpStudentCode").value = student.code;
+    let actualPrice = groupPrice;
+let specialBadge = "";
+
+// لو الطالب حالة خاصة، السعر يتغير للي إنت حددتهوله
+if (student.isSpecialCase) {
+    actualPrice = student.specialAmount;
+    specialBadge = `<br><span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: bold; border: 1px dashed #f59e0b; display: inline-block; margin-top: 5px;">⭐ حالة خاصة: يدفع ${actualPrice} ج.م</span>`;
+}
+
+document.getElementById("qpStudentName").innerHTML = student.name + specialBadge;
+document.getElementById("qpAmount").value = actualPrice;
     
     // هنخفي الـ Select عشان نوع الدفع بقى ثابت من إعدادات المجموعة
     document.getElementById("qpPayType").parentElement.style.display = "none";
@@ -1682,7 +1837,7 @@ window.renderFinanceTable = function() {
             isSessionPaid = studentPayment.status === 'paid';
             payAmount = studentPayment.amount || 0;
         } else if (studentPayment === 'paid') { // دعم السجلات القديمة
-            isSessionPaid = true; payAmount = groupPrice;
+            isSessionPaid = true; payAmount = student.isSpecialCase ? student.specialAmount : groupPrice;
         }
 
         let isCoveredByMonthly = groupPayType === 'month' && monthlyStatus.isCovered;
@@ -1719,7 +1874,7 @@ window.renderFinanceTable = function() {
                 let btnText = subscriptionNeedsRenewal ? `تجديد ${monthlyStatus.monthName} 💰` : "استلام نقدية 💰";
                 let btnColor = subscriptionNeedsRenewal ? "var(--danger-color)" : "var(--primary-color)";
                 let btnAnimation = subscriptionNeedsRenewal ? "animation: pulse-red 1.5s infinite;" : "";
-                actionBtn = `<button class="save-btn" style="margin: 0; background: ${btnColor}; padding: 8px 15px; width: auto; ${btnAnimation}" onclick="confirmPayment('${recordKey}', '${student.code}', '${session.date}', ${groupPrice}, '${groupPayType}')">${btnText}</button>`;
+                actionBtn = `<button class="save-btn" style="margin: 0; background: ${btnColor}; padding: 8px 15px; width: auto; ${btnAnimation}" onclick="confirmPayment('${recordKey}', '${student.code}', '${session.date}', ${(student.isSpecialCase ? student.specialAmount : groupPrice)}, '${groupPayType}')">${btnText}</button>`;
             } else {
                 actionBtn = `<span style="color: var(--text-muted); font-size: 12px;">تسعير مجاني</span>`;
             }
@@ -4037,6 +4192,7 @@ window.saveLecture = async function() {
         let newLecture = { 
             id: "lec_" + Date.now(), title: title, level: level, type: "mixed", 
             price: 0, maxViews: maxViews, desc: desc, videos: videos, 
+            track: document.getElementById("lecTrack").value,
             image: imageBase64 || defaultImage, date: new Date().toISOString().split('T')[0] 
         };
 
@@ -4081,6 +4237,7 @@ window.saveEditedCourse = async function() {
         
         let updatedLecture = { 
             ...lec, title: title, level: document.getElementById("editLecLevel").value,
+            track: document.getElementById("editLecTrack").value,
             type: "mixed", price: 0, image: newImageBase64 || oldImage, maxViews: maxViews,
             desc: document.getElementById("editLecDesc").value.trim(), videos: videos,
             linkedSessions: null, linkedSession: null // مسح النظام القديم
@@ -4206,6 +4363,7 @@ window.openEditCourseModal = function(id) {
 
     // تظبيط قائمة الصفوف الدراسية
     let selectLevel = document.getElementById("editLecLevel");
+    document.getElementById("editLecTrack").value = lec.track || 'all';
     let activeLevels = JSON.parse(localStorage.getItem("activeLevels")) || ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
     selectLevel.innerHTML = '<option value="all">كل الصفوف (عام)</option>';
     activeLevels.forEach(lvl => { selectLevel.innerHTML += `<option value="${lvl}" ${lec.level === lvl ? 'selected' : ''}>${lvl}</option>`; });
@@ -4561,7 +4719,7 @@ window.saveOnlineExam = async function() {
     }
 
     let totalScore = currentQuestions.reduce((sum, q) => sum + (q.points || 0), 0);
-    let newExam = { id: "exam_" + Date.now(), title: title, duration: parseInt(duration), group: selectedGroups, autoShowResult: autoResult, totalScore: totalScore, status: "open", date: new Date().toISOString().split('T')[0], questions: currentQuestions };
+    let newExam = { id: "exam_" + Date.now(), title: title, duration: parseInt(duration), group: selectedGroups, autoShowResult: autoResult, totalScore: totalScore,track: document.getElementById("onlineExamTrack").value, status: "open", date: new Date().toISOString().split('T')[0], questions: currentQuestions };
 
     try {
         let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`);
@@ -6145,3 +6303,14 @@ document.addEventListener('DOMContentLoaded', () => {
         updateNetworkStatus(navigator.onLine, true);
     }, 500);
 });
+
+
+window.toggleTrackDropdown = function(levelId, trackGroupId) {
+    let level = document.getElementById(levelId).value;
+    let trackGroup = document.getElementById(trackGroupId);
+    if (level.includes('ثانوي') || level.includes('بكالوريا')) {
+        trackGroup.style.display = 'block';
+    } else {
+        trackGroup.style.display = 'none';
+    }
+};
