@@ -1003,29 +1003,34 @@ function filterGroupsByLevel(levelSelectId, groupSelectId) {
 
 window.generateStudentCode = function(prefix = null) { 
     if (prefix) {
-        let lastNum = 2000; // البداية الافتراضية لو السنتر ده لسه مفيش فيه ولا طالب
+        let lastNum = 1000; // البداية الافتراضية
         
-        // 💡 السحر هنا: بنلف في مصفوفة الطلاب بالعكس (من آخر طالب اتسجل لأول طالب)
+        // بنلف في مصفوفة الطلاب بالعكس عشان نجيب آخر كود
         for (let i = students.length - 1; i >= 0; i--) {
             let s = students[i];
-            // لو لقينا طالب الكود بتاعه بيبدأ بحرف السنتر اللي اخترناه
-            if (s.code && String(s.code).startsWith(prefix + "-")) {
-                let num = parseInt(String(s.code).split("-")[1], 10);
+            
+            // بندور على أي كود بيبدأ بالحرف ده (سواء بعده داش أو لأ)
+            if (s.code && String(s.code).startsWith(prefix)) {
+                // سحب الأرقام فقط من الكود (عشان ندعم القديم اللي بداش والجديد اللي من غير)
+                let numStr = String(s.code).replace(/[^0-9]/g, '');
+                let num = parseInt(numStr, 10);
+                
                 if (!isNaN(num)) {
-                    lastNum = num; // بناخد رقمه
-                    break; // 🛑 ونوقف بحث فوراً لأننا خلاص لقينا "آخر" واحد اتسجل في السنتر ده
+                    lastNum = num; 
+                    break; 
                 }
             }
         }
         
-        // بنرجع الرقم مضاف ليه 1
-        return prefix + "-" + (lastNum + 1).toString();
+        // بنرجع الحرف ملزوق فيه الرقم على طول من غير داش
+        return prefix + (lastNum + 1).toString();
         
     } else {
-        // دعم للنظام القديم أو الطلاب الأونلاين (أرقام فقط)
+        // دعم للأكواد اللي أرقام بس
         let maxId = 0; 
         students.forEach(s => { 
-            let num = parseInt(s.code, 10); 
+            let numStr = String(s.code).replace(/[^0-9]/g, '');
+            let num = parseInt(numStr, 10); 
             if (!isNaN(num) && num > maxId) maxId = num; 
         }); 
         return (maxId + 1).toString(); 
@@ -1074,11 +1079,10 @@ window.processStudentSaving = async function(keepOpen) {
         return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
     }
 
+    // فحص التكرار (للكود ورقم الطالب فقط) - السماح بتكرار الاسم ورقم ولي الأمر
     const duplicate = students.find(s => 
         s.code === code || 
-        (phone !== "0" && s.phone === phone) || 
-        (parentPhone !== "0" && s.parentPhone === parentPhone) || 
-        normalizeArabicName(s.name) === normalizeArabicName(name)
+        (phone !== "0" && s.phone === phone)
     );
     
     if(duplicate) return showToast(`مسجل مسبقاً: ${duplicate.name}`, "error");
@@ -1274,12 +1278,11 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
     if (!isValidEgyptianPhone(parentPhone)) return showToast("رقم ولي الأمر خطأ!", "error");
     if (phone !== "0" && parentPhone !== "0" && phone === parentPhone) return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
 
+    // فحص التكرار (للكود ورقم الطالب فقط) - السماح بتكرار الاسم ورقم ولي الأمر
     const duplicate = students.find(s => 
         s.code !== originalCode && (
             s.code === newCode || 
-            (phone !== "0" && s.phone === phone) || 
-            (parentPhone !== "0" && s.parentPhone === parentPhone) || 
-            normalizeArabicName(s.name) === normalizeArabicName(name)
+            (phone !== "0" && s.phone === phone)
         )
     );
     if(duplicate) return showToast(`تنبيه! مسجل مسبقاً`, "error");
@@ -6434,4 +6437,48 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         startRealTimeSync();
     }, 3000); // بنستنى 3 ثواني لحد ما السيستم يحمل عشان منعملش تعارض
+});
+
+
+
+// ==========================================
+// 🚨 تنبيه ذكي عند تكرار رقم ولي الأمر (للإخوة)
+// ==========================================
+window.checkParentPhoneWarning = function(inputEl, originalCode = null) {
+    let val = inputEl.value.trim();
+    let parentDiv = inputEl.parentElement;
+    let warningId = inputEl.id + "_warning";
+    let warningEl = document.getElementById(warningId);
+
+    // لو التنبيه مش موجود، هنكريته ونحطه تحت الخانة
+    if (!warningEl) {
+        warningEl = document.createElement('div');
+        warningEl.id = warningId;
+        warningEl.style.cssText = "color: #f59e0b; font-size: 13px; font-weight: bold; margin-top: 5px; display: none; background: rgba(245, 158, 11, 0.1); padding: 5px 10px; border-radius: 6px; border: 1px dashed #f59e0b;";
+        parentDiv.appendChild(warningEl);
+    }
+
+    // لو كتب 10 أرقام أو أكتر، نبدأ ندور في الداتا
+    if (val.length >= 10 && val !== "0") {
+        let sibling = students.find(s => s.parentPhone === val && s.code !== originalCode);
+        if (sibling) {
+            warningEl.innerHTML = `⚠️ تنبيه: هذا الرقم مسجل أيضاً لولي أمر الطالب (<span style="color:var(--primary-color)">${sibling.name}</span>)`;
+            warningEl.style.display = 'block';
+        } else {
+            warningEl.style.display = 'none';
+        }
+    } else {
+        warningEl.style.display = 'none';
+    }
+};
+
+// تشغيل التنبيه لايف (أثناء الكتابة) في نافذة إضافة طالب جديد
+document.getElementById("parentPhone")?.addEventListener("input", function() {
+    checkParentPhoneWarning(this);
+});
+
+// تشغيل التنبيه لايف (أثناء الكتابة) في نافذة تعديل بيانات الطالب
+document.getElementById("editParentPhone")?.addEventListener("input", function() {
+    let origCode = document.getElementById("editStudentCodeOriginal").value;
+    checkParentPhoneWarning(this, origCode);
 });
