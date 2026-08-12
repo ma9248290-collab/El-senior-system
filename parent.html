@@ -578,7 +578,28 @@ body {
                     
                     <button class="auth-btn-submit" id="login-btn-action" onclick="fetchStudentData()">تسجيل الدخول 🚀</button>
                     <button class="auth-btn-submit auth-btn-outline" onclick="toggleAuthView('register')">لا يوجد لديك حساب؟ أنشئ حسابك الآن!</button>
+                    
+                    <!-- زرار نسيت الكود -->
+                    <button class="auth-btn-submit auth-btn-outline" style="border: none; margin-top: 5px; text-decoration: underline; font-size: 14px;" onclick="toggleAuthView('forgot')">نسيت كود الطالب؟ اضغط هنا لاسترجاعه</button>
                 </div>
+
+                <!-- 🔍 فورم استرجاع الكود (الجديد) -->
+                <div id="forgot-form-view" style="display: none;">
+                    <h2 style="color: var(--secondary); margin: 0 0 5px 0; font-weight: 900; font-size: 24px;">استرجاع كود الطالب 🔍</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; font-weight: bold; margin-bottom: 20px;">أدخل رقم هاتفك أو هاتف ولي الأمر للبحث عن الكود الخاص بك</p>
+
+                    <div class="auth-input-group" style="margin-bottom: 20px;">
+                        <label>رقم الهاتف المسجل</label>
+                        <input type="text" id="forgotPhoneInput" placeholder="01XXXXXXXXX" style="text-align: center; letter-spacing: 2px; font-weight: 900; font-size: 16px;">
+                    </div>
+
+                    <button class="auth-btn-submit" id="retrieveCodeBtn" onclick="retrieveStudentCode()">البحث عن الكود 🔍</button>
+                    <button class="auth-btn-submit auth-btn-outline" onclick="toggleAuthView('login')">العودة لتسجيل الدخول</button>
+                    
+                    <p id="forgotMsg" style="margin-top: 15px; font-weight: bold; font-size: 15px; padding: 10px; border-radius: 8px; display: none;"></p>
+                </div>
+
+                <!-- 📝 فورم إنشاء حساب جديد -->
 
                 <!-- 📝 فورم إنشاء حساب جديد -->
                 <div id="register-form-view" style="display: none;">
@@ -640,7 +661,7 @@ body {
             <!-- الجنب الملون في المودال (البراند وصورة المستر) -->
             <div class="auth-brand-side">
                 <img src="logo.PNG" style="width: 120px; height: 120px; border-radius: 50%; border: 5px solid rgba(255,255,255,0.3); margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 2;" id="modal-teacher-img">
-                <h1 id="modal-teacher-name">مستر سامي سمير</h1>
+                <h1 id="modal-teacher-name">MR سامي سمير</h1>
                 <p>سجل دخولك لتتمكن من مشاهدة المحاضرات، حل الامتحانات، ومعرفة نتيجتك أولاً بأول.</p>
                 <div id="teacher-contact-box" style="margin-top: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 15px; font-size: 14px; width: 100%; border: 1px solid rgba(255,255,255,0.1);">
                     <!-- أرقام المستر -->
@@ -969,14 +990,21 @@ body {
             document.getElementById('auth-modal').classList.remove('active');
         }
         function toggleAuthView(type) {
+            document.getElementById('login-form-view').style.display = 'none';
+            document.getElementById('register-form-view').style.display = 'none';
+            
+            let forgotView = document.getElementById('forgot-form-view');
+            if(forgotView) forgotView.style.display = 'none';
+
             if(type === 'login') {
                 document.getElementById('login-form-view').style.display = 'block';
-                document.getElementById('register-form-view').style.display = 'none';
-            } else {
-                document.getElementById('login-form-view').style.display = 'none';
+            } else if (type === 'register') {
                 document.getElementById('register-form-view').style.display = 'block';
+            } else if (type === 'forgot') {
+                if(forgotView) forgotView.style.display = 'block';
             }
         }
+        
         function toggleRegFields() {
             let type = document.getElementById("regType").value;
             document.getElementById("centerFields").style.display = type === 'center' ? 'flex' : 'none';
@@ -1271,13 +1299,17 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
         async function submitRegistration() {
             globalTeacherId = "ElSenior_System_Master";
             let type = document.getElementById("regType").value;
+            
+            let genderInput = document.getElementById("regGender");
+            let studentGender = genderInput ? genderInput.value : "غير محدد";
+
             let studentData = {
                 name: document.getElementById("regName").value.trim(),
-                track: document.getElementById("regTrackGroup").style.display !== 'none' ? document.getElementById("regTrack").value : "عام",
+                track: document.getElementById("regTrackGroup") && document.getElementById("regTrackGroup").style.display !== 'none' ? document.getElementById("regTrack").value : "عام",
                 phone: document.getElementById("regPhone").value.trim() || "0",
                 parentPhone: document.getElementById("regParentPhone").value.trim() || "0",
                 level: document.getElementById("regLevel").value,
-                gender: document.getElementById("regGender").value,
+                gender: studentGender,
                 timestamp: new Date().toISOString(),
                 regType: type
             };
@@ -1292,6 +1324,7 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
 
             try {
                 if (type === 'center') {
+                    // طالب السنتر
                     studentData.centerName = document.getElementById("regCenterName").value.trim();
                     studentData.groupPref = document.getElementById("regGroupPref").value.trim();
                     studentData.status = "pending";
@@ -1305,23 +1338,69 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
                     setTimeout(() => { closeAuthModal(); msgEl.innerText = ""; }, 3000);
 
                 } else {
+                    // طالب الأونلاين (تفعيل فوري)
                     studentData.gov = document.getElementById("regGov").value.trim();
                     studentData.school = document.getElementById("regSchool").value.trim();
-                    studentData.group = "أونلاين"; 
+                    
+                    let targetGroup = "أونلاين - " + studentData.level;
+                    studentData.group = targetGroup; 
                     studentData.behaviorPoints = 0;
 
                     let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`);
                     let studentsArray = await res.json() || [];
                     studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
                     
-                    let maxId = 0;
-                    studentsArray.forEach(s => { let num = parseInt(s.code, 10); if (!isNaN(num) && num > maxId) maxId = num; });
-                    studentData.code = (maxId + 1).toString();
+                    // --- 🚨 الحماية من التكرار 🚨 ---
+                    let duplicate = studentsArray.find(s => 
+                        (studentData.phone !== "0" && s.phone === studentData.phone) || 
+                        (studentData.parentPhone !== "0" && s.parentPhone === studentData.parentPhone) || 
+                        (s.name.trim() === studentData.name.trim())
+                    );
+
+                    if (duplicate) {
+                        msgEl.style.color = "var(--danger)";
+                        msgEl.innerText = "❌ مسجل مسبقاً! استخدم 'نسيت كود الطالب' لاسترجاع الكود.";
+                        btn.innerText = 'إنشاء حساب أونلاين 🚀'; 
+                        btn.disabled = false;
+                        return; // وقف التسجيل هنا ومنع التكرار
+                    }
+                    // ---------------------------------
+
+                    let baseNum = 0;
+                    if (studentData.level.includes("الأول")) baseNum = 1000;
+                    else if (studentData.level.includes("الثاني")) baseNum = 2000;
+                    else if (studentData.level.includes("الثالث")) baseNum = 3000;
+
+                    let lastNum = baseNum;
+                    for (let i = studentsArray.length - 1; i >= 0; i--) {
+                        let s = studentsArray[i];
+                        if (s.code && String(s.code).startsWith("O-") && s.level === studentData.level) {
+                            let num = parseInt(String(s.code).split("-")[1], 10);
+                            if (!isNaN(num)) {
+                                lastNum = num;
+                                break;
+                            }
+                        }
+                    }
+
+                    studentData.code = "O-" + (lastNum + 1).toString();
 
                     studentsArray.push(studentData);
                     await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, {
                         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentsArray)
                     });
+
+                    let groupsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`);
+                    let groupsArray = await groupsRes.json() || [];
+                    groupsArray = Array.isArray(groupsArray) ? groupsArray : Object.values(groupsArray).filter(g => g !== null);
+
+                    let groupExists = groupsArray.some(g => g.name === targetGroup);
+                    if (!groupExists) {
+                        groupsArray.push({ name: targetGroup, level: studentData.level, payType: "session", price: 0 });
+                        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupsArray)
+                        });
+                    }
 
                     document.getElementById('auth-modal').classList.remove('active');
                     document.getElementById('newOnlineCodeDisplay').innerText = studentData.code;
@@ -1334,9 +1413,54 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
                 msgEl.style.color = "var(--danger)";
                 msgEl.innerText = "❌ حدث خطأ أثناء الاتصال بالإنترنت!";
             }
-            btn.innerText = 'إرسال الطلب 🚀'; btn.disabled = false;
+            btn.innerText = type === 'center' ? 'إرسال طلب الانضمام 🚀' : 'إنشاء حساب أونلاين 🚀';
+            btn.disabled = false;
         }
+        
 
+        async function retrieveStudentCode() {
+            let phone = document.getElementById("forgotPhoneInput").value.trim();
+            let msgEl = document.getElementById("forgotMsg");
+            let btn = document.getElementById("retrieveCodeBtn");
+            
+            if(!phone || phone === "0" || phone.length < 10) {
+                msgEl.style.display = "block";
+                msgEl.style.color = "var(--danger)";
+                msgEl.style.background = "rgba(239, 68, 68, 0.1)";
+                msgEl.innerText = "يرجى إدخال رقم الهاتف بشكل صحيح!";
+                return;
+            }
+
+            btn.innerText = "جاري البحث... ⏳"; btn.disabled = true;
+            msgEl.style.display = "none";
+
+            try {
+                let globalTeacherId = "ElSenior_System_Master";
+                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`);
+                let studentsArray = await res.json() || [];
+                studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
+
+                let foundStudent = studentsArray.find(s => s && (s.parentPhone === phone || s.phone === phone));
+
+                msgEl.style.display = "block";
+                if(foundStudent) {
+                    msgEl.style.color = "var(--success)";
+                    msgEl.style.background = "rgba(16, 185, 129, 0.1)";
+                    msgEl.innerHTML = `✅ تم العثور على حسابك!<br><br>الاسم: <strong>${foundStudent.name}</strong><br>الكود الخاص بك: <br><span style="font-size: 24px; font-weight: 900; letter-spacing: 2px; color: var(--primary); display: inline-block; margin-top: 5px;">${foundStudent.code}</span>`;
+                } else {
+                    msgEl.style.color = "var(--danger)";
+                    msgEl.style.background = "rgba(239, 68, 68, 0.1)";
+                    msgEl.innerText = "❌ لم يتم العثور على أي طالب بهذا الرقم!";
+                }
+            } catch(e) {
+                msgEl.style.display = "block";
+                msgEl.style.color = "var(--danger)";
+                msgEl.style.background = "rgba(239, 68, 68, 0.1)";
+                msgEl.innerText = "❌ خطأ في الاتصال بالإنترنت!";
+            }
+
+            btn.innerText = "البحث عن الكود 🔍"; btn.disabled = false;
+        }
         window.studentHasAccess = function(lec) {
             try {
                 if (!currentStudent) return false;
