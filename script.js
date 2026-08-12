@@ -1,7 +1,7 @@
 // ==========================================
 // 1. قواعد البيانات والتهيئة الأساسية
 // ==========================================
-const TEACHER_NAME = "El-Senior";
+const TEACHER_NAME = "هيستوريا";
 let students = JSON.parse(localStorage.getItem("students")) || [];
 let classSessions = JSON.parse(localStorage.getItem("classSessions")) || []; 
 let exams = JSON.parse(localStorage.getItem("exams")) || []; 
@@ -213,7 +213,7 @@ function openModal(modalId) {
         const tInput = document.getElementById('teacherNameInput');
         const cInput = document.getElementById('centerNameInput');
         if(tInput) tInput.value = localStorage.getItem('teacherName') || TEACHER_NAME;
-        if(cInput) cInput.value = localStorage.getItem('centerName') || "El-Senior";
+        if(cInput) cInput.value = localStorage.getItem('centerName') || "هيستوريا";
     }
 }
 function closeModal(modalId) { document.getElementById(modalId).style.display = "none"; if(modalId === 'scannerModal') stopCameraScanner(); }
@@ -348,11 +348,11 @@ function toggleTheme() {
 // 12. نظام التفعيل وفصل البيانات (Multi-Tenancy) والمزامنة
 // ==========================================
 let isFirebaseLoaded = false;
-let licenseKey = "ElSenior_System_Master"; // 🔒 تثبيت إجباري للسينيور
+let licenseKey = "Historia_System_Master"; // 🔒 تثبيت إجباري للسينيور
 
 // الدالة دي بتولد مسار الداتابيز المخصوص للمدرس
 function getFirebaseUrl() {
-    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/data.json`;
+    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/Historia_System_Master/data.json`;
 }
 
 // ==========================================
@@ -376,7 +376,7 @@ if(loginForm) {
         e.preventDefault();
         
         // 🔒 تثبيت كود السنتر في الخلفية لنسخة السينيور
-let code = "ElSenior_System_Master";
+let code = "Historia_System_Master";
         
         let user = document.getElementById("loginUsername").value.trim();
         let pass = document.getElementById("loginPassword").value.trim();
@@ -677,7 +677,7 @@ async function loadDataFromFirebase() {
     }
     
     // 🔥 تعريف كود السنتر (تثبيت إجباري لضمان العزل لنسخة السينيور)
-let currentLicenseKey = "ElSenior_System_Master";
+let currentLicenseKey = "Historia_System_Master";
     
     try {
         let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${currentLicenseKey}.json`);
@@ -862,7 +862,7 @@ async function syncDataToBot() {
         await fetch(getFirebaseUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
         
         // 🚀 إرسال إشارة للسيرفر (جرس) إن فيه تعديل حصل في نفس اللحظة
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`, {
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/Historia_System_Master/syncSignal.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(window.lastLocalSyncTime)
@@ -1094,9 +1094,9 @@ window.processStudentSaving = async function(keepOpen) {
     if(typeof addSystemLog === "function") addSystemLog("إضافة طالب 🎓", `تسجيل الطالب: ${name} (كود: ${code}) في ${group}`);
 
     // إرسال الواتساب
-    const portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
+    const portalLink = `https://ma9248290-collab.github.io/historya-systtem/parent.html`;
     const teacherName = localStorage.getItem("teacherName") || "Sami Samir";
-    const centerName = localStorage.getItem("centerName") || "El-Senior";
+    const centerName = localStorage.getItem("centerName") || "هيستوريا";
 
     const welcomeMsg = `🌟 *مرحبًا بك في كتيبة الأوائل مع ${centerName}* 🌟\n*مستر / ${teacherName}*\n\nأهلاً بك يا بطل/ة: *${name}* 👑\nتم تسجيل بياناتك بنجاح في المنصة التعليمية 🎉\n\n📌 *بيانات حسابك في النظام:*\n▫️ *كود الطالب:* \`${code}\`\n▫️ *الصف الدراسي:* ${level}\n▫️ *المجموعة:* ${group}\n\n🔗 *رابط الدخول للمنصة التعليمية:*\n${portalLink}\n\n💡 *تنبيه:* استخدم كود الطالب ورقم هاتف ولي الأمر لتسجيل الدخول لمتابعة المحاضرات والامتحانات ونتائجك أولاً بأول.\n\nمع تمنياتنا لك بالتفوق والدرجة النهائية! 🎯💪`;
 
@@ -2821,7 +2821,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateParentLinkUI() {
     const linkInput = document.getElementById("parentPortalLink");
     if (linkInput) {
-        linkInput.value = "https://ma9248290-collab.github.io/El-senior-system/parent";
+        linkInput.value = "https://ma9248290-collab.github.io/historya-systtem/parent";
     }
 }
 
@@ -3450,8 +3450,8 @@ window.switchPage = function(pageId) {
         
         // 2. املأ بيانات المدرس في الخانات أول ما يفتح التاب
         if(document.getElementById('settingTeacherName')) {
-            document.getElementById('settingTeacherName').value = localStorage.getItem('teacherName') || 'El-Senior';
-            document.getElementById('settingCenterName').value = localStorage.getItem('centerName') || 'El-Senior';
+            document.getElementById('settingTeacherName').value = localStorage.getItem('teacherName') || 'هيستوريا';
+            document.getElementById('settingCenterName').value = localStorage.getItem('centerName') || 'هيستوريا';
             document.getElementById('settingAdminUser').value = localStorage.getItem('adminUser') || '';
             document.getElementById('settingAdminPass').value = localStorage.getItem('adminPass') || '';
             document.getElementById('settingAdminPin').value = localStorage.getItem('adminPin') || '';
@@ -3678,7 +3678,7 @@ let currentGradingStudentPhone = null;
 let currentQuestions = [];
 
 window.getSafeUid = function() {
-    return "ElSenior_System_Master"; // 🔒 التثبيت النهائي لمسار الداتا في كل الـ Fetches
+    return "Historia_System_Master"; // 🔒 التثبيت النهائي لمسار الداتا في كل الـ Fetches
 };
 
 // 1. تعديل دالة switchPlatformTab (عشان تعبي قائمة الصفوف بدل المجموعات)
@@ -6098,7 +6098,7 @@ window.confirmApproveRequest = async function() {
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
 
         // إرسال رسالة واتساب للطالب (ولو مش كاتب رقمه هيبعت لولي الأمر احتياطي)
-        let portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
+        let portalLink = `https://ma9248290-collab.github.io/historya-systtem/parent.html`;
         let waMsg = `🎉 *تمت الموافقة على طلب الانضمام*\nأهلاً بك في نظام ${localStorage.getItem("teacherName") || "السنتر"}.\n\n👤 *اسم الطالب:* ${newStudent.name}\n📚 *المجموعة:* ${newStudent.group}\n🔑 *كود الدخول الخاص بك:* ${newCode}\n\n🔗 *رابط منصة الطالب:* ${portalLink}`;
         
         if (typeof sendAutoWhatsApp === "function") {
@@ -6389,7 +6389,7 @@ function startRealTimeSync() {
     if (sessionStorage.getItem("isLoggedIn") !== "true" || localStorage.getItem("is_demo_mode") === "true") return;
 
     // الاتصال المباشر والمستمر بالفايربيز بدون ضغط على السيرفر
-    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`;
+    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/Historia_System_Master/syncSignal.json`;
     const source = new EventSource(syncUrl);
 
     source.addEventListener('put', async function(e) {
