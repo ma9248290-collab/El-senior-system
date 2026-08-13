@@ -1003,34 +1003,29 @@ function filterGroupsByLevel(levelSelectId, groupSelectId) {
 
 window.generateStudentCode = function(prefix = null) { 
     if (prefix) {
-        let lastNum = 1000; // البداية الافتراضية
+        let lastNum = 2000; // البداية الافتراضية لو السنتر ده لسه مفيش فيه ولا طالب
         
-        // بنلف في مصفوفة الطلاب بالعكس عشان نجيب آخر كود
+        // 💡 السحر هنا: بنلف في مصفوفة الطلاب بالعكس (من آخر طالب اتسجل لأول طالب)
         for (let i = students.length - 1; i >= 0; i--) {
             let s = students[i];
-            
-            // بندور على أي كود بيبدأ بالحرف ده (سواء بعده داش أو لأ)
-            if (s.code && String(s.code).startsWith(prefix)) {
-                // سحب الأرقام فقط من الكود (عشان ندعم القديم اللي بداش والجديد اللي من غير)
-                let numStr = String(s.code).replace(/[^0-9]/g, '');
-                let num = parseInt(numStr, 10);
-                
+            // لو لقينا طالب الكود بتاعه بيبدأ بحرف السنتر اللي اخترناه
+            if (s.code && String(s.code).startsWith(prefix + "-")) {
+                let num = parseInt(String(s.code).split("-")[1], 10);
                 if (!isNaN(num)) {
-                    lastNum = num; 
-                    break; 
+                    lastNum = num; // بناخد رقمه
+                    break; // 🛑 ونوقف بحث فوراً لأننا خلاص لقينا "آخر" واحد اتسجل في السنتر ده
                 }
             }
         }
         
-        // بنرجع الحرف ملزوق فيه الرقم على طول من غير داش
-        return prefix + (lastNum + 1).toString();
+        // بنرجع الرقم مضاف ليه 1
+        return prefix + "-" + (lastNum + 1).toString();
         
     } else {
-        // دعم للأكواد اللي أرقام بس
+        // دعم للنظام القديم أو الطلاب الأونلاين (أرقام فقط)
         let maxId = 0; 
         students.forEach(s => { 
-            let numStr = String(s.code).replace(/[^0-9]/g, '');
-            let num = parseInt(numStr, 10); 
+            let num = parseInt(s.code, 10); 
             if (!isNaN(num) && num > maxId) maxId = num; 
         }); 
         return (maxId + 1).toString(); 
@@ -1079,10 +1074,11 @@ window.processStudentSaving = async function(keepOpen) {
         return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
     }
 
-    // فحص التكرار (للكود ورقم الطالب فقط) - السماح بتكرار الاسم ورقم ولي الأمر
     const duplicate = students.find(s => 
         s.code === code || 
-        (phone !== "0" && s.phone === phone)
+        (phone !== "0" && s.phone === phone) || 
+        (parentPhone !== "0" && s.parentPhone === parentPhone) || 
+        normalizeArabicName(s.name) === normalizeArabicName(name)
     );
     
     if(duplicate) return showToast(`مسجل مسبقاً: ${duplicate.name}`, "error");
@@ -1278,11 +1274,12 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
     if (!isValidEgyptianPhone(parentPhone)) return showToast("رقم ولي الأمر خطأ!", "error");
     if (phone !== "0" && parentPhone !== "0" && phone === parentPhone) return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
 
-    // فحص التكرار (للكود ورقم الطالب فقط) - السماح بتكرار الاسم ورقم ولي الأمر
     const duplicate = students.find(s => 
         s.code !== originalCode && (
             s.code === newCode || 
-            (phone !== "0" && s.phone === phone)
+            (phone !== "0" && s.phone === phone) || 
+            (parentPhone !== "0" && s.parentPhone === parentPhone) || 
+            normalizeArabicName(s.name) === normalizeArabicName(name)
         )
     );
     if(duplicate) return showToast(`تنبيه! مسجل مسبقاً`, "error");
@@ -4264,8 +4261,8 @@ window.openEditCourseModal = function(id) {
 
 
 
-// 🔄 3. تحديث دالة فتح المنصة عشان ترسم أول فيديو أوتوماتيك
-window.switchPlatformTab = function(tabName) {
+// 🔄 3. دالة فتح المنصة معدلة لدعم الـ History والريفريش
+window.switchPlatformTab = function(tabName, fromHistory = false) {
     document.querySelectorAll('.platform-section').forEach(sec => sec.style.display = 'none');
     document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => btn.style.background = 'var(--secondary-color)');
     
@@ -4285,7 +4282,6 @@ window.switchPlatformTab = function(tabName) {
             activeLevels.forEach(lvl => { selectLevel.innerHTML += `<option value="${lvl}">${lvl}</option>`; });
         }
         
-        // 🔥 التعديل هنا: لو الكونتينر فاضي، ارسم أول صف أوتوماتيك
         let vContainer = document.getElementById("courseVideosContainer");
         if (vContainer && vContainer.innerHTML.trim() === "") {
             addCourseVideoRow();
@@ -4296,6 +4292,11 @@ window.switchPlatformTab = function(tabName) {
     if(tabName === 'notifications') { toggleNotifTargetOptions(); loadSentNotifications(); }
     if(tabName === 'store') loadStoreData();
     if(tabName === 'forum') loadPlatformForumQuestions();
+
+    // 🔥 تسجيل الخطوة في الرابط علشان الريفريش يشتغل
+    if (!fromHistory && !window.isHistoryNavigating) {
+        history.pushState({ page: 'platform', type: 'sub-tab', id: tabName }, '', `#platform-${tabName}`);
+    }
 };
 
 // 🔥 4. تحديث حدث الـ onChange بتاع تغيير الصف عشان يحدث قائمة الحصص جوه الفيديوهات
@@ -6166,25 +6167,38 @@ window.addEventListener('DOMContentLoaded', () => {
             let hash = window.location.hash.replace('#', '');
             
             if (hash && hash !== 'dashboard') {
-                // التوجيه التلقائي للمكان اللي كنت فيه
+                // التوجيه التلقائي للمكان اللي كنت فيه مع فتح الصفحة الأب أولاً
                 if (hash.startsWith('student-')) {
                     let id = hash.replace('student-', '');
-                    window.openStudentProfile(id, true);
+                    window.switchPage('students', true); // 👈 فتح صفحة الطلاب الأساسية
+                    setTimeout(() => window.openStudentProfile(id, true), 50); // 👈 ثم فتح الملف
                 } else if (hash.startsWith('group-')) {
                     let id = decodeURIComponent(hash.replace('group-', ''));
-                    window.openGroupDetails(id, true);
+                    window.switchPage('groups', true); // 👈 فتح صفحة المجموعات الأساسية
+                    setTimeout(() => window.openGroupDetails(id, true), 50); // 👈 ثم فتح المجموعة
                 } else if (hash.startsWith('session-')) {
                     let id = hash.replace('session-', '');
-                    window.openSessionDetails(id, true);
+                    window.switchPage('attendance', true);
+                    setTimeout(() => window.openSessionDetails(id, true), 50);
                 } else if (hash.startsWith('exam-')) {
                     let id = hash.replace('exam-', '');
-                    window.openExamDetails(id, true);
+                    window.switchPage('exams', true);
+                    setTimeout(() => window.openExamDetails(id, true), 50);
                 } else if (hash.startsWith('online-exam-')) {
                     let id = hash.replace('online-exam-', '');
-                    window.openOnlineExamDetails(id, true);
+                    window.switchPage('platform', true);
+                    setTimeout(() => {
+                        window.switchPlatformTab('exams', true);
+                        window.openOnlineExamDetails(id, true);
+                    }, 50);
                 } else if (hash.startsWith('hw-')) {
                     let id = hash.replace('hw-', '');
-                    window.openHwDetails(id, true);
+                    window.switchPage('homework', true);
+                    setTimeout(() => window.openHwDetails(id, true), 50);
+                } else if (hash.startsWith('platform-')) {
+                    let tab = hash.replace('platform-', '');
+                    window.switchPage('platform', true);
+                    setTimeout(() => window.switchPlatformTab(tab, true), 50);
                 } else {
                     window.switchPage(hash, true);
                 }
@@ -6235,15 +6249,31 @@ subPagesOverrides.forEach(override => {
     };
 });
 
-// 5. تتبع زراير العودة الداخلية في الواجهة (عشان رابط الموقع يتحدث معاها)
+// 5. تتبع زراير العودة الداخلية في الواجهة
 const backButtonsOverrides = [
     { funcName: 'backToStudents', parentPage: 'students' },
     { funcName: 'backToGroups', parentPage: 'groups' },
     { funcName: 'backToSessions', parentPage: 'attendance' },
     { funcName: 'backToExams', parentPage: 'exams' },
-    { funcName: 'backToPlatformExams', parentPage: 'platform' },
+    { funcName: 'backToPlatformExams', parentPage: 'platform-exams', isPlatformTab: true }, // 🔥 ربط الرجوع بتاب الامتحانات
     { funcName: 'backToHw', parentPage: 'homework' }
 ];
+
+backButtonsOverrides.forEach(override => {
+    const originalBackFunc = window[override.funcName];
+    window[override.funcName] = function(fromHistory = false) {
+        if (originalBackFunc) originalBackFunc.apply(this, []);
+        
+        // تحديث الرابط وتسجيل الخطوة
+        if (!fromHistory && !window.isHistoryNavigating) {
+            if (override.isPlatformTab) {
+                history.pushState({ page: 'platform', type: 'sub-tab', id: 'exams' }, '', `#platform-exams`);
+            } else {
+                history.pushState({ page: override.parentPage, type: 'main' }, '', `#${override.parentPage}`);
+            }
+        }
+    };
+});
 
 backButtonsOverrides.forEach(override => {
     const originalBackFunc = window[override.funcName];
@@ -6275,17 +6305,41 @@ window.addEventListener('popstate', function(event) {
             if(document.getElementById("online-exam-details-section")?.style.display === 'block') window.backToPlatformExams(true);
             if(document.getElementById("hw-details-view")?.style.display === 'block') window.backToHw(true);
 
-            // بعد كده نفتح الصفحة اللي طلبها زرار الرجوع
             window.switchPage(state.page, true);
         } 
         else if (state.type === 'sub') {
-            // لو بنرجع لملف كان مفتوح قبل كده
-            if (state.page === 'student-profile') window.openStudentProfile(state.id, true);
-            else if (state.page === 'group-details') window.openGroupDetails(state.id, true);
-            else if (state.page === 'session-details') window.openSessionDetails(state.id, true);
-            else if (state.page === 'exam-details') window.openExamDetails(state.id, true);
-            else if (state.page === 'online-exam-details') window.openOnlineExamDetails(state.id, true);
-            else if (state.page === 'hw-details') window.openHwDetails(state.id, true);
+            // 👈 فتح الصفحة الأب أولاً عند الرجوع لصفحة فرعية
+            if (state.page === 'student-profile') {
+                window.switchPage('students', true);
+                setTimeout(() => window.openStudentProfile(state.id, true), 20);
+            }
+            else if (state.page === 'group-details') {
+                window.switchPage('groups', true);
+                setTimeout(() => window.openGroupDetails(state.id, true), 20);
+            }
+            else if (state.page === 'session-details') {
+                window.switchPage('attendance', true);
+                setTimeout(() => window.openSessionDetails(state.id, true), 20);
+            }
+            else if (state.page === 'exam-details') {
+                window.switchPage('exams', true);
+                setTimeout(() => window.openExamDetails(state.id, true), 20);
+            }
+            else if (state.page === 'online-exam-details') {
+                window.switchPage('platform', true);
+                setTimeout(() => {
+                    window.switchPlatformTab('exams', true);
+                    window.openOnlineExamDetails(state.id, true);
+                }, 20);
+            }
+            else if (state.page === 'hw-details') {
+                window.switchPage('homework', true);
+                setTimeout(() => window.openHwDetails(state.id, true), 20);
+            }
+        }
+        else if (state.type === 'sub-tab' && state.page === 'platform') {
+            window.switchPage('platform', true);
+            setTimeout(() => window.switchPlatformTab(state.id, true), 20);
         }
     } else {
         // حماية: لو الهيستوري فاضي يرجعه للرئيسية
@@ -6386,99 +6440,200 @@ window.updateEditGeneratedCode = function() {
 };
 
 // ==========================================
-// 🚀 محرك المزامنة اللحظية الفائقة (Live Server-Sent Events)
+// 🚀 محرك المزامنة اللحظية الشامل والذكي (Zero-Bug Sync)
 // ==========================================
-function startRealTimeSync() {
+
+// 1. معترض الطلبات (Fetch Interceptor): يراقب أي تعديل في السيرفر ويرسل إشارة مزامنة تلقائياً
+if (!window.fetchInterceptorAdded) {
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const response = await originalFetch.apply(this, args);
+        try {
+            const url = args[0] instanceof Request ? args[0].url : args[0];
+            const options = args[1] || {};
+            const method = (options.method || (args[0] instanceof Request ? args[0].method : 'GET')).toUpperCase();
+            
+            // لو الطلب بيعدل في قاعدة البيانات (PUT, POST, PATCH, DELETE)
+            if (url && typeof url === 'string' && url.includes('firebasedatabase.app') && ['PUT', 'POST', 'PATCH', 'DELETE'].includes(method)) {
+                // نستثني إشارة المزامنة نفسها عشان منعملش حلقة مفرغة (Infinite Loop)
+                if (!url.includes('syncSignal.json')) {
+                    if (typeof triggerGlobalSyncSignal === 'function') {
+                        setTimeout(triggerGlobalSyncSignal, 300);
+                    }
+                }
+            }
+        } catch (e) { console.error("Interceptor Error", e); }
+        return response;
+    };
+    window.fetchInterceptorAdded = true;
+}
+
+// 2. إرسال إشارة المزامنة لباقي الأجهزة
+window.triggerGlobalSyncSignal = async function() {
+    if (localStorage.getItem("is_demo_mode") === "true") return;
+    window.lastLocalSyncTime = Date.now();
+    try {
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(window.lastLocalSyncTime)
+        });
+    } catch (e) {}
+};
+
+// 3. المزامنة الأساسية للبيانات المحلية
+async function syncDataToBot() {
+    let isDemo = localStorage.getItem("is_demo_mode") === "true";
+    if (!isDemo && (!isFirebaseLoaded || !window.getSafeUid())) return; 
+
+    const dataToSync = {
+        settings: {
+            teacherName: localStorage.getItem("teacherName") || "المدير",
+            centerName: localStorage.getItem("centerName") || "السنتر",
+            adminUser: localStorage.getItem("adminUser") || "shefo",
+            adminPass: localStorage.getItem("adminPass") || "12345",
+            adminPin: localStorage.getItem("adminPin") || "1234",
+            phoneNumbers: localStorage.getItem("teacherPhones") || "",
+            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
+            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
+            botEnabled: localStorage.getItem("botEnabled") === "true",
+            botName: localStorage.getItem("botName") || "المساعد",
+            botInstructions: localStorage.getItem("botInstructions") || ""
+        },
+        teacherName: localStorage.getItem("teacherName") || "المدير",
+        centerName: localStorage.getItem("centerName") || "السنتر",
+        adminUser: localStorage.getItem("adminUser"),
+        adminPass: localStorage.getItem("adminPass"),
+        adminPin: localStorage.getItem("adminPin"),
+        students, classSessions, exams, homeworks, schedule, groups, financeRecords, expenses, books, monthlyPayments: window.monthlyPayments || {},
+        onlineExams: typeof onlineExams !== 'undefined' ? onlineExams : []
+    };
+
+    window.lastLocalSyncTime = Date.now();
+
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+        try {
+            await fetch(`https://edutrack-api.duckdns.org/sync-database`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(dataToSync) 
+            });
+        } catch (e) {}
+    }
+
+    if (isDemo) return;
+
+    try {
+        // رفع البيانات الأساسية، والـ Interceptor هيتولى إرسال إشارة المزامنة تلقائياً
+        await fetch(getFirebaseUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
+    } catch (e) {}
+}
+
+window.isIncomingSync = false; 
+["students", "classSessions", "exams", "homeworks", "schedule", "groups", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(k, v) {
+        originalSetItem.apply(this, arguments);
+        if(key === k && !window.isIncomingSync) syncDataToBot();
+    };
+});
+
+// 4. تحديث الشاشة المرئية بذكاء بناءً على مكان تواجد المستخدم حالياً
+window.refreshCurrentVisibleScreens = function() {
+    // تحديث لوحة التحكم الأساسية
+    if (document.getElementById("dashboard-view")?.style.display === "block") {
+        document.getElementById("total-students").innerText = students.length;
+        document.getElementById("total-groups").innerText = groups.length;
+        if(typeof renderDashboardCharts === 'function') renderDashboardCharts();
+    }
+    
+    // المجموعات
+    if (document.getElementById("groups-overview")?.style.display === "block" && typeof renderGroupCards === "function") renderGroupCards();
+    if (document.getElementById("group-details-view")?.style.display === "block" && typeof renderGroupStudentsTable === "function") renderGroupStudentsTable();
+    
+    // الطلاب
+    if (document.getElementById("students-overview")?.style.display === "block" && typeof renderTable === "function") renderTable();
+    if (document.getElementById("student-profile-view")?.style.display === "block" && currentStudentProfileCode) openStudentProfile(currentStudentProfileCode);
+    
+    // الحضور والانصراف
+    if (document.getElementById("sessions-overview")?.style.display === "block" && typeof renderSessionCards === "function") renderSessionCards();
+    if (document.getElementById("session-details-view")?.style.display === "block" && currentActiveSessionId) {
+        const session = classSessions.find(s => s.id === currentActiveSessionId);
+        if(session) renderAttendanceTable(session);
+    }
+    
+    // الامتحانات والواجبات الورقية
+    if (document.getElementById("exams-overview")?.style.display === "block" && typeof renderExamCards === "function") renderExamCards();
+    if (document.getElementById("exam-details-view")?.style.display === "block" && currentActiveExamId) {
+        const ex = exams.find(e => e.id === currentActiveExamId);
+        if (ex) renderGradesTable(ex, "grades-list", saveExamGrade, currentActiveExamId, 'exam');
+    }
+    if (document.getElementById("hw-overview")?.style.display === "block" && typeof renderHwCards === "function") renderHwCards();
+    if (document.getElementById("hw-details-view")?.style.display === "block" && currentActiveHwId) {
+        const hw = homeworks.find(h => h.id === currentActiveHwId);
+        if (hw) renderGradesTable(hw, "hw-grades-list", saveHwGrade, currentActiveHwId, 'hw');
+    }
+
+    // المنصة الشاملة (أكواد، كورسات، امتحانات إلكترونية، متجر، منتدى)
+    if (document.getElementById("platform-view")?.style.display === "block") {
+        if (document.getElementById("platform-codes")?.style.display === "block" && typeof renderChargeCodes === "function") renderChargeCodes();
+        if (document.getElementById("platform-lectures")?.style.display === "block" && typeof renderLectures === "function") renderLectures();
+        if (document.getElementById("platform-exams")?.style.display === "block" && typeof renderOnlineExams === "function") renderOnlineExams();
+        if (document.getElementById("platform-store")?.style.display === "block" && typeof loadStoreData === "function") loadStoreData();
+        if (document.getElementById("platform-forum")?.style.display === "block" && typeof loadPlatformForumQuestions === "function") loadPlatformForumQuestions();
+        
+        // تفاصيل الامتحان الإلكتروني من الداخل
+        if (document.getElementById("platform-exam-details-section")?.style.display === "block" && window.currentExamObj) {
+            openOnlineExamDetails(window.currentExamObj.id);
+        }
+    }
+
+    // صفحات أخرى
+    if (document.getElementById("joinreq-view")?.style.display === "block" && typeof loadJoinRequests === "function") loadJoinRequests();
+    if (document.getElementById("finance-view")?.style.display === "block" && typeof renderFinanceTable === "function") renderFinanceTable();
+    if (document.getElementById("books-view")?.style.display === "block" && typeof renderBooksTable === "function") renderBooksTable();
+    if (document.getElementById("schedule-view")?.style.display === "block" && typeof renderSchedule === "function") renderSchedule();
+    if (document.getElementById("atrisk-view")?.style.display === "block" && typeof renderAtRiskStudents === "function") renderAtRiskStudents();
+    if (document.getElementById("leaderboard-view")?.style.display === "block" && typeof generateLeaderboard === "function") generateLeaderboard();
+    if (document.getElementById("logs-view")?.style.display === "block" && typeof renderSystemLogs === "function") renderSystemLogs();
+};
+
+// 5. مستقبل المزامنة (SSE Listener)
+window.startRealTimeSync = function() {
     if (sessionStorage.getItem("isLoggedIn") !== "true" || localStorage.getItem("is_demo_mode") === "true") return;
 
-    // الاتصال المباشر والمستمر بالفايربيز بدون ضغط على السيرفر
-    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`;
+    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`;
     const source = new EventSource(syncUrl);
 
     source.addEventListener('put', async function(e) {
         try {
             const payload = JSON.parse(e.data);
-            const serverTime = payload.data; // الوقت اللي جاي من السيرفر
+            const serverTime = payload.data; 
 
-            // لو فيه تحديث جديد من جهاز تاني (وقت التحديث أكبر من الوقت اللي عندي)
+            // لو فيه تحديث جديد من جهاز تاني (الوقت أحدث من اللي عندي)
             if (serverTime && (!window.lastLocalSyncTime || serverTime > window.lastLocalSyncTime)) {
-                console.log("⚡ [SYNC] تم رصد تغيير من جهاز آخر، يتم تحديث الواجهة فوراً...");
+                console.log("⚡ [SYNC] تم رصد تغيير من جهاز آخر، يتم التحديث فوراً...");
                 
-                // استدعاء البيانات الجديدة بصمت
+                window.lastLocalSyncTime = serverTime; // تحديث الوقت لمنع التكرار
+                
+                // استدعاء البيانات الأساسية بصمت من السيرفر
                 await loadDataFromFirebase();
                 
-                // تحديث فوري للشاشات المفتوحة قدام السكرتارية
-                if (document.getElementById("students-overview")?.style.display === "block") renderTable();
-                if (document.getElementById("groups-overview")?.style.display === "block" && typeof renderGroupCards === "function") renderGroupCards();
-                if (document.getElementById("group-details-view")?.style.display === "block" && typeof renderGroupStudentsTable === "function") renderGroupStudentsTable();
-                if (document.getElementById("dashboard-view")?.style.display === "block") document.getElementById("total-students").innerText = students.length;
-                if (document.getElementById("finance-view")?.style.display === "block") renderFinanceTable();
-                
-                // تحديث شاشة الحضور لو مفتوحة
-                if (document.getElementById("session-details-view")?.style.display === "block" && currentActiveSessionId) {
-                    const session = classSessions.find(s => s.id === currentActiveSessionId);
-                    if(session) renderAttendanceTable(session);
-                }
+                // التحديث الذكي للشاشات المعروضة قدام المدرس أو السكرتارية
+                refreshCurrentVisibleScreens();
             }
-        } catch (err) {
-            console.error("Sync Error:", err);
-        }
+        } catch (err) { console.error("Sync Error:", err); }
     });
 
     source.onerror = function() {
-        // إعادة المحاولة عند انقطاع الاتصال
         source.close();
-        setTimeout(startRealTimeSync, 5000);
+        setTimeout(window.startRealTimeSync, 5000); // إعادة المحاولة لو النت فصل
     };
-}
+};
 
 // تشغيل محرك المزامنة بمجرد فتح السيستم
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-        startRealTimeSync();
-    }, 3000); // بنستنى 3 ثواني لحد ما السيستم يحمل عشان منعملش تعارض
-});
-
-
-
-// ==========================================
-// 🚨 تنبيه ذكي عند تكرار رقم ولي الأمر (للإخوة)
-// ==========================================
-window.checkParentPhoneWarning = function(inputEl, originalCode = null) {
-    let val = inputEl.value.trim();
-    let parentDiv = inputEl.parentElement;
-    let warningId = inputEl.id + "_warning";
-    let warningEl = document.getElementById(warningId);
-
-    // لو التنبيه مش موجود، هنكريته ونحطه تحت الخانة
-    if (!warningEl) {
-        warningEl = document.createElement('div');
-        warningEl.id = warningId;
-        warningEl.style.cssText = "color: #f59e0b; font-size: 13px; font-weight: bold; margin-top: 5px; display: none; background: rgba(245, 158, 11, 0.1); padding: 5px 10px; border-radius: 6px; border: 1px dashed #f59e0b;";
-        parentDiv.appendChild(warningEl);
-    }
-
-    // لو كتب 10 أرقام أو أكتر، نبدأ ندور في الداتا
-    if (val.length >= 10 && val !== "0") {
-        let sibling = students.find(s => s.parentPhone === val && s.code !== originalCode);
-        if (sibling) {
-            warningEl.innerHTML = `⚠️ تنبيه: هذا الرقم مسجل أيضاً لولي أمر الطالب (<span style="color:var(--primary-color)">${sibling.name}</span>)`;
-            warningEl.style.display = 'block';
-        } else {
-            warningEl.style.display = 'none';
-        }
-    } else {
-        warningEl.style.display = 'none';
-    }
-};
-
-// تشغيل التنبيه لايف (أثناء الكتابة) في نافذة إضافة طالب جديد
-document.getElementById("parentPhone")?.addEventListener("input", function() {
-    checkParentPhoneWarning(this);
-});
-
-// تشغيل التنبيه لايف (أثناء الكتابة) في نافذة تعديل بيانات الطالب
-document.getElementById("editParentPhone")?.addEventListener("input", function() {
-    let origCode = document.getElementById("editStudentCodeOriginal").value;
-    checkParentPhoneWarning(this, origCode);
+        window.startRealTimeSync();
+    }, 3000);
 });

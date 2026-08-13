@@ -2301,13 +2301,31 @@ window.purchaseVideo = async function(courseId, videoIndex, price, videoTitle) {
 
 window.isHistoryNavigating = false;
 
-// 1. تسجيل الرئيسية كأول نقطة عند فتح المنصة
+// 1. تسجيل الصفحة الحالية كأول نقطة عند فتح المنصة واسترجاعها
 window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-        if (document.getElementById("app-layout").style.display === "block") {
-            history.replaceState({ type: 'tab', id: 'tab-home' }, '', '#tab-home');
+        // نتأكد إن الطالب مسجل دخول والواجهة حملت
+        if (document.getElementById("app-layout").style.display === "block" || document.getElementById("protected-course-screen").style.display === "flex" || document.getElementById("online-exams-list-screen").style.display === "block") {
+            
+            let hash = window.location.hash.replace('#', '');
+            
+            if (hash && hash !== 'tab-home') {
+                // لو كان في صفحة معينة (امتحانات، فيديو، او تاب آخر)
+                if (hash === 'online-exams') {
+                    window.showOnlineExams(false, true);
+                } else if (hash.startsWith('player-')) {
+                    let id = hash.replace('player-', '');
+                    window.openCoursePlayer(id, 0, true);
+                } else if (hash.startsWith('tab-')) {
+                    window.switchTab(hash, true);
+                }
+            } else {
+                // التوجيه للرئيسية كوضع افتراضي
+                history.replaceState({ type: 'tab', id: 'tab-home' }, '', '#tab-home');
+                window.switchTab('tab-home', true);
+            }
         }
-    }, 1500);
+    }, 1500); // ننتظر الداتا تحمل بالكامل
 });
 
 // 2. تحديث دالة switchTab بالكامل عشان تشتغل مع زرار الرجوع بدون مشاكل
