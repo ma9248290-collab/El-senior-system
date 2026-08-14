@@ -2468,6 +2468,27 @@
     </div>
 </div>
 
+<!-- نافذة نقل المجموعة لسنتر آخر -->
+<div id="moveGroupModal" class="modal">
+    <div class="modal-content" style="width: 400px; border-top: 5px solid #3b82f6;">
+        <span class="close-btn" onclick="closeModal('moveGroupModal')">&times;</span>
+        <h2 style="color: #3b82f6; margin-bottom: 15px;">نقل المجموعة لسنتر آخر 🔄</h2>
+        
+        <input type="hidden" id="moveGroupOriginalName">
+        
+        <div style="background: var(--hover-bg); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+            <p style="margin: 0; font-weight: bold;">المجموعة: <span id="moveGroupNameDisplay" style="color: var(--primary-color);"></span></p>
+        </div>
+
+        <div class="input-group">
+            <label>اختر السنتر المنقول إليه:</label>
+            <select id="moveTargetCenterSelect" class="custom-input"></select>
+        </div>
+
+        <button class="save-btn" style="width: 100%; background: #3b82f6;" onclick="confirmMoveGroupToCenter()">تأكيد النقل 🚀</button>
+    </div>
+</div>
+
     <!-- نافذة الطالب في مجموعة مختلفة (تعويض أو نقل) -->
     <div id="wrongGroupModal" class="modal" style="z-index: 100000;">
         <div class="modal-content" style="width: 450px; border-top: 5px solid #f59e0b;">
