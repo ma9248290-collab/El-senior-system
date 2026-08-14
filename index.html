@@ -251,31 +251,56 @@
             </div>
 
             <div id="groups-view" class="view-section" style="display: none;">
-                <section id="groups-overview" class="students-section">
-                    <div class="section-header"><h2>مجموعات الدروس</h2><button class="add-btn" onclick="openModal('addGroupModal')">+ إضافة مجموعة جديدة</button></div>
-                    <div class="stats-grid" id="groups-list"></div>
-                </section>
-                <section id="group-details-view" class="students-section" style="display: none;">
-                    <div class="section-header">
-                        <div><button class="theme-btn" onclick="backToGroups()" style="margin-bottom: 15px;">🔙 عودة</button><h2 id="current-group-title" style="color: var(--primary-color);">إدارة مجموعة: </h2></div>
-                        <div class="header-actions"><button class="add-btn exam-btn" onclick="quickExamForGroup()">⚡ امتحان مفاجئ</button><button class="add-btn" onclick="openAddStudentToGroupModal()">+ إضافة طالب هنا</button></div>
-                    </div>
-                    <div class="table-container">
-                        <table class="students-table">
-    <thead>
-        <tr>
-            <th>الكود</th>
-            <th>اسم الطالب والمسار</th>
-            <th style="text-align: center;">آخر 4 حصص</th>
-            <th>رقم ولي الأمر</th>
-            <th>إجراء</th>
-        </tr>
-    </thead>
-    <tbody id="group-students-list"></tbody>
-</table>
-</div>
-                </section>
+    
+    <!-- 1. الشاشة الجديدة: عرض السناتر -->
+    <section id="centers-overview" class="students-section">
+        <div class="section-header">
+            <h2>مراكز التعليم (السناتر) 🏫</h2>
+            <button class="add-btn" style="background-color: #8b5cf6;" onclick="openModal('addCenterModal')">+ إضافة سنتر جديد</button>
+        </div>
+        <div class="stats-grid" id="centers-list"></div>
+    </section>
+
+    <!-- 2. شاشة عرض المجموعات (داخل السنتر المحدد) -->
+    <section id="groups-overview" class="students-section" style="display: none;">
+        <div class="section-header">
+            <div>
+                <button class="theme-btn" onclick="backToCenters()" style="margin-bottom: 15px;">🔙 عودة للسناتر</button>
+                <h2 id="current-center-title" style="color: var(--primary-color);">مجموعات سنتر: </h2>
             </div>
+            <button class="add-btn" onclick="openModal('addGroupModal')">+ إضافة مجموعة للسنتر</button>
+        </div>
+        <div class="stats-grid" id="groups-list"></div>
+    </section>
+
+    <!-- 3. شاشة إدارة المجموعة (طلاب المجموعة) -->
+    <section id="group-details-view" class="students-section" style="display: none;">
+        <div class="section-header">
+            <div>
+                <button class="theme-btn" onclick="backToGroups()" style="margin-bottom: 15px;">🔙 عودة للمجموعات</button>
+                <h2 id="current-group-title" style="color: var(--primary-color);">إدارة مجموعة: </h2>
+            </div>
+            <div class="header-actions">
+                <button class="add-btn exam-btn" onclick="quickExamForGroup()">⚡ امتحان مفاجئ</button>
+                <button class="add-btn" onclick="openAddStudentToGroupModal()">+ إضافة طالب هنا</button>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>اسم الطالب والمسار</th>
+                        <th style="text-align: center;">آخر 4 حصص</th>
+                        <th>رقم ولي الأمر</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="group-students-list"></tbody>
+            </table>
+        </div>
+    </section>
+</div>
 
             <div id="joinreq-view" class="view-section" style="display: none;">
     <section class="students-section">
@@ -1553,6 +1578,22 @@
     </div> 
 
     <!-- النوافذ المنبثقة (Modals) مكانها الصح بره الـ main -->
+
+
+    <!-- نافذة إضافة سنتر جديد -->
+<div id="addCenterModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal('addCenterModal')">&times;</span>
+        <h2 style="color: #8b5cf6; margin-bottom: 20px;">إضافة سنتر جديد 🏫</h2>
+        <form id="addCenterForm">
+            <div class="input-group">
+                <label>اسم السنتر</label>
+                <input type="text" id="newCenterName" required class="custom-input" placeholder="مثال: سنتر الأوائل">
+            </div>
+            <button type="submit" class="save-btn" style="background-color: #8b5cf6;">حفظ السنتر</button>
+        </form>
+    </div>
+</div>
 <div id="globalAnnouncementModal" class="modal" style="z-index: 1000000;">
         <div class="modal-content" style="width: 450px; text-align: center; border-top: 5px solid var(--primary-color);">
             <img src="logo.PNG" style="width: 80px; height: 80px; margin: 0 auto 15px auto; display: block;">
