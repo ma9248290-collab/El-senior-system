@@ -1050,7 +1050,7 @@ window.openEditStudentModal = function() {
         // 💡 السطر الجديد: قراءة حرف السنتر من كود الطالب الحالي
         const prefixSelect = document.getElementById('editStudentCenterPrefix');
         if (prefixSelect) {
-            let match = student.code.match(/^[a-zA-Z]+/); // يمسك الحروف الانجليزية من الكود
+            let match = String(student.code).match(/^[a-zA-Z]+/); // تحويل لنص عشان ميضربش إيرور
             if (match) {
                 prefixSelect.value = match[0].toUpperCase();
             } else {
