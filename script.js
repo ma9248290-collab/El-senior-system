@@ -14,12 +14,24 @@ let adminPin = localStorage.getItem("adminPin") || "1234";
 let books = JSON.parse(localStorage.getItem("books")) || [];
 
 
-// تحديث المجموعات
+// تحديث السناتر والمجموعات
+let centers = JSON.parse(localStorage.getItem("centers")) || ["السنتر الرئيسي"]; // سنتر افتراضي لحماية الداتا القديمة
 let groups = JSON.parse(localStorage.getItem("groups")) || [];
-if (groups.length > 0 && typeof groups[0] === 'string') {
-    groups = groups.map(g => ({ name: g, level: 'الثالث الثانوي' }));
-    localStorage.setItem("groups", JSON.stringify(groups));
-}
+
+
+let onlineExams = JSON.parse(localStorage.getItem("onlineExams")) || [];
+let monthlyPayments = JSON.parse(localStorage.getItem("monthlyPayments")) || {};
+
+
+// 🛡️ ترحيل الداتا القديمة: أي مجموعة ملهاش سنتر، هنرميها في "السنتر الرئيسي" أوتوماتيك
+let groupsMigrated = false;
+groups.forEach(g => {
+    if (typeof g === 'string') { g = { name: g, level: 'الثالث الثانوي', center: "السنتر الرئيسي" }; groupsMigrated = true; }
+    if (!g.center) { g.center = "السنتر الرئيسي"; groupsMigrated = true; }
+});
+if (groupsMigrated) localStorage.setItem("groups", JSON.stringify(groups));
+
+let currentActiveCenter = null; // متغير جديد لحفظ السنتر المفتوح حالياً
 
 let currentActiveSessionId = null, currentActiveExamId = null, currentActiveHwId = null;
 let currentActiveGroup = null, currentStudentProfileCode = null;
@@ -308,7 +320,12 @@ function switchPage(pageId) {
     if (pageId === "dashboard") { renderDashboardCharts(); }
     if (pageId === "schedule") { renderSchedule(); }
     if (pageId === "students") { document.getElementById("students-overview").style.display = "block"; document.getElementById("student-profile-view").style.display = "none"; renderTable(); }
-    if (pageId === "groups") { document.getElementById("groups-overview").style.display = "block"; document.getElementById("group-details-view").style.display = "none"; renderGroupCards(); }
+   if (pageId === "groups") { 
+        document.getElementById("centers-overview").style.display = "block"; 
+        document.getElementById("groups-overview").style.display = "none"; 
+        document.getElementById("group-details-view").style.display = "none"; 
+        renderCentersCards(); 
+    }
     if (pageId === "attendance") { document.getElementById("sessions-overview").style.display = "block"; document.getElementById("session-details-view").style.display = "none"; renderSessionCards(); populateDropdowns(); }
     if (pageId === "exams") { document.getElementById("exams-overview").style.display = "block"; document.getElementById("exam-details-view").style.display = "none"; renderExamCards(); populateDropdowns(); }
     if (pageId === "homework") { document.getElementById("hw-overview").style.display = "block"; document.getElementById("hw-details-view").style.display = "none"; renderHwCards(); populateDropdowns(); }
@@ -669,206 +686,8 @@ async function activateSoftware() {
     } catch (e) { showToast("عطل في الاتصال بالخادم", "error"); }
 }
 
-// 3. المزامنة السحابية + التحقق من الإيقاف والتاريخ التلقائي والإنذار
-async function loadDataFromFirebase() {
-    // 🛑 منع التحميل من السحابة لو الحساب تجريبي
-    if (localStorage.getItem("is_demo_mode") === "true") {
-        isFirebaseLoaded = true; return; 
-    }
-    
-    // 🔥 تعريف كود السنتر (تثبيت إجباري لضمان العزل لنسخة السينيور)
-let currentLicenseKey = "ElSenior_System_Master";
-    
-    try {
-        let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${currentLicenseKey}.json`);
-        let licData = await licRes.json();
-        
-        if (licData) {
-            let isExpired = false;
-            
-            // حساب هل الباقة انتهت زمنياً أم لا
-            if (licData.activatedAt) {
-                let activationDate = new Date(licData.activatedAt);
-                let expirationDate = new Date(activationDate);
-                
-                if (licData.durationDays) {
-                    expirationDate.setDate(expirationDate.getDate() + parseInt(licData.durationDays));
-                } else if (licData.durationMonths) {
-                    expirationDate.setMonth(expirationDate.getMonth() + parseInt(licData.durationMonths));
-                }
-                
-                let today = new Date();
-                let timeDiff = expirationDate.getTime() - today.getTime();
-                let daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24)); // حساب الأيام المتبقية
 
-                if (licData.durationMonths != 99) {
-                    if (daysLeft <= 0) {
-                        isExpired = true;
-                    } else if (daysLeft <= 5 && daysLeft > 0) {
-                        // 🚨 إظهار شريط الإنذار
-                        let banner = document.getElementById("expiration-banner");
-                        if(banner) {
-                            banner.style.display = "block";
-                            document.getElementById("expire-days").innerText = daysLeft;
-                        }
-                    }
-                }
-            }
 
-            // 🚫 الطرد المباشر
-            if (licData.status === 'suspended' || isExpired) {
-                sessionStorage.removeItem("isLoggedIn"); // مسح الجلسة
-                localStorage.setItem("keepLoggedIn", "false"); // 🔥 مسح (تذكرني) إجبارياً
-                
-                document.getElementById("login-screen").style.display = "none";
-                document.getElementById("main-app").style.display = "none";
-                
-                const suspendedScreen = document.getElementById("suspended-screen");
-                if(suspendedScreen) {
-                    suspendedScreen.style.display = "flex";
-                    if (isExpired) {
-                        suspendedScreen.querySelector("h2").innerText = "انتهت فترة الاشتراك! ⏳";
-                        suspendedScreen.querySelector("p").innerText = "لقد انتهت صلاحية باقتك الحالية. يرجى التواصل مع الإدارة لتجديد الاشتراك واستعادة بياناتك.";
-                    } else {
-                        suspendedScreen.querySelector("h2").innerText = "تم إيقاف النسخة! 🚫";
-                        suspendedScreen.querySelector("p").innerText = "عفواً، تم إيقاف ترخيص استخدام هذا النظام من قبل الإدارة العليا.";
-                    }
-                }
-                return; // ⛔ قفل السيستم ومنع تحميل باقي الداتا
-            }
-        }
-        
-        // ... (باقي الكود بتاع جلب الداتا الخاصة بالطلاب زي ما هو تحت هنا) ...
-
-        // --- باقي دالة الـ loadDataFromFirebase لسحب الداتا ---
-        let res = await fetch(getFirebaseUrl());
-
-        // 💻 سحب بيانات المنصة (الكورسات والمشاهدات) لربطها بالحضور
-        try {
-            let lecRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/lectures.json`);
-            window.platformLectures = Object.values(await lecRes.json() || {});
-            
-            let trackRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/course_tracking.json`);
-            window.platformTracking = await trackRes.json() || {};
-        } catch(e) { console.log("لم يتم جلب بيانات المنصة للربط"); }
-        let data = await res.json();
-        // ... (تكملة الكود بتاع سحب الـ settings والـ students زي ما هو) ...
-        
-        if (data) {
-            if(data.settings) {
-                localStorage.setItem("teacherName", data.settings.teacherName);
-                localStorage.setItem("centerName", data.settings.centerName);
-                // السطرين الجداد دول 👇
-                localStorage.setItem("adminUser", data.settings.adminUser);
-                localStorage.setItem("adminPass", data.settings.adminPass);
-                localStorage.setItem("adminPin", data.settings.adminPin);
-                adminPin = data.settings.adminPin; // تحديث المتغير العالمي
-                if(data.settings.phoneNumbers) localStorage.setItem("teacherPhones", data.settings.phoneNumbers);
-                if(data.settings.parentMsgTemplate) localStorage.setItem("parentMsgTemplate", data.settings.parentMsgTemplate);
-                if(data.settings.studentMsgTemplate) localStorage.setItem("studentMsgTemplate", data.settings.studentMsgTemplate);
-            } else if (data.teacherName) {
-                localStorage.setItem("teacherName", data.teacherName);
-            }
-
-            students = (data.students || []).filter(i => i !== null);
-            groups = (data.groups || []).filter(i => i !== null);
-            schedule = (data.schedule || []).filter(i => i !== null);
-            expenses = (data.expenses || []).filter(i => i !== null);
-            financeRecords = data.financeRecords || {};
-            books = (data.books || []).filter(i => i !== null);
-             onlineExams = (data.onlineExams || []).filter(i => i !== null);
-            classSessions = (data.classSessions || []).filter(i => i !== null).map(s => ({...s, attendance: s.attendance || {}}));
-            exams = (data.exams || []).filter(i => i !== null).map(e => ({...e, grades: e.grades || {}}));
-            homeworks = (data.homeworks || []).filter(i => i !== null).map(h => ({...h, grades: h.grades || {}}));
-            
-            // 🛑 إيقاف المزامنة العكسية أثناء استقبال البيانات من جهاز آخر
-            window.isIncomingSync = true; 
-            
-            localStorage.setItem("students", JSON.stringify(students));
-            localStorage.setItem("classSessions", JSON.stringify(classSessions));
-            localStorage.setItem("exams", JSON.stringify(exams));
-            localStorage.setItem("homeworks", JSON.stringify(homeworks));
-            localStorage.setItem("schedule", JSON.stringify(schedule));
-            localStorage.setItem("groups", JSON.stringify(groups));
-            localStorage.setItem("financeRecords", JSON.stringify(financeRecords));
-            localStorage.setItem("expenses", JSON.stringify(expenses));
-            localStorage.setItem("books", JSON.stringify(books));
-            localStorage.setItem("onlineExams", JSON.stringify(onlineExams));
-            
-            // 🟢 إعادة تشغيل المزامنة للمستخدم
-            window.isIncomingSync = false;
-
-            renderTable();
-            if (document.getElementById("groups-list")) renderGroupCards();
-            if (typeof renderBooksTable === "function") renderBooksTable();
-            if(sessionStorage.getItem("isLoggedIn") === "true" && typeof renderDashboardCharts === "function") {
-                renderDashboardCharts();
-            }
-        }
-    } catch (e) {
-        console.log("⚠️ تعذر الاتصال بالسحابة أو قاعدة البيانات فارغة.");
-    }
-    isFirebaseLoaded = true; 
-
-    setTimeout(window.checkGlobalAnnouncements, 1500);
-}
-
-async function syncDataToBot() {
-    let isDemo = localStorage.getItem("is_demo_mode") === "true";
-    if (!isDemo && (!isFirebaseLoaded || !licenseKey)) return; 
-
-    // تجميع البيانات
-    const dataToSync = {
-        settings: {
-            teacherName: localStorage.getItem("teacherName") || "المدير",
-            centerName: localStorage.getItem("centerName") || "السنتر",
-            adminUser: localStorage.getItem("adminUser") || "shefo",
-            adminPass: localStorage.getItem("adminPass") || "12345",
-            adminPin: localStorage.getItem("adminPin") || "1234",
-            phoneNumbers: localStorage.getItem("teacherPhones") || "",
-            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
-            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
-            botEnabled: localStorage.getItem("botEnabled") === "true",
-            botName: localStorage.getItem("botName") || "المساعد",
-            botInstructions: localStorage.getItem("botInstructions") || ""
-        },
-        teacherName: localStorage.getItem("teacherName") || "المدير",
-        centerName: localStorage.getItem("centerName") || "السنتر",
-        adminUser: localStorage.getItem("adminUser"),
-        adminPass: localStorage.getItem("adminPass"),
-        adminPin: localStorage.getItem("adminPin"),
-        
-        students, classSessions, exams, homeworks, schedule, groups, financeRecords, expenses, books, monthlyPayments: monthlyPayments,
-        onlineExams: onlineExams
-    };
-
-    // 🌟 تحديد وقت التحديث المحلي عشان الجهاز ميعملش ريفريش لنفسه
-    window.lastLocalSyncTime = Date.now();
-
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
-        try {
-            await fetch(`${WHATSAPP_SERVER_URL}/sync-database`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(dataToSync) 
-            });
-        } catch (e) {}
-    }
-
-    if (isDemo) return;
-
-    try {
-        // رفع البيانات الأساسية
-        await fetch(getFirebaseUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
-        
-        // 🚀 إرسال إشارة للسيرفر (جرس) إن فيه تعديل حصل في نفس اللحظة
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/syncSignal.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(window.lastLocalSyncTime)
-        });
-    } catch (e) {}
-}   
 
 window.isIncomingSync = false; // فلاج عشان نمنع الـ Loop
 ["students", "classSessions", "exams", "homeworks", "schedule", "groups", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
@@ -990,36 +809,42 @@ function updateScheduleSlot() {
 }
 
 
-// ==========================================
-// 6. إدارة الطلاب والمجموعات
-// ==========================================
-function filterGroupsByLevel(levelSelectId, groupSelectId) {
+window.filterGroupsByLevel = function(levelSelectId, groupSelectId) {
     const level = document.getElementById(levelSelectId).value;
     const groupSelect = document.getElementById(groupSelectId);
     if(!groupSelect) return;
+    
     groupSelect.innerHTML = "<option value=''>اختر المجموعة...</option>";
-    if(level) { groups.filter(g => g.level === level).forEach(g => { groupSelect.innerHTML += `<option value="${g.name}">${g.name}</option>`; }); }
-}
+    
+    if(level) {
+        // فلترة المجموعات حسب الصف الدراسي المختار
+        groups.filter(g => g.level === level).forEach(g => {
+            // 💡 التعديل هنا: عرض (اسم المجموعة - اسم السنتر)
+            let centerText = g.center ? ` (${g.center})` : "";
+            groupSelect.innerHTML += `<option value="${g.name}">${g.name} - ${g.center || "السنتر الرئيسي"}</option>`;
+        });
+    }
+};
 
 window.generateStudentCode = function(prefix = null) { 
     if (prefix) {
         let lastNum = 2000; // البداية الافتراضية لو السنتر ده لسه مفيش فيه ولا طالب
         
-        // 💡 السحر هنا: بنلف في مصفوفة الطلاب بالعكس (من آخر طالب اتسجل لأول طالب)
+        // البحث في مصفوفة الطلاب عن آخر طالب بنفس الحرف
         for (let i = students.length - 1; i >= 0; i--) {
             let s = students[i];
-            // لو لقينا طالب الكود بتاعه بيبدأ بحرف السنتر اللي اخترناه
-            if (s.code && String(s.code).startsWith(prefix + "-")) {
-                let num = parseInt(String(s.code).split("-")[1], 10);
+            if (s.code && String(s.code).startsWith(prefix)) {
+                // استخراج الرقم الواقع بعد الحرف مباشرة بدون شرطة
+                let num = parseInt(String(s.code).substring(prefix.length), 10);
                 if (!isNaN(num)) {
-                    lastNum = num; // بناخد رقمه
-                    break; // 🛑 ونوقف بحث فوراً لأننا خلاص لقينا "آخر" واحد اتسجل في السنتر ده
+                    lastNum = num; 
+                    break; 
                 }
             }
         }
         
-        // بنرجع الرقم مضاف ليه 1
-        return prefix + "-" + (lastNum + 1).toString();
+        // إرجاع الحرف مضافاً إليه الرقم التالي مباشرة (بدون أي فاصل)
+        return prefix + (lastNum + 1).toString();
         
     } else {
         // دعم للنظام القديم أو الطلاب الأونلاين (أرقام فقط)
@@ -1074,14 +899,21 @@ window.processStudentSaving = async function(keepOpen) {
         return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
     }
 
-    const duplicate = students.find(s => 
+    // 🛑 1. فحص التكرار الصارم (يمنع الإضافة لو الكود أو رقم الطالب نفسه متكرر)
+    const strictDuplicate = students.find(s => 
         s.code === code || 
         (phone !== "0" && s.phone === phone) || 
-        (parentPhone !== "0" && s.parentPhone === parentPhone) || 
         normalizeArabicName(s.name) === normalizeArabicName(name)
     );
-    
-    if(duplicate) return showToast(`مسجل مسبقاً: ${duplicate.name}`, "error");
+    if(strictDuplicate) return showToast(`مسجل مسبقاً: ${strictDuplicate.name}`, "error");
+
+    // 👨‍👧‍👦 2. فحص الأخوات (تنبيه برتقالي فقط لو رقم ولي الأمر متكرر، لكن يكمل الحفظ)
+    if (parentPhone !== "0") {
+        const sibling = students.find(s => s.parentPhone === parentPhone);
+        if (sibling) {
+            showToast(`تنبيه: رقم ولي الأمر مستخدم مع الطالب (${sibling.name}) - تم الإضافة كأخ 👨‍👧‍👦`, "warning");
+        }
+    }
 
     // حفظ الطالب في النظام
     let isSpecialCase = document.getElementById("studentIsSpecial") ? document.getElementById("studentIsSpecial").checked : false;
@@ -1106,7 +938,6 @@ window.processStudentSaving = async function(keepOpen) {
         }
     }
 
-    // 🔥 السحر هنا: تحديث الواجهات والجداول تلقائياً بدون ريفريش 🔥
     renderTable(); 
     if (typeof renderGroupCards === "function") renderGroupCards();
     if (typeof renderGroupStudentsTable === "function" && document.getElementById("group-details-view")?.style.display === "block") {
@@ -1116,14 +947,13 @@ window.processStudentSaving = async function(keepOpen) {
         document.getElementById("total-students").innerText = students.length;
     }
 
-    // المزامنة مع السيرفر
     if (typeof syncDataToBot === "function") syncDataToBot();
 
     if (keepOpen) {
-        // لو ضغط "حفظ وإضافة آخر"
-        showToast("تم الحفظ! جاهز لإضافة الطالب التالي ➕");
-        
-        // تفريغ البيانات الشخصية بس
+        // لو مفيش تنبيه أخوات، إديه إشعار نجاح عادي
+        if (!parentPhone || !students.find(s => s.parentPhone === parentPhone && s.code !== code)) {
+            showToast("تم الحفظ! جاهز لإضافة الطالب التالي ➕");
+        }
         document.getElementById("studentName").value = "";
         document.getElementById("studentPhone").value = "";
         document.getElementById("parentPhone").value = "";
@@ -1133,15 +963,12 @@ window.processStudentSaving = async function(keepOpen) {
             document.getElementById("studentSpecialAmountDiv").style.display = 'none';
             document.getElementById("studentSpecialAmount").value = '';
         }
-        
-        // توليد الكود اللي عليه الدور تلقائياً
         window.updateGeneratedCode(); 
-        
-        // التركيز على خانة الاسم عشان تكتب على طول
         document.getElementById("studentName").focus();
     } else {
-        // لو ضغط "حفظ وإنهاء"
-        showToast("تم تسجيل الطالب بنجاح ✅"); 
+        if (!parentPhone || !students.find(s => s.parentPhone === parentPhone && s.code !== code)) {
+            showToast("تم تسجيل الطالب بنجاح ✅"); 
+        }
         document.getElementById("addStudentForm").reset(); 
         closeModal('addStudentModal'); 
     }
@@ -1263,7 +1090,6 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
     const newCode = document.getElementById('editStudentCode').value.trim();
     const name = document.getElementById('editStudentName').value.trim();
     
-    // 🚀 الإصلاح الذكي: سحب الأرقام وتحويل الفراغات لـ "0" أوتوماتيكياً
     const phoneInput = document.getElementById('editStudentPhone') || document.querySelector('#editStudentModal input[id="studentPhone"]');
     const phone = phoneInput && phoneInput.value.trim() !== "" ? phoneInput.value.trim() : "0";
     
@@ -1274,15 +1100,23 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
     if (!isValidEgyptianPhone(parentPhone)) return showToast("رقم ولي الأمر خطأ!", "error");
     if (phone !== "0" && parentPhone !== "0" && phone === parentPhone) return showToast("رقم الطالب يجب أن يختلف عن ولي الأمر", "error");
 
-    const duplicate = students.find(s => 
+    // 🛑 1. فحص التكرار الصارم
+    const strictDuplicate = students.find(s => 
         s.code !== originalCode && (
             s.code === newCode || 
             (phone !== "0" && s.phone === phone) || 
-            (parentPhone !== "0" && s.parentPhone === parentPhone) || 
             normalizeArabicName(s.name) === normalizeArabicName(name)
         )
     );
-    if(duplicate) return showToast(`تنبيه! مسجل مسبقاً`, "error");
+    if(strictDuplicate) return showToast(`تنبيه! مسجل مسبقاً (${strictDuplicate.name})`, "error");
+
+    // 👨‍👧‍👦 2. فحص الأخوات
+    if (parentPhone !== "0") {
+        const sibling = students.find(s => s.code !== originalCode && s.parentPhone === parentPhone);
+        if (sibling) {
+            showToast(`تنبيه: رقم ولي الأمر ده مسجل مع الطالب (${sibling.name}) 👨‍👧‍👦`, "warning");
+        }
+    }
 
     const studentIndex = students.findIndex(s => s.code === originalCode); 
     if(studentIndex > -1) { 
@@ -1296,10 +1130,9 @@ document.getElementById('editStudentForm')?.addEventListener('submit', function(
         students[studentIndex].parentPhone = parentPhone; 
         students[studentIndex].group = document.getElementById('editStudentGroup').value; 
         let isSpecial = document.getElementById('editStudentIsSpecial').checked;
-students[studentIndex].isSpecialCase = isSpecial;
-students[studentIndex].specialAmount = isSpecial ? (parseFloat(document.getElementById('editStudentSpecialAmount').value) || 0) : 0;
+        students[studentIndex].isSpecialCase = isSpecial;
+        students[studentIndex].specialAmount = isSpecial ? (parseFloat(document.getElementById('editStudentSpecialAmount').value) || 0) : 0;
         
-        // تحديث الرقم في باقي الجداول لو اتغير
         if(oldPhone !== phone) { 
             classSessions.forEach(s => { if(s.attendance[oldPhone]) { s.attendance[phone] = s.attendance[oldPhone]; delete s.attendance[oldPhone]; }}); 
             exams.forEach(ex => { if(ex.grades[oldPhone]) { ex.grades[phone] = ex.grades[oldPhone]; delete ex.grades[oldPhone]; }}); 
@@ -1315,51 +1148,165 @@ students[studentIndex].specialAmount = isSpecial ? (parseFloat(document.getEleme
 
 
 
-function renderGroupCards() { 
-    const grid = document.getElementById("groups-list"); 
-    if(!grid) return;
-    grid.innerHTML = ""; 
-    groups.forEach((group, index) => { 
-        const studentsCount = students.filter(s => s.group === group.name).length; 
-        grid.innerHTML += `<div class="session-card"><div class="session-header-card"><div><div class="session-group-name">📁 ${group.name}</div><div style="font-size: 12px; color: var(--primary-color);">${group.level}</div></div><span class="status-badge status-none">👥 ${studentsCount} طالب</span></div><div class="session-actions"><button class="enter-btn" onclick="openGroupDetails('${group.name}')">إدارة المجموعة</button><button class="icon-btn admin-only" onclick="openEditGroupModal('${group.name}')">✏️</button><button class="icon-btn danger admin-only" onclick="deleteGroup(${index})" title="حذف">🗑️</button></div></div>`; 
-    }); 
-    document.getElementById("total-groups").innerText = groups.length; 
-}
+
 
 function deleteGroup(index) { 
     customConfirm("حذف هذه المجموعة نهائياً؟", () => { 
-        
-        // 1. طلب الرقم السري للإدارة
-        const enteredPin = prompt("⚠️ الإجراء يتطلب صلاحية المدير!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد حذف المجموعة:");
-
-        // 2. لو المستخدم ضغط (إلغاء / Cancel)
-        if (enteredPin === null) return; 
-
-        // 3. جلب الرقم السري الأصلي المحفوظ في النظام
+        const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف:");
         const currentAdminPin = localStorage.getItem("adminPin") || "1234";
-
-        // 4. التحقق من صحة الرقم السري
+        
         if (enteredPin !== currentAdminPin) {
-            showToast("الرقم السري غير صحيح! تم إلغاء عملية الحذف.", "error");
-            return;
+            return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
         }
 
-        // 5. لو الرقم صحيح، يتم حذف المجموعة فعلياً
         groups.splice(index, 1); 
         localStorage.setItem("groups", JSON.stringify(groups)); 
         renderGroupCards(); 
         showToast("تم حذف المجموعة بنجاح 🗑️");
-
-        // 6. مزامنة التعديل مع السيرفر لضمان مسحها من قاعدة البيانات
-        if (typeof syncDataToBot === "function") syncDataToBot();
     }); 
 }
 
 
 
 // ==========================================
-// إدارة المجموعات (محدثة بنظام الدفع)
+// إدارة السناتر والمجموعات (النسخة المتداخلة)
 // ==========================================
+
+// 🏢 رسم كروت السناتر
+window.renderCentersCards = function() {
+    const grid = document.getElementById("centers-list");
+    if (!grid) return;
+    grid.innerHTML = "";
+    
+    centers.forEach((center, index) => {
+        // حساب المجموعات والطلاب التابعين للسنتر ده
+        const centerGroups = groups.filter(g => g.center === center);
+        const centerStudentsCount = students.filter(s => centerGroups.some(g => g.name === s.group)).length;
+        
+        grid.innerHTML += `
+        <div class="session-card" style="border-top: 4px solid #8b5cf6;">
+            <div class="session-header-card">
+                <div>
+                    <div class="session-group-name" style="color: #8b5cf6;">🏫 ${center}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); font-weight: bold; margin-top: 5px;">عدد المجموعات: ${centerGroups.length}</div>
+                </div>
+                <span class="status-badge" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">👥 ${centerStudentsCount} طالب</span>
+            </div>
+            <div class="session-actions">
+                <button class="enter-btn" style="background-color: #8b5cf6;" onclick="openCenter('${center}')">فتح السنتر 📂</button>
+                <button class="icon-btn danger admin-only" onclick="deleteCenter('${center}', ${index})" title="حذف السنتر">🗑️</button>
+            </div>
+        </div>`;
+    });
+};
+
+// ➕ إضافة سنتر جديد
+document.getElementById("addCenterForm")?.addEventListener("submit", function(e) {
+    e.preventDefault();
+    const centerName = document.getElementById("newCenterName").value.trim();
+    if (!centerName) return showToast("يرجى كتابة اسم السنتر!", "error");
+    if (centers.includes(centerName)) return showToast("هذا السنتر موجود بالفعل!", "error");
+    
+    centers.push(centerName);
+    localStorage.setItem("centers", JSON.stringify(centers));
+    showToast("تمت إضافة السنتر بنجاح ✅");
+    this.reset();
+    closeModal('addCenterModal');
+    renderCentersCards();
+    if(typeof syncDataToBot === "function") syncDataToBot();
+});
+
+// 🗑️ حذف السنتر
+window.deleteCenter = function(centerName, index) {
+    const centerGroups = groups.filter(g => g.center === centerName);
+    if (centerGroups.length > 0) {
+        return showToast("عفواً، لا يمكن حذف السنتر لأن بداخله مجموعات! قم بنقلها أو حذفها أولاً.", "error");
+    }
+
+    customConfirm(`هل أنت متأكد من حذف سنتر (${centerName}) نهائياً؟`, () => {
+        // 🔒 طلب الرقم السري
+        const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد حذف السنتر:");
+        const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+        
+        if (enteredPin !== currentAdminPin) {
+            return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+        }
+
+        centers.splice(index, 1);
+        localStorage.setItem("centers", JSON.stringify(centers));
+        renderCentersCards();
+        showToast("تم حذف السنتر بنجاح 🗑️");
+        
+        if (typeof addSystemLog === "function") addSystemLog("حذف سنتر 🗑️", `تم حذف سنتر: ${centerName}`);
+        if (typeof syncDataToBot === "function") syncDataToBot();
+    });
+};
+
+// 📂 فتح السنتر وعرض مجموعاته
+window.openCenter = function(centerName, fromHistory = false) {
+    currentActiveCenter = centerName;
+    document.getElementById("centers-overview").style.display = "none";
+    document.getElementById("group-details-view").style.display = "none";
+    document.getElementById("groups-overview").style.display = "block";
+    document.getElementById("current-center-title").innerText = `مجموعات سنتر: ${centerName}`;
+    renderGroupCards();
+
+    // 🔙 تسجيل في الهيستوري عشان الريفريش
+    if (!fromHistory && !window.isHistoryNavigating) {
+        history.pushState({ page: 'center-details', type: 'sub', id: centerName }, '', `#center-${encodeURIComponent(centerName)}`);
+    }
+};
+
+// 🔙 العودة من المجموعات للسناتر
+window.backToCenters = function(fromHistory = false) {
+    currentActiveCenter = null;
+    document.getElementById("groups-overview").style.display = "none";
+    document.getElementById("group-details-view").style.display = "none";
+    document.getElementById("centers-overview").style.display = "block";
+    renderCentersCards();
+    
+    if (!fromHistory && !window.isHistoryNavigating) {
+        history.pushState({ page: 'groups', type: 'main' }, '', `#groups`);
+    }
+};
+
+// 📁 رسم كروت المجموعات (بناءً على السنتر المفتوح فقط)
+window.renderGroupCards = function() { 
+    const grid = document.getElementById("groups-list"); 
+    if(!grid) return;
+    grid.innerHTML = ""; 
+    
+    const filteredGroups = groups.filter(g => g.center === currentActiveCenter);
+    
+    if (filteredGroups.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-weight: bold; padding: 30px; border: 2px dashed var(--border-color); border-radius: 12px;">لا توجد مجموعات في هذا السنتر بعد.</div>`;
+    }
+
+    filteredGroups.forEach((group) => { 
+        const index = groups.findIndex(g => g.name === group.name);
+        const studentsCount = students.filter(s => s.group === group.name).length; 
+        
+        grid.innerHTML += `
+        <div class="session-card">
+            <div class="session-header-card">
+                <div>
+                    <div class="session-group-name">📁 ${group.name}</div>
+                    <div style="font-size: 12px; color: var(--primary-color);">${group.level}</div>
+                </div>
+                <span class="status-badge status-none">👥 ${studentsCount} طالب</span>
+            </div>
+            <div class="session-actions">
+                <button class="enter-btn" onclick="openGroupDetails('${group.name}')">إدارة المجموعة</button>
+                <button class="icon-btn admin-only" style="background-color: #3b82f6; color: white;" onclick="openMoveGroupModal('${group.name}')" title="نقل لسنتر آخر">🔄</button>
+                <button class="icon-btn admin-only" onclick="openEditGroupModal('${group.name}')" title="تعديل">✏️</button>
+                <button class="icon-btn danger admin-only" onclick="deleteGroup(${index})" title="حذف">🗑️</button>
+            </div>
+        </div>`; 
+    }); 
+    document.getElementById("total-groups").innerText = groups.length; 
+};
+
+// ➕ إضافة مجموعة جديدة (وربطها بالسنتر الحالي أوتوماتيكياً)
 document.getElementById("addGroupFormModal")?.addEventListener("submit", function(e) { 
     e.preventDefault(); 
     const groupName = document.getElementById("newGroupName").value.trim(); 
@@ -1370,13 +1317,24 @@ document.getElementById("addGroupFormModal")?.addEventListener("submit", functio
     if (!groupName) return showToast("يرجى كتابة اسم المجموعة!", "error");
     if(groups.some(g => g.name === groupName)) return showToast("هذه المجموعة موجودة بالفعل!", "error"); 
     
-    groups.push({ name: groupName, level: groupLevel, payType: payType, price: price }); 
+    // 💡 السحر هنا: السيستم بيجيب اسم السنتر اللي إنت فاتحه حالياً من الذاكرة
+    const targetCenter = currentActiveCenter || "السنتر الرئيسي";
+
+    // إضافة المجموعة بالسنتر المفتوح
+    groups.push({ name: groupName, level: groupLevel, payType: payType, price: price, center: targetCenter }); 
     localStorage.setItem("groups", JSON.stringify(groups)); 
     
-    if(typeof addSystemLog === "function") addSystemLog("إنشاء مجموعة 📚", `تم إنشاء مجموعة: ${groupName} (${payType === 'month' ? 'شهري' : 'بالحصة'}) بـ ${price} ج`);
+    if(typeof addSystemLog === "function") addSystemLog("إنشاء مجموعة 📚", `تم إنشاء مجموعة: ${groupName} في ${targetCenter}`);
 
-    showToast("تم الإضافة بنجاح"); 
-    this.reset(); closeModal('addGroupModal'); renderGroupCards(); 
+    showToast("تم الإضافة بنجاح ✅"); 
+    this.reset(); 
+    closeModal('addGroupModal'); 
+    
+    // تحديث الواجهة عشان تظهر المجموعة الجديدة فوراً
+    if (typeof renderGroupCards === "function") renderGroupCards();
+    
+    // المزامنة مع السيرفر
+    if(typeof syncDataToBot === "function") syncDataToBot();
 });
 
 function openEditGroupModal(oldName) {
@@ -1421,60 +1379,56 @@ document.getElementById('editGroupFormModal')?.addEventListener('submit', functi
 });
 
 function openGroupDetails(groupName) { currentActiveGroup = groupName; document.getElementById("groups-overview").style.display = "none"; document.getElementById("group-details-view").style.display = "block"; document.getElementById("current-group-title").innerText = `مجموعة: ${groupName}`; renderGroupStudentsTable(); }
-function backToGroups() { currentActiveGroup = null; document.getElementById("groups-overview").style.display = "block"; document.getElementById("group-details-view").style.display = "none"; renderGroupCards(); }
-
+window.backToGroups = function(fromHistory = false) { 
+    currentActiveGroup = null; 
+    document.getElementById("group-details-view").style.display = "none"; 
+    document.getElementById("centers-overview").style.display = "none";
+    document.getElementById("groups-overview").style.display = "block"; 
+    renderGroupCards(); 
+    
+    if (!fromHistory && !window.isHistoryNavigating) {
+        history.pushState({ page: 'center-details', type: 'sub', id: currentActiveCenter }, '', `#center-${encodeURIComponent(currentActiveCenter)}`);
+    }
+};
 window.renderGroupStudentsTable = function() { 
     const tbody = document.getElementById("group-students-list"); 
-    tbody.innerHTML = ""; 
+    if(!tbody) return;
+
     const groupStudents = students.filter(s => s.group === currentActiveGroup); 
     
     if(groupStudents.length === 0) {
         return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
     }
 
-    // 1. استخراج آخر 4 حصص لهذه المجموعة وترتيبهم من الأقدم للأحدث
     let last4Sessions = classSessions
         .filter(s => s.group === currentActiveGroup)
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(-4);
 
+    let html = ""; // 🚀 متغير التجميع لمنع التهنيج
+
     groupStudents.forEach((student) => { 
-        // 2. تصميم بادج المسار (عام / أزهر / بكالوريا)
         let trackName = student.track || 'عام';
         let trackBadge = `<span style="font-size: 11px; background: rgba(59, 130, 246, 0.1); color: var(--primary-color); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); margin-top: 5px; display: inline-block; font-weight: bold;">🎓 ${trackName}</span>`;
 
-        // 3. تصميم نقط الحضور (آخر 4 حصص)
         let attendanceDotsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;" dir="rtl">`;
         
-        // هنعمل لوب 4 مرات عشان دايماً نعرض 4 نقط (حتى لو الجروب لسه مفيش فيه 4 حصص)
         for(let i = 0; i < 4; i++) {
             let session = last4Sessions[i];
-            let dotColor = "#e2e8f0"; // لون رصاصي افتراضي (لو مفيش حصة أو متسجلش)
+            let dotColor = "#e2e8f0"; 
             let tooltipText = "لا توجد حصة / لم يسجل";
 
             if (session) {
                 let status = session.attendance[student.code] || session.attendance[student.phone];
-                if (status === 'present') { 
-                    dotColor = "#10b981"; // أخضر - حاضر
-                    tooltipText = `${session.date}: حاضر ✅`; 
-                }
-                else if (status === 'late') { 
-                    dotColor = "#f59e0b"; // أصفر/برتقالي - متأخر
-                    tooltipText = `${session.date}: متأخر ⏳`; 
-                }
-                else if (status === 'absent') { 
-                    dotColor = "#ef4444"; // أحمر - غائب
-                    tooltipText = `${session.date}: غائب ❌`; 
-                }
+                if (status === 'present') { dotColor = "#10b981"; tooltipText = `${session.date}: حاضر ✅`; }
+                else if (status === 'late') { dotColor = "#f59e0b"; tooltipText = `${session.date}: متأخر ⏳`; }
+                else if (status === 'absent') { dotColor = "#ef4444"; tooltipText = `${session.date}: غائب ❌`; }
             }
-
-            // رسم النقطة (مع إضافة Tooltip يظهر التفاصيل لما تقف عليها بالماوس)
             attendanceDotsHtml += `<span style="width: 14px; height: 14px; border-radius: 50%; background-color: ${dotColor}; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); cursor: help;" title="${tooltipText}"></span>`;
         }
         attendanceDotsHtml += `</div>`;
 
-        // 4. رسم الصف في الجدول
-        tbody.innerHTML += `
+        html += `
         <tr>
             <td><strong style="color:var(--primary-color); font-size: 16px;">${student.code}</strong></td>
             <td>
@@ -1493,8 +1447,9 @@ window.renderGroupStudentsTable = function() {
             </td>
         </tr>`; 
     }); 
-};
 
+    tbody.innerHTML = html; // 🚀 حقن الداتا مرة واحدة فقط
+};
 function removeStudentFromGroup(code) { customConfirm("إزالة هذا الطالب من المجموعة؟", () => { const student = students.find(s => s.code === code); if(student) { student.group = ""; localStorage.setItem("students", JSON.stringify(students)); renderGroupStudentsTable(); renderGroupCards(); showToast("تمت الإزالة"); } }); }
 
 // ==========================================
@@ -1527,7 +1482,23 @@ function renderSessionCards() {
     }); 
 }
 
-function deleteSession(id) { customConfirm("حذف الحصة؟", () => { classSessions = classSessions.filter(s => s.id !== id); localStorage.setItem("classSessions", JSON.stringify(classSessions)); renderSessionCards(); }); }
+function deleteSession(id) { 
+    customConfirm("هل أنت متأكد من حذف هذه الحصة نهائياً؟", () => { 
+        const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف:");
+        const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+        
+        if (enteredPin !== currentAdminPin) {
+            return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+        }
+
+        classSessions = classSessions.filter(s => s.id !== id); 
+        localStorage.setItem("classSessions", JSON.stringify(classSessions)); 
+        renderSessionCards(); 
+        
+        if(typeof addSystemLog === "function") addSystemLog("حذف حصة 🗑️", "تم حذف حصة من النظام");
+        showToast("تم حذف الحصة بنجاح 🗑️");
+    }); 
+}
 function openSessionDetails(id) { currentActiveSessionId = id; const session = classSessions.find(s => s.id === id); document.getElementById("sessions-overview").style.display = "none"; document.getElementById("session-details-view").style.display = "block"; document.getElementById("current-session-title").innerText = session.group; renderAttendanceTable(session); }
 function backToSessions() { document.getElementById("sessions-overview").style.display = "block"; document.getElementById("session-details-view").style.display = "none"; renderSessionCards(); }
 
@@ -1683,7 +1654,21 @@ window.skipQuickPayment = function() {
 // 13. الامتحانات والواجبات (Exams & HW)
 // ==========================================
 document.getElementById("addExamForm")?.addEventListener("submit", function(e) { e.preventDefault(); exams.push({ id: Date.now().toString(), group: document.getElementById("examGroupSelect").value, name: document.getElementById("examName").value, maxScore: document.getElementById("examMaxScore").value, date: document.getElementById("examDate").value, status: "open", grades: {} }); localStorage.setItem("exams", JSON.stringify(exams)); this.reset(); closeModal('addExamModal'); renderExamCards(); showToast("تم الإنشاء"); });
-function deleteExam(id) { customConfirm("حذف الامتحان؟", () => { exams = exams.filter(e => e.id !== id); localStorage.setItem("exams", JSON.stringify(exams)); renderExamCards(); }); }
+function deleteExam(id) { 
+    customConfirm("هل أنت متأكد من حذف هذا الامتحان نهائياً؟", () => { 
+        const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف:");
+        const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+        
+        if (enteredPin !== currentAdminPin) {
+            return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+        }
+
+        exams = exams.filter(e => e.id !== id); 
+        localStorage.setItem("exams", JSON.stringify(exams)); 
+        renderExamCards(); 
+        showToast("تم حذف الامتحان بنجاح 🗑️");
+    }); 
+}
 function openExamDetails(id) { currentActiveExamId = id; const e = exams.find(e => e.id === id); document.getElementById("exams-overview").style.display = "none"; document.getElementById("exam-details-view").style.display = "block"; document.getElementById("current-exam-title").innerText = e.name; renderGradesTable(e, "grades-list", saveExamGrade, currentActiveExamId, 'exam'); }
 function backToExams() { document.getElementById("exams-overview").style.display = "block"; document.getElementById("exam-details-view").style.display = "none"; renderExamCards(); }
 
@@ -1739,7 +1724,21 @@ document.getElementById('editHwForm')?.addEventListener('submit', function(e) {
 });
 
 document.getElementById("addHwForm")?.addEventListener("submit", function(e) { e.preventDefault(); homeworks.push({ id: Date.now().toString(), group: document.getElementById("hwGroupSelect").value, name: document.getElementById("hwName").value, maxScore: document.getElementById("hwMaxScore").value, date: document.getElementById("hwDate").value, status: "open", grades: {} }); localStorage.setItem("homeworks", JSON.stringify(homeworks)); this.reset(); closeModal('addHwModal'); renderHwCards(); });
-function deleteHw(id) { customConfirm("حذف الواجب؟", () => { homeworks = homeworks.filter(h => h.id !== id); localStorage.setItem("homeworks", JSON.stringify(homeworks)); renderHwCards(); }); }
+function deleteHw(id) { 
+    customConfirm("هل أنت متأكد من حذف هذا الواجب نهائياً؟", () => { 
+        const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف:");
+        const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+        
+        if (enteredPin !== currentAdminPin) {
+            return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+        }
+
+        homeworks = homeworks.filter(h => h.id !== id); 
+        localStorage.setItem("homeworks", JSON.stringify(homeworks)); 
+        renderHwCards(); 
+        showToast("تم حذف الواجب بنجاح 🗑️");
+    }); 
+}
 function openHwDetails(id) { currentActiveHwId = id; const hw = homeworks.find(h => h.id === id); document.getElementById("hw-overview").style.display = "none"; document.getElementById("hw-details-view").style.display = "block"; document.getElementById("current-hw-title").innerText = hw.name; renderGradesTable(hw, "hw-grades-list", saveHwGrade, currentActiveHwId, 'hw'); }
 function backToHw() { document.getElementById("hw-overview").style.display = "block"; document.getElementById("hw-details-view").style.display = "none"; renderHwCards(); }
 
@@ -2337,12 +2336,36 @@ window.randomSleep = function(min = 2000, max = 5000) {
 
 
 // ==========================================
-// 🧠 معالج قوالب الرسائل الذكي (المطور)
+// 🧠 معالج قوالب الرسائل الذكي (المطور بالترحيب العشوائي)
 // ==========================================
 window.processMessageTemplate = function(template, student, session, reportData) {
     let tName = localStorage.getItem("teacherName") || "المدير";
     let cName = localStorage.getItem("centerName") || "السنتر";
     let nowTime = new Date().toLocaleTimeString('ar-EG');
+    
+    // 🎲 1. قاموس الترحيبات العشوائية
+    const parentGreetings = [
+        "أهلاً بحضرتك",
+        "مرحباً بك",
+        "السلام عليكم ورحمة الله،",
+        "تحياتنا لحضرتك",
+        "أهلاً وسهلاً بك",
+        "طاب يومك"
+    ];
+
+    const studentGreetings = [
+        "أهلاً بيك يا بطل",
+        "عاش يا وحش",
+        "أخبار المذاكرة إيه يا",
+        "شد حيلك يا نجم",
+        "يا هلا بالبطل",
+        "مستعد للقمة يا",
+        "إيه الأخبار يا"
+    ];
+
+    // اختيار ترحيب عشوائي لكل رسالة
+    let randomParentGreeting = parentGreetings[Math.floor(Math.random() * parentGreetings.length)];
+    let randomStudentGreeting = studentGreetings[Math.floor(Math.random() * studentGreetings.length)];
     
     let finalTemplate = template;
     
@@ -2351,26 +2374,86 @@ window.processMessageTemplate = function(template, student, session, reportData)
         finalTemplate += "\n\n{تفاصيل_التقرير}";
     }
 
-    // 1. استبدال المتغيرات الثابتة
+    // 2. استبدال المتغيرات الثابتة ومتغيرات الترحيب العشوائي
     let msg = finalTemplate
-        .replace(/{اسم_الطالب}/g, student.name)
-        .replace(/{المجموعة}/g, student.group)
+        .replace(/{ترحيب_ولي_الأمر}/g, randomParentGreeting) // يعطي ترحيب عشوائي لولي الأمر
+        .replace(/{ترحيب_الطالب}/g, randomStudentGreeting)    // يعطي ترحيب عشوائي للطالب
+        .replace(/{اسم_الطالب}/g, student.name || "")
+        .replace(/{كود_الطالب}/g, student.code || "")
+        .replace(/{رقم_الطالب}/g, (student.phone && student.phone !== "0") ? student.phone : "غير مسجل")
+        .replace(/{رقم_ولي_الأمر}/g, (student.parentPhone && student.parentPhone !== "0") ? student.parentPhone : "غير مسجل")
+        .replace(/{المجموعة}/g, student.group || "")
         .replace(/{الموضوع}/g, session.topic || 'حصة عادية')
         .replace(/{تفاصيل_التقرير}/g, reportData)
         .replace(/{اسم_السنتر}/g, cName)
         .replace(/{اسم_المدير}/g, tName)
         .replace(/{وقت_الرسالة}/g, nowTime);
 
-    // 2. معالجة الـ Spintax وحذف الأقواس لو المدرس نسي يكتب فاصل |
+    // 3. معالجة الـ Spintax اليدوي لو المدرس استخدمه {كلمة1|كلمة2}
     msg = msg.replace(/\{([^{}]*)\}/g, function(match, contents) {
         if (contents.includes('|')) {
             let options = contents.split('|');
             return options[Math.floor(Math.random() * options.length)];
         }
-        return contents; // 🌟 هنا التعديل: بيرجع الكلمة نظيفة من غير الأقواس
+        return contents; 
     });
     
     return msg;
+};
+
+
+// ==========================================
+// 🖱️ نظام إدراج المتغيرات التفاعلي في مكان المؤشر (Cursor Tracking)
+// ==========================================
+let lastFocusedMsgBox = null;
+
+// تتبع المربع الذي يقف فيه المستخدم حالياً
+document.addEventListener('DOMContentLoaded', () => {
+    const parentBox = document.getElementById('settingParentMsg');
+    const studentBox = document.getElementById('settingStudentMsg');
+    
+    if(parentBox) {
+        parentBox.addEventListener('focus', () => lastFocusedMsgBox = parentBox);
+        parentBox.addEventListener('blur', () => { /* لا نفرغ المتغير لنحتفظ بآخر مربع */ });
+    }
+    if(studentBox) {
+        studentBox.addEventListener('focus', () => lastFocusedMsgBox = studentBox);
+        studentBox.addEventListener('blur', () => { /* لا نفرغ المتغير لنحتفظ بآخر مربع */ });
+    }
+});
+
+// دالة زرع المتغير في النص
+window.insertVariable = function(variableText) {
+    let targetBox = lastFocusedMsgBox;
+    
+    // لو المدرس مضغطش على أي مربع، نختار مربع ولي الأمر كافتراضي
+    if (!targetBox) {
+        targetBox = document.getElementById('settingParentMsg');
+        if(!targetBox) return;
+        showToast("💡 تم الإدراج في رسالة ولي الأمر (اضغط على مربع الطالب إذا أردت الإدراج هناك).", "info");
+    }
+
+    // تحديد مكان المؤشر الحالي
+    const startPos = targetBox.selectionStart;
+    const endPos = targetBox.selectionEnd;
+    const text = targetBox.value;
+
+    // دمج المتغير في النص
+    targetBox.value = text.substring(0, startPos) + variableText + text.substring(endPos);
+    
+    // إعادة المؤشر بعد المتغير مباشرة عشان يقدر يكمل كتابة
+    const newCursorPos = startPos + variableText.length;
+    targetBox.setSelectionRange(newCursorPos, newCursorPos);
+    targetBox.focus();
+
+    // تشغيل أنيميشن خفيف للمربع عشان يلفت انتباهه إن الإضافة تمت
+    targetBox.style.transition = "all 0.2s";
+    targetBox.style.backgroundColor = "#f0fdf4"; // أخضر فاتح
+    targetBox.style.borderColor = "#10b981";
+    setTimeout(() => {
+        targetBox.style.backgroundColor = "";
+        targetBox.style.borderColor = "";
+    }, 300);
 };
 
 // دالة مساعدة للتأخير الزمني العشوائي (لحماية الرقم من الحظر)
@@ -3529,85 +3612,7 @@ window.clearSystemLogs = function() {
 };
 
 
-// ==========================================
-// 📈 2. نظام التقارير الشاملة وتصدير الإكسيل
-// ==========================================
-window.generateAdvancedReport = function() {
-    const type = document.getElementById("reportType").value;
-    const groupFilter = document.getElementById("reportGroup").value;
-    const fromDate = document.getElementById("reportDateFrom").value;
-    const toDate = document.getElementById("reportDateTo").value;
-    
-    const thead = document.getElementById("report-table-head");
-    const tbody = document.getElementById("report-table-body");
-    
-    thead.innerHTML = ""; tbody.innerHTML = "";
 
-    // 1. تحديد الداتا بناءً على النوع المختار (حصص ولا امتحانات ولا واجبات)
-    let sourceData = [];
-    let itemName = ""; // اسم العمود (حصة / امتحان / واجب)
-    if (type === 'attendance') { sourceData = classSessions; itemName = "الغياب (الحالة)"; }
-    else if (type === 'exams') { sourceData = exams; itemName = "الامتحان (الدرجة)"; }
-    else if (type === 'homework') { sourceData = homeworks; itemName = "الواجب (الدرجة)"; }
-
-    // 2. فلترة الداتا بالتاريخ والمجموعة
-    let filteredItems = sourceData.filter(item => {
-        let matchGroup = (groupFilter === 'all') || (item.group === groupFilter);
-        let matchDate = true;
-        if (fromDate) matchDate = matchDate && (new Date(item.date) >= new Date(fromDate));
-        if (toDate) matchDate = matchDate && (new Date(item.date) <= new Date(toDate));
-        return matchGroup && matchDate;
-    }).sort((a,b) => new Date(a.date) - new Date(b.date)); // ترتيب تصاعدي بالزمن
-
-    if (filteredItems.length === 0) {
-        thead.innerHTML = `<tr><th>لا توجد بيانات مطابقة لهذه الفلاتر</th></tr>`;
-        return;
-    }
-
-    // 3. فلترة الطلاب (لو اختار مجموعة معينة نجيب طلابها بس، لو الكل نجيب الكل)
-    let targetStudents = students;
-    if (groupFilter !== 'all') targetStudents = students.filter(s => s.group === groupFilter);
-
-    // 4. رسم رأس الجدول (الهيدر)
-    let headHtml = `<tr><th>كود الطالب</th><th>الاسم</th><th>المجموعة</th>`;
-    filteredItems.forEach(item => {
-        let title = type === 'attendance' ? item.date : `${item.name} (${item.date})`;
-        headHtml += `<th>${title}</th>`;
-    });
-    headHtml += `</tr>`;
-    thead.innerHTML = headHtml;
-
-    // 5. رسم جسم الجدول (الطلاب ونتائجهم)
-    targetStudents.forEach(st => {
-        let rowHtml = `<tr>
-            <td style="font-weight: bold; color: var(--primary-color);">${st.code}</td>
-            <td>${st.name}</td>
-            <td>${st.group}</td>`;
-        
-        filteredItems.forEach(item => {
-            let cellValue = "--";
-            
-            if (type === 'attendance') {
-                let stat = item.attendance[st.phone];
-                if (stat === 'present') cellValue = "حاضر";
-                else if (stat === 'absent') cellValue = "غائب";
-            } 
-            else if (type === 'exams' || type === 'homework') {
-                if (item.grades && item.grades[st.phone] !== undefined) {
-                    cellValue = `${item.grades[st.phone]} / ${item.maxScore}`;
-                } else {
-                    cellValue = "لم يُمتحن/لم يُسلم";
-                }
-            }
-            rowHtml += `<td>${cellValue}</td>`;
-        });
-        
-        rowHtml += `</tr>`;
-        tbody.innerHTML += rowHtml;
-    });
-    
-    showToast("تم استخراج التقرير بنجاح! 📊");
-};
 
 // 📥 دالة تصدير الجدول لإكسيل باستخدام مكتبة XLSX الموجودة عندك
 window.exportReportToExcel = function() {
@@ -4030,14 +4035,31 @@ window.loadSentNotifications = async function() {
     }
 };
 
-// 1. إضافة فيديو (جديد)
-window.addCourseVideoRow = function(title = "", url = "", linkedSession = "", requiredExam = "", type = "free", price = "") {
+window.addCourseVideoRow = function(title = "", url = "", linkedSessions = [], requiredExam = "", type = "free", price = "") {
     let container = document.getElementById("courseVideosContainer");
     let level = document.getElementById("lecLevel").value;
     let validGroups = groups.filter(g => level === 'all' || g.level === level).map(g => g.name);
     let validSessions = classSessions.filter(s => validGroups.includes(s.group)).reverse();
-    let sessionOpts = '<option value="">بدون ربط بالحضور</option>';
-    validSessions.forEach(s => { sessionOpts += `<option value="${s.id}" ${linkedSession === s.id ? 'selected' : ''}>${s.date} - ${s.topic || 'حصة'} (${s.group})</option>`; });
+    
+    // التأكد أن linkedSessions مصفوفة دائماً
+    if (!Array.isArray(linkedSessions)) {
+        linkedSessions = linkedSessions ? [linkedSessions] : [];
+    }
+
+    let sessionsCheckboxes = '';
+    if (validSessions.length === 0) {
+        sessionsCheckboxes = `<span style="color: var(--danger-color); font-size: 12px; font-weight: bold;">لا توجد حصص مسجلة لهذا الصف!</span>`;
+    } else {
+        validSessions.forEach(s => {
+            let isChecked = linkedSessions.includes(s.id) ? "checked" : "";
+            sessionsCheckboxes += `
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; margin-bottom: 4px;">
+                <input type="checkbox" value="${s.id}" ${isChecked} class="vid-session-cb" style="accent-color: var(--success-color); width: 16px; height: 16px;">
+                ${s.date} - ${s.topic || 'حصة'} (${s.group})
+            </label>`;
+        });
+    }
+
     let examsToSelect = JSON.parse(localStorage.getItem("onlineExams")) || [];
     let examOpts = '<option value="">بدون شرط امتحان</option>';
     examsToSelect.forEach(e => { examOpts += `<option value="${e.id}" ${requiredExam === e.id ? 'selected' : ''}>${e.title}</option>`; });
@@ -4059,24 +4081,41 @@ window.addCourseVideoRow = function(title = "", url = "", linkedSession = "", re
                 </select>
                 <input type="number" class="custom-input vid-price" placeholder="السعر (ج.م)" value="${price}" style="margin-top: 5px; display: ${type === 'paid' ? 'block' : 'none'};">
             </div>
-            <div style="flex: 1; min-width: 150px;"><label style="font-size: 12px; color: #10b981; font-weight: bold;">تُفتح مجاناً لمن حضر حصة:</label><select class="custom-input vid-session" style="margin: 0;">${sessionOpts}</select></div>
+            <div style="flex: 2; min-width: 250px;">
+                <label style="font-size: 12px; color: #10b981; font-weight: 900; margin-bottom: 5px; display: block;">🔓 يُفتح مجاناً لمن حضر حصص (اختر حصة أو أكثر):</label>
+                <div style="max-height: 120px; overflow-y: auto; background: var(--bg-color); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    ${sessionsCheckboxes}
+                </div>
+            </div>
             <div style="flex: 1; min-width: 150px;"><label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label><select class="custom-input vid-exam" style="margin: 0;">${examOpts}</select></div>
         </div>
     `;
     document.getElementById("courseVideosContainer").appendChild(div);
 };
 
-window.addEditCourseVideoRow = function(title = "", url = "", linkedSession = "", requiredExam = "", type = "free", price = "") {
+window.addEditCourseVideoRow = function(title = "", url = "", linkedSessions = [], requiredExam = "", type = "free", price = "") {
     let container = document.getElementById("editCourseVideosContainer");
-    
     let level = document.getElementById("editLecLevel").value;
     let validGroups = groups.filter(g => level === 'all' || g.level === level).map(g => g.name);
     let validSessions = classSessions.filter(s => validGroups.includes(s.group)).reverse();
     
-    let sessionOpts = '<option value="">بدون ربط (متاح للكل بناءً على شراء الكورس)</option>';
-    validSessions.forEach(s => {
-        sessionOpts += `<option value="${s.id}" ${linkedSession === s.id ? 'selected' : ''}>${s.date} - ${s.topic || 'حصة'} (${s.group})</option>`;
-    });
+    if (!Array.isArray(linkedSessions)) {
+        linkedSessions = linkedSessions ? [linkedSessions] : [];
+    }
+
+    let sessionsCheckboxes = '';
+    if (validSessions.length === 0) {
+        sessionsCheckboxes = `<span style="color: var(--danger-color); font-size: 12px; font-weight: bold;">لا توجد حصص مسجلة لهذا الصف!</span>`;
+    } else {
+        validSessions.forEach(s => {
+            let isChecked = linkedSessions.includes(s.id) ? "checked" : "";
+            sessionsCheckboxes += `
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; margin-bottom: 4px;">
+                <input type="checkbox" value="${s.id}" ${isChecked} class="vid-session-cb" style="accent-color: var(--success-color); width: 16px; height: 16px;">
+                ${s.date} - ${s.topic || 'حصة'} (${s.group})
+            </label>`;
+        });
+    }
 
     let examsToSelect = JSON.parse(localStorage.getItem("onlineExams")) || [];
     let examOpts = '<option value="">بدون شرط امتحان</option>';
@@ -4086,14 +4125,10 @@ window.addEditCourseVideoRow = function(title = "", url = "", linkedSession = ""
 
     let div = document.createElement("div");
     div.className = "video-row-edit";
-    // الستايل الجديد للمربع
     div.style.cssText = "background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px; position: relative; transition: 0.3s;";
     
     div.innerHTML = `
-        <!-- زرار الحذف الشيك في الركن الأيسر -->
-        <button type="button" onclick="this.parentElement.remove()" style="position: absolute; top: 15px; left: 15px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#f87171'; this.style.color='white';" onmouseout="this.style.background='#fee2e2'; this.style.color='#ef4444';" title="حذف هذا الفيديو">🗑️</button>
-
-        <!-- صف العناوين والروابط -->
+        <button type="button" onclick="this.parentElement.remove()" style="position: absolute; top: 15px; left: 15px; background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; width: 35px; height: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px;">🗑️</button>
         <div style="display: flex; gap: 15px; margin-bottom: 15px; padding-left: 45px;">
             <div style="flex: 1;">
                 <label style="font-size: 13px; font-weight: bold; color: var(--text-main); margin-bottom: 5px; display: block;">عنوان الفيديو</label>
@@ -4104,8 +4139,6 @@ window.addEditCourseVideoRow = function(title = "", url = "", linkedSession = ""
                 <input type="url" class="custom-input vid-url" placeholder="https://..." value="${url}" style="margin: 0; background: #f8fafc; text-align: left; direction: ltr; border-color: #cbd5e1;">
             </div>
         </div>
-
-        <!-- صف الشروط (مفصول بخط داش) -->
         <div style="display: flex; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 150px;">
                 <label style="font-size: 12px; color: #3b82f6; font-weight: bold;">نوع المحاضرة:</label>
@@ -4115,12 +4148,14 @@ window.addEditCourseVideoRow = function(title = "", url = "", linkedSession = ""
                 </select>
                 <input type="number" class="custom-input vid-price" placeholder="السعر (ج.م)" value="${price}" style="margin-top: 5px; display: ${type === 'paid' ? 'block' : 'none'};">
             </div>
-            <div style="flex: 1; min-width: 250px;">
-                <label style="font-size: 13px; color: #10b981; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;"><span>🔓</span> يُفتح مجاناً لمن حضر حصة:</label>
-                <select class="custom-input vid-session" style="margin: 0; border-color: #10b981; font-weight: bold;">${sessionOpts}</select>
+            <div style="flex: 2; min-width: 250px;">
+                <label style="font-size: 13px; color: #10b981; font-weight: 900; margin-bottom: 5px; display: block;"><span>🔓</span> يُفتح مجاناً لمن حضر حصص:</label>
+                <div style="max-height: 120px; overflow-y: auto; background: white; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    ${sessionsCheckboxes}
+                </div>
             </div>
-            <div style="flex: 1; min-width: 250px;">
-                <label style="font-size: 13px; color: #f59e0b; font-weight: 900; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;"><span>🔐</span> شرط الفتح (اجتياز امتحان):</label>
+            <div style="flex: 1; min-width: 200px;">
+                <label style="font-size: 13px; color: #f59e0b; font-weight: 900; margin-bottom: 8px; display: block;"><span>🔐</span> شرط الفتح (اجتياز امتحان):</label>
                 <select class="custom-input vid-exam" style="margin: 0; border-color: #f59e0b; font-weight: bold;">${examOpts}</select>
             </div>
         </div>
@@ -4139,12 +4174,12 @@ window.saveLecture = async function() {
     document.querySelectorAll(".video-row").forEach(row => {
         let vTitle = row.querySelector(".vid-title").value.trim();
         let vUrl = row.querySelector(".vid-url").value.trim();
-        let vSession = row.querySelector(".vid-session").value;
+        let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
         let vExam = row.querySelector(".vid-exam").value;
         let vType = row.querySelector(".vid-type").value;
         let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
         
-        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSession: vSession, requiredExam: vExam, type: vType, price: vPrice });
+        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
     });
 
     if(!title || videos.length === 0) return showToast("يرجى إدخال اسم الكورس وفيديو واحد على الأقل!", "error");
@@ -4184,12 +4219,12 @@ window.saveEditedCourse = async function() {
     document.querySelectorAll(".video-row-edit").forEach(row => {
         let vTitle = row.querySelector(".vid-title").value.trim();
         let vUrl = row.querySelector(".vid-url").value.trim();
-        let vSession = row.querySelector(".vid-session").value;
+        let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
         let vExam = row.querySelector(".vid-exam").value;
         let vType = row.querySelector(".vid-type").value;
         let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
         
-        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSession: vSession, requiredExam: vExam, type: vType, price: vPrice });
+        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
     });
 
     if(!title || videos.length === 0) return alert("يرجى إدخال اسم الكورس وفيديو واحد على الأقل!");
@@ -5051,12 +5086,24 @@ window.toggleExamStatus = async function(index, currentStatus) {
 };
 
 window.deleteOnlineExam = async function(index) {
-    if(!confirm("⚠️ تأكيد الحذف النهائي؟")) return;
+    if(!confirm("⚠️ تأكيد الحذف النهائي للامتحان الإلكتروني؟")) return;
+    
+    const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف:");
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    
+    if (enteredPin !== currentAdminPin) {
+        return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+    }
+
     try {
-        let exams = [...window.fetchedOnlineExams]; exams.splice(index, 1);
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(exams) });
+        let examsArray = [...window.fetchedOnlineExams]; 
+        examsArray.splice(index, 1);
+        await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${getSafeUid()}/data/onlineExams.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(examsArray) });
         renderOnlineExams();
-    } catch(e) {}
+        showToast("تم حذف الامتحان الإلكتروني بنجاح 🗑️");
+    } catch(e) {
+        showToast("حدث خطأ أثناء الحذف!", "error");
+    }
 };
 
 
@@ -5579,40 +5626,97 @@ window.openStudentProfile = function(code) {
     document.getElementById("profile-hw").innerText = `${tHw > 0 ? Math.round((sHw / tHw) * 100) : 0}%`;
 };
 
-function renderTable() { 
+window.renderTable = function() { 
     const tbody = document.getElementById("students-list"); 
     if(!tbody) return;
-    tbody.innerHTML = ""; 
+    
+    let html = ""; // 🚀 المتغير اللي هنجمع فيه الداتا عشان نمنع التهنيج
+    
     students.forEach((student) => { 
         let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
-        // 💡 إضافة النجمة هنا
         let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
         
-        tbody.innerHTML += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name} ${specialBadge}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
+        html += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name} ${specialBadge}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
     });
+    
+    tbody.innerHTML = html; // 🚀 حقن البيانات في الشاشة مرة واحدة فقط
     document.getElementById("total-students").innerText = students.length; 
-}
+};
 
 window.generateAdvancedReport = function() {
-    const type = document.getElementById("reportType").value; const groupFilter = document.getElementById("reportGroup").value; const fromDate = document.getElementById("reportDateFrom").value; const toDate = document.getElementById("reportDateTo").value;
-    const thead = document.getElementById("report-table-head"); const tbody = document.getElementById("report-table-body");
+    const type = document.getElementById("reportType").value;
+    const groupFilter = document.getElementById("reportGroup").value;
+    const fromDate = document.getElementById("reportDateFrom").value;
+    const toDate = document.getElementById("reportDateTo").value;
+    
+    const thead = document.getElementById("report-table-head");
+    const tbody = document.getElementById("report-table-body");
+    
     thead.innerHTML = ""; tbody.innerHTML = "";
-    let sourceData = []; let itemName = ""; 
-    if (type === 'attendance') { sourceData = classSessions; itemName = "الغياب (الحالة)"; } else if (type === 'exams') { sourceData = exams; itemName = "الامتحان (الدرجة)"; } else if (type === 'homework') { sourceData = homeworks; itemName = "الواجب (الدرجة)"; }
-    let filteredItems = sourceData.filter(item => { let matchGroup = (groupFilter === 'all') || (item.group === groupFilter); let matchDate = true; if (fromDate) matchDate = matchDate && (new Date(item.date) >= new Date(fromDate)); if (toDate) matchDate = matchDate && (new Date(item.date) <= new Date(toDate)); return matchGroup && matchDate; }).sort((a,b) => new Date(a.date) - new Date(b.date)); 
-    if (filteredItems.length === 0) { thead.innerHTML = `<tr><th>لا توجد بيانات مطابقة لهذه الفلاتر</th></tr>`; return; }
-    let targetStudents = groupFilter !== 'all' ? students.filter(s => s.group === groupFilter) : students;
-    let headHtml = `<tr><th>كود الطالب</th><th>الاسم</th><th>المجموعة</th>`; filteredItems.forEach(item => { let title = type === 'attendance' ? item.date : `${item.name} (${item.date})`; headHtml += `<th>${title}</th>`; }); headHtml += `</tr>`; thead.innerHTML = headHtml;
+
+    let sourceData = [];
+    if (type === 'attendance') { sourceData = classSessions; }
+    else if (type === 'exams') { sourceData = exams; }
+    else if (type === 'homework') { sourceData = homeworks; }
+
+    let filteredItems = sourceData.filter(item => {
+        let matchGroup = (groupFilter === 'all') || (item.group === groupFilter);
+        let matchDate = true;
+        if (fromDate) matchDate = matchDate && (new Date(item.date) >= new Date(fromDate));
+        if (toDate) matchDate = matchDate && (new Date(item.date) <= new Date(toDate));
+        return matchGroup && matchDate;
+    }).sort((a,b) => new Date(a.date) - new Date(b.date)); 
+
+    if (filteredItems.length === 0) {
+        thead.innerHTML = `<tr><th>لا توجد بيانات مطابقة لهذه الفلاتر</th></tr>`;
+        return;
+    }
+
+    let targetStudents = students;
+    if (groupFilter !== 'all') targetStudents = students.filter(s => s.group === groupFilter);
+
+    // 💡 التعديل هنا: إضافة الأعمدة المطلوبة
+    let headHtml = `<tr><th>الكود</th><th>الاسم</th><th>هاتف الطالب</th><th>هاتف ولي الأمر</th><th>المجموعة</th>`;
+    filteredItems.forEach(item => {
+        let title = type === 'attendance' ? item.date : `${item.name} (${item.date})`;
+        headHtml += `<th>${title}</th>`;
+    });
+    headHtml += `</tr>`;
+    thead.innerHTML = headHtml;
+
     targetStudents.forEach(st => {
-        let rowHtml = `<tr><td style="font-weight: bold; color: var(--primary-color);">${st.code}</td><td>${st.name}</td><td>${st.group}</td>`;
+        // 💡 التعديل هنا: طباعة الأرقام في الجدول
+        let rowHtml = `<tr>
+            <td style="font-weight: bold; color: var(--primary-color);">${st.code}</td>
+            <td>${st.name}</td>
+            <td style="direction: ltr;">${st.phone}</td>
+            <td style="direction: ltr;">${st.parentPhone}</td>
+            <td>${st.group}</td>`;
+        
         filteredItems.forEach(item => {
             let cellValue = "--";
-            if (type === 'attendance') { let stat = item.attendance[st.code] || item.attendance[st.phone]; if (stat === 'present') cellValue = "حاضر"; else if (stat === 'absent') cellValue = "غائب"; } 
-            else if (type === 'exams' || type === 'homework') { let g = item.grades[st.code] !== undefined ? item.grades[st.code] : item.grades[st.phone]; if (g !== undefined) { cellValue = `${g} / ${item.maxScore}`; } else { cellValue = "لم يُمتحن/لم يُسلم"; } }
+            
+            if (type === 'attendance') {
+                let stat = item.attendance[st.code] || item.attendance[st.phone];
+                if (stat === 'present') cellValue = "حاضر";
+                else if (stat === 'absent') cellValue = "غائب";
+                else if (stat === 'late') cellValue = "متأخر";
+            } 
+            else if (type === 'exams' || type === 'homework') {
+                let g = item.grades[st.code] !== undefined ? item.grades[st.code] : item.grades[st.phone];
+                if (g !== undefined) {
+                    cellValue = `${g} / ${item.maxScore}`;
+                } else {
+                    cellValue = "لم يُمتحن/لم يُسلم";
+                }
+            }
             rowHtml += `<td>${cellValue}</td>`;
         });
-        rowHtml += `</tr>`; tbody.innerHTML += rowHtml;
+        
+        rowHtml += `</tr>`;
+        tbody.innerHTML += rowHtml;
     });
+    
     showToast("تم استخراج التقرير بنجاح! 📊");
 };
 
@@ -6172,6 +6276,21 @@ window.addEventListener('DOMContentLoaded', () => {
                     let id = hash.replace('student-', '');
                     window.switchPage('students', true); // 👈 فتح صفحة الطلاب الأساسية
                     setTimeout(() => window.openStudentProfile(id, true), 50); // 👈 ثم فتح الملف
+                    } else if (hash.startsWith('center-')) {
+                    let id = decodeURIComponent(hash.replace('center-', ''));
+                    window.switchPage('groups', true);
+                    setTimeout(() => window.openCenter(id, true), 50);
+                } else if (hash.startsWith('group-')) {
+                    let id = decodeURIComponent(hash.replace('group-', ''));
+                    // 💡 هنا بنجيب السنتر بتاع المجموعة عشان نجهزه في الخلفية
+                    let targetGrp = groups.find(g => g.name === id);
+                    if (targetGrp) {
+                        window.switchPage('groups', true);
+                        setTimeout(() => {
+                            window.openCenter(targetGrp.center, true); // يفتح السنتر الأول في الخلفية
+                            setTimeout(() => window.openGroupDetails(id, true), 50); // يفتح المجموعة نفسها
+                        }, 50);
+                    }
                 } else if (hash.startsWith('group-')) {
                     let id = decodeURIComponent(hash.replace('group-', ''));
                     window.switchPage('groups', true); // 👈 فتح صفحة المجموعات الأساسية
@@ -6317,6 +6436,10 @@ window.addEventListener('popstate', function(event) {
                 window.switchPage('groups', true);
                 setTimeout(() => window.openGroupDetails(state.id, true), 20);
             }
+            else if (state.page === 'center-details') {
+                window.switchPage('groups', true);
+                setTimeout(() => window.openCenter(state.id, true), 20);
+            }
             else if (state.page === 'session-details') {
                 window.switchPage('attendance', true);
                 setTimeout(() => window.openSessionDetails(state.id, true), 20);
@@ -6443,30 +6566,7 @@ window.updateEditGeneratedCode = function() {
 // 🚀 محرك المزامنة اللحظية الشامل والذكي (Zero-Bug Sync)
 // ==========================================
 
-// 1. معترض الطلبات (Fetch Interceptor): يراقب أي تعديل في السيرفر ويرسل إشارة مزامنة تلقائياً
-if (!window.fetchInterceptorAdded) {
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const response = await originalFetch.apply(this, args);
-        try {
-            const url = args[0] instanceof Request ? args[0].url : args[0];
-            const options = args[1] || {};
-            const method = (options.method || (args[0] instanceof Request ? args[0].method : 'GET')).toUpperCase();
-            
-            // لو الطلب بيعدل في قاعدة البيانات (PUT, POST, PATCH, DELETE)
-            if (url && typeof url === 'string' && url.includes('firebasedatabase.app') && ['PUT', 'POST', 'PATCH', 'DELETE'].includes(method)) {
-                // نستثني إشارة المزامنة نفسها عشان منعملش حلقة مفرغة (Infinite Loop)
-                if (!url.includes('syncSignal.json')) {
-                    if (typeof triggerGlobalSyncSignal === 'function') {
-                        setTimeout(triggerGlobalSyncSignal, 300);
-                    }
-                }
-            }
-        } catch (e) { console.error("Interceptor Error", e); }
-        return response;
-    };
-    window.fetchInterceptorAdded = true;
-}
+
 
 // 2. إرسال إشارة المزامنة لباقي الأجهزة
 window.triggerGlobalSyncSignal = async function() {
@@ -6481,56 +6581,20 @@ window.triggerGlobalSyncSignal = async function() {
     } catch (e) {}
 };
 
-// 3. المزامنة الأساسية للبيانات المحلية
-async function syncDataToBot() {
-    let isDemo = localStorage.getItem("is_demo_mode") === "true";
-    if (!isDemo && (!isFirebaseLoaded || !window.getSafeUid())) return; 
 
-    const dataToSync = {
-        settings: {
-            teacherName: localStorage.getItem("teacherName") || "المدير",
-            centerName: localStorage.getItem("centerName") || "السنتر",
-            adminUser: localStorage.getItem("adminUser") || "shefo",
-            adminPass: localStorage.getItem("adminPass") || "12345",
-            adminPin: localStorage.getItem("adminPin") || "1234",
-            phoneNumbers: localStorage.getItem("teacherPhones") || "",
-            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
-            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
-            botEnabled: localStorage.getItem("botEnabled") === "true",
-            botName: localStorage.getItem("botName") || "المساعد",
-            botInstructions: localStorage.getItem("botInstructions") || ""
-        },
-        teacherName: localStorage.getItem("teacherName") || "المدير",
-        centerName: localStorage.getItem("centerName") || "السنتر",
-        adminUser: localStorage.getItem("adminUser"),
-        adminPass: localStorage.getItem("adminPass"),
-        adminPin: localStorage.getItem("adminPin"),
-        students, classSessions, exams, homeworks, schedule, groups, financeRecords, expenses, books, monthlyPayments: window.monthlyPayments || {},
-        onlineExams: typeof onlineExams !== 'undefined' ? onlineExams : []
+
+// استماع أوتوماتيكي لكل المتغيرات
+window.isIncomingSync = false;
+["students", "classSessions", "exams", "homeworks", "schedule", "groups", "centers", "financeRecords", "expenses", "books", "monthlyPayments", "onlineExams"].forEach(key => {
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(k, v) {
+        originalSetItem.apply(this, arguments);
+        if(key === k && !window.isIncomingSync) syncDataToBot();
     };
-
-    window.lastLocalSyncTime = Date.now();
-
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
-        try {
-            await fetch(`https://edutrack-api.duckdns.org/sync-database`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(dataToSync) 
-            });
-        } catch (e) {}
-    }
-
-    if (isDemo) return;
-
-    try {
-        // رفع البيانات الأساسية، والـ Interceptor هيتولى إرسال إشارة المزامنة تلقائياً
-        await fetch(getFirebaseUrl(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dataToSync) });
-    } catch (e) {}
-}
+});
 
 window.isIncomingSync = false; 
-["students", "classSessions", "exams", "homeworks", "schedule", "groups", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
+["students", "classSessions", "exams", "homeworks", "schedule", "groups", "centers", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
     const originalSetItem = localStorage.setItem;
     localStorage.setItem = function(k, v) {
         originalSetItem.apply(this, arguments);
@@ -6637,3 +6701,388 @@ document.addEventListener('DOMContentLoaded', () => {
         window.startRealTimeSync();
     }, 3000);
 });
+
+// 🔄 فتح نافذة اختيار السنتر الجديد للمجموعة
+window.openMoveGroupModal = function(groupName) {
+    const group = groups.find(g => g.name === groupName);
+    if (!group) return;
+
+    document.getElementById("moveGroupOriginalName").value = groupName;
+    document.getElementById("moveGroupNameDisplay").innerText = groupName;
+
+    const select = document.getElementById("moveTargetCenterSelect");
+    select.innerHTML = "";
+    
+    // تعبئة السناتر المتاحة مع استبعاد السنتر الحالي للمجموعة
+    centers.forEach(c => {
+        if (c !== group.center) {
+            select.innerHTML += `<option value="${c}">${c}</option>`;
+        }
+    });
+
+    if (select.innerHTML === "") {
+        return showToast("لا توجد سناتر أخرى متاحة للنقل إليها! أضف سنتر جديد أولاً.", "warning");
+    }
+
+    openModal("moveGroupModal");
+};
+
+// 🚀 تنفيذ نقل المجموعة للسنتر الجديد
+window.confirmMoveGroupToCenter = function() {
+    const groupName = document.getElementById("moveGroupOriginalName").value;
+    const targetCenter = document.getElementById("moveTargetCenterSelect").value;
+
+    const groupIndex = groups.findIndex(g => g.name === groupName);
+    if (groupIndex > -1) {
+        let oldCenter = groups[groupIndex].center;
+        groups[groupIndex].center = targetCenter;
+        
+        localStorage.setItem("groups", JSON.stringify(groups));
+        closeModal("moveGroupModal");
+        
+        renderGroupCards(); // تحديث كروت المجموعات في السنتر الحالي
+        showToast(`تم نقل مجموعة (${groupName}) إلى سنتر (${targetCenter}) بنجاح! 🔄`);
+        
+        if (typeof addSystemLog === "function") {
+            addSystemLog("نقل مجموعة لسنتر 🔄", `تم نقل مجموعة ${groupName} من سنتر ${oldCenter} إلى سنتر ${targetCenter}`);
+        }
+        if (typeof syncDataToBot === "function") syncDataToBot();
+    }
+};
+
+
+// =====================================================================
+// 🚀 محرك المزامنة الشامل والمحمي (Zero-Bug Master Sync Engine) 🚀
+// =====================================================================
+
+// 1️⃣ المتغيرات الخاصة بحالة المزامنة (لمنع التداخل)
+window.isIncomingSync = false;  // فلاج بيمنع الرفع للسيرفر أثناء السحب منه
+window.isSyncingNow = false;    // فلاج بيمنع الرفع المزدوج لو دوست على كذا حاجة بسرعة
+window.lastLocalSyncTime = Date.now(); // وقت آخر تحديث محلي
+
+// دالة مساعدة لجلب رابط الداتا الموحد
+function getFirebaseUrl() {
+    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/data.json`;
+}
+
+// ---------------------------------------------------------
+// 📥 أولاً: دالة السحب من السيرفر (التحميل للأجهزة)
+// ---------------------------------------------------------
+window.loadDataFromFirebase = async function() {
+    if (localStorage.getItem("is_demo_mode") === "true") {
+        isFirebaseLoaded = true; return; 
+    }
+    
+    let currentLicenseKey = "ElSenior_System_Master";
+    
+    try {
+        // فحص حالة الترخيص والاشتراك
+        let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${currentLicenseKey}.json`);
+        let licData = await licRes.json();
+        
+        if (licData) {
+            let isExpired = false;
+            if (licData.activatedAt) {
+                let activationDate = new Date(licData.activatedAt);
+                let expirationDate = new Date(activationDate);
+                
+                if (licData.durationDays) expirationDate.setDate(expirationDate.getDate() + parseInt(licData.durationDays));
+                else if (licData.durationMonths) expirationDate.setMonth(expirationDate.getMonth() + parseInt(licData.durationMonths));
+                
+                let timeDiff = expirationDate.getTime() - new Date().getTime();
+                let daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+                if (licData.durationMonths != 99) {
+                    if (daysLeft <= 0) isExpired = true;
+                    else if (daysLeft <= 5 && daysLeft > 0) {
+                        let banner = document.getElementById("expiration-banner");
+                        if(banner) { banner.style.display = "block"; document.getElementById("expire-days").innerText = daysLeft; }
+                    }
+                }
+            }
+
+            if (licData.status === 'suspended' || isExpired) {
+                sessionStorage.removeItem("isLoggedIn"); localStorage.setItem("keepLoggedIn", "false");
+                document.getElementById("login-screen").style.display = "none"; document.getElementById("main-app").style.display = "none";
+                const suspendedScreen = document.getElementById("suspended-screen");
+                if(suspendedScreen) {
+                    suspendedScreen.style.display = "flex";
+                    if (isExpired) {
+                        suspendedScreen.querySelector("h2").innerText = "انتهت فترة الاشتراك! ⏳";
+                        suspendedScreen.querySelector("p").innerText = "لقد انتهت صلاحية باقتك الحالية. يرجى التواصل مع الإدارة.";
+                    } else {
+                        suspendedScreen.querySelector("h2").innerText = "تم إيقاف النسخة! 🚫";
+                        suspendedScreen.querySelector("p").innerText = "عفواً، تم إيقاف ترخيص استخدام هذا النظام.";
+                    }
+                }
+                return; // قفل التحميل
+            }
+        }
+
+        // سحب داتا السيستم كاملة
+        let res = await fetch(getFirebaseUrl());
+        let data = await res.json();
+        
+        if (data) {
+            // سحب إعدادات المدير
+            if(data.settings) {
+                localStorage.setItem("teacherName", data.settings.teacherName || "El-Senior");
+                localStorage.setItem("centerName", data.settings.centerName || "El-Senior");
+                localStorage.setItem("adminUser", data.settings.adminUser || "shefo");
+                localStorage.setItem("adminPass", data.settings.adminPass || "12345");
+                localStorage.setItem("adminPin", data.settings.adminPin || "1234");
+                adminPin = data.settings.adminPin || "1234"; 
+                if(data.settings.phoneNumbers) localStorage.setItem("teacherPhones", data.settings.phoneNumbers);
+                if(data.settings.parentMsgTemplate) localStorage.setItem("parentMsgTemplate", data.settings.parentMsgTemplate);
+                if(data.settings.studentMsgTemplate) localStorage.setItem("studentMsgTemplate", data.settings.studentMsgTemplate);
+            }
+
+            // تنظيف ومعالجة المصفوفات (عشان لو السيرفر بعتها فاضية ميبوظش الكود)
+            centers = data.centers || ["السنتر الرئيسي"];
+            students = (data.students || []).filter(i => i !== null);
+            groups = (data.groups || []).filter(i => i !== null);
+            schedule = (data.schedule || []).filter(i => i !== null);
+            expenses = (data.expenses || []).filter(i => i !== null);
+            books = (data.books || []).filter(i => i !== null);
+            onlineExams = (data.onlineExams || []).filter(i => i !== null);
+            
+            financeRecords = data.financeRecords || {};
+            monthlyPayments = data.monthlyPayments || {};
+
+            classSessions = (data.classSessions || []).filter(i => i !== null).map(s => ({...s, attendance: s.attendance || {}}));
+            exams = (data.exams || []).filter(i => i !== null).map(e => ({...e, grades: e.grades || {}}));
+            homeworks = (data.homeworks || []).filter(i => i !== null).map(h => ({...h, grades: h.grades || {}}));
+            
+            // 🛑 إيقاف الرفع التلقائي أثناء تحديث الذاكرة المحلية
+            window.isIncomingSync = true; 
+            
+            localStorage.setItem("centers", JSON.stringify(centers));
+            localStorage.setItem("students", JSON.stringify(students));
+            localStorage.setItem("classSessions", JSON.stringify(classSessions));
+            localStorage.setItem("exams", JSON.stringify(exams));
+            localStorage.setItem("homeworks", JSON.stringify(homeworks));
+            localStorage.setItem("schedule", JSON.stringify(schedule));
+            localStorage.setItem("groups", JSON.stringify(groups));
+            localStorage.setItem("financeRecords", JSON.stringify(financeRecords));
+            localStorage.setItem("expenses", JSON.stringify(expenses));
+            localStorage.setItem("books", JSON.stringify(books));
+            localStorage.setItem("onlineExams", JSON.stringify(onlineExams));
+            localStorage.setItem("monthlyPayments", JSON.stringify(monthlyPayments));
+            
+            // 🟢 إعادة تشغيل الرفع التلقائي
+            window.isIncomingSync = false;
+            
+            // تحديث وقت المزامنة عشان الرادار ميشتغلش على داتا لسه ساحبها
+            window.lastLocalSyncTime = Date.now();
+
+            // تحديث واجهات النظام لو مفتوحة
+            if(typeof renderTable === "function") renderTable();
+            if (document.getElementById("groups-list") && typeof renderGroupCards === "function") renderGroupCards();
+            if (document.getElementById("centers-list") && typeof renderCentersCards === "function") renderCentersCards(); 
+            if (typeof renderBooksTable === "function") renderBooksTable();
+            if(sessionStorage.getItem("isLoggedIn") === "true" && typeof renderDashboardCharts === "function") renderDashboardCharts();
+        }
+    } catch (e) {
+        console.log("⚠️ تعذر الاتصال بالسحابة أثناء السحب.");
+    }
+    isFirebaseLoaded = true; 
+    setTimeout(()=> { if(typeof window.checkGlobalAnnouncements === 'function') window.checkGlobalAnnouncements(); }, 1500);
+};
+
+// ---------------------------------------------------------
+// 📤 ثانياً: دالة الرفع للسيرفر (التحديث)
+// ---------------------------------------------------------
+window.syncDataToBot = async function() {
+    let isDemo = localStorage.getItem("is_demo_mode") === "true";
+    if (isDemo || !isFirebaseLoaded) return; 
+    if (window.isIncomingSync) return; // حماية: متعملش رفع وانت لسه بتسحب
+    if (window.isSyncingNow) return;   // حماية: متعملش رفع لو في عملية رفع شغالة حاليا
+
+    window.isSyncingNow = true;
+    window.lastLocalSyncTime = Date.now(); // تحديث الوقت للوقت الحالي
+
+    const dataToSync = {
+        settings: {
+            teacherName: localStorage.getItem("teacherName") || "El-Senior",
+            centerName: localStorage.getItem("centerName") || "El-Senior",
+            adminUser: localStorage.getItem("adminUser") || "shefo",
+            adminPass: localStorage.getItem("adminPass") || "12345",
+            adminPin: localStorage.getItem("adminPin") || "1234",
+            phoneNumbers: localStorage.getItem("teacherPhones") || "",
+            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
+            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
+            botEnabled: localStorage.getItem("botEnabled") === "true",
+            botName: localStorage.getItem("botName") || "أوكتو",
+            botInstructions: localStorage.getItem("botInstructions") || ""
+        },
+        centers, groups, students, classSessions, exams, homeworks, schedule, 
+        expenses, books, financeRecords, monthlyPayments, onlineExams
+    };
+
+    try {
+        // الرفع باستخدام PATCH عشان نعدل الداتا دي بس بدون ما نمسح أي قوائم تانية في الداتا بيز
+        await fetch(getFirebaseUrl(), { 
+            method: 'PATCH', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(dataToSync) 
+        });
+        
+        // ضرب جرس التحديث للأجهزة التانية
+        let currentLicenseKey = "ElSenior_System_Master";
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`, {
+            method: 'PUT', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(window.lastLocalSyncTime)
+        });
+    } catch (e) { 
+        console.error("⚠️ فشل في الرفع للسيرفر", e); 
+    }
+    
+    window.isSyncingNow = false;
+};
+
+// ---------------------------------------------------------
+// 📡 ثالثاً: رادار الأجهزة (استشعار التعديلات من موبايلك أو جهاز تاني)
+// ---------------------------------------------------------
+setInterval(async () => {
+    let isDemo = localStorage.getItem("is_demo_mode") === "true";
+    if (isDemo || !isFirebaseLoaded) return;
+    
+    try {
+        let currentLicenseKey = "ElSenior_System_Master";
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`);
+        let remoteTime = await res.json();
+        
+        // لو الرادار لقط إن فيه جهاز تاني عدل داتا والوقت بتاعه أحدث من بتاعنا
+        if (remoteTime && window.lastLocalSyncTime && remoteTime > window.lastLocalSyncTime) {
+            console.log("🔄 تم اكتشاف تحديث من جهاز آخر! جاري سحب البيانات...");
+            window.lastLocalSyncTime = remoteTime;
+            await window.loadDataFromFirebase(); // ننده لدالة السحب فوراً
+        } 
+        // لو دي أول مرة نفتح السيستم ومش معانا وقت
+        else if (remoteTime && !window.lastLocalSyncTime) {
+            window.lastLocalSyncTime = remoteTime;
+        }
+    } catch (e) {}
+}, 3000); // الفحص بيتم كل 3 ثواني بملف خفيف جداً عشان ميسحبش نت
+
+// ---------------------------------------------------------
+// 👁️ رابعاً: مراقب التخزين المحلي (لرفع الداتا أوتوماتيك عند أي تعديل)
+// ---------------------------------------------------------
+const syncKeys = [
+    "centers", "groups", "students", "classSessions", "exams", 
+    "homeworks", "schedule", "expenses", "books", 
+    "financeRecords", "monthlyPayments", "onlineExams"
+];
+
+const originalSetItem = localStorage.setItem;
+localStorage.setItem = function(key, value) {
+    originalSetItem.apply(this, arguments);
+    // لو المفتاح اللي اتعدل ده يخص الداتا بتاعتنا، ومكنش السيستم في حالة سحب، ارفع الداتا
+    if(syncKeys.includes(key) && !window.isIncomingSync) {
+        window.syncDataToBot();
+    }
+};
+
+// =====================================================================
+
+
+// ==========================================
+// 📥 دوال تصدير الطلاب للإكسيل الشامل
+// ==========================================
+window.exportStudentsToExcel = function(groupName = null) {
+    let dataToExport = students;
+    let fileName = "سجل_جميع_الطلاب.xlsx";
+
+    // لو مبعوتله اسم مجموعة، هيفلتر طلاب المجموعة دي بس
+    if (groupName) {
+        dataToExport = students.filter(s => s.group === groupName);
+        fileName = `سجل_طلاب_مجموعة_${groupName}.xlsx`;
+    }
+
+    if (dataToExport.length === 0) {
+        return showToast("لا يوجد طلاب للتصدير!", "error");
+    }
+
+    // تجهيز الداتا بالشكل العربي المنسق
+    const excelData = dataToExport.map(s => ({
+        "كود الطالب": s.code,
+        "الاسم": s.name,
+        "رقم الطالب": s.phone,
+        "رقم ولي الأمر": s.parentPhone,
+        "المجموعة": s.group,
+        "الصف الدراسي": s.level,
+        "المسار": s.track || "عام",
+        "النوع": s.gender,
+        "حالة خاصة": s.isSpecialCase ? "نعم" : "لا",
+        "تسعير خاص (ج.م)": s.isSpecialCase ? s.specialAmount : "--",
+        "نقاط السلوك": s.behaviorPoints || 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    
+    // تظبيط عرض العواميد عشان الكلام يظهر كامل
+    ws['!cols'] = [
+        {wch: 15}, {wch: 30}, {wch: 18}, {wch: 18}, {wch: 25}, 
+        {wch: 20}, {wch: 15}, {wch: 10}, {wch: 10}, {wch: 15}, {wch: 12}
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الطلاب");
+    XLSX.writeFile(wb, fileName);
+    showToast("تم تحميل شيت الإكسيل بنجاح 📥", "success");
+};
+
+// 💡 زرع أزرار التحميل في واجهة الطلاب والمجموعات أوتوماتيكياً
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        // زرار في صفحة (سجل الطلاب الشامل)
+        let studentsHeader = document.querySelector("#students-overview .header-actions");
+        if(studentsHeader && !document.getElementById("btn-export-all-students")) {
+             studentsHeader.insertAdjacentHTML('afterbegin', `<button id="btn-export-all-students" class="theme-btn" onclick="exportStudentsToExcel()" style="border-color: #3b82f6; color: #3b82f6;">📥 تحميل داتا الطلاب (إكسيل)</button>`);
+        }
+
+        // زرار في صفحة (إدارة المجموعة)
+        let groupHeader = document.querySelector("#group-details-view .header-actions");
+        if(groupHeader && !document.getElementById("btn-export-group-students")) {
+            groupHeader.insertAdjacentHTML('afterbegin', `<button id="btn-export-group-students" class="theme-btn" onclick="exportStudentsToExcel(currentActiveGroup)" style="border-color: #3b82f6; color: #3b82f6;">📥 تحميل داتا المجموعة (إكسيل)</button>`);
+        }
+    }, 1500);
+});
+
+
+// ==========================================
+// 🔍 التحقق اللحظي من رقم ولي الأمر (نظام الأخوات)
+// ==========================================
+window.checkParentPhoneWarning = function(mode) {
+    let phoneInputId = mode === 'edit' ? 'editParentPhone' : 'parentPhone';
+    let warningBoxId = mode === 'edit' ? 'parentPhoneWarning_edit' : 'parentPhoneWarning_add';
+    
+    let phoneVal = document.getElementById(phoneInputId).value.trim();
+    let warningBox = document.getElementById(warningBoxId);
+    
+    // لو الخانة فاضية أو الرقم أقل من 10 أرقام، اخفي الإنذار
+    if (!phoneVal || phoneVal === "0" || phoneVal.length < 10) {
+        warningBox.style.display = 'none';
+        return;
+    }
+
+    let siblingFound = null;
+
+    if (mode === 'edit') {
+        // في حالة التعديل، نستثني الطالب الحالي من البحث عشان ميجيبش نفسه
+        let originalCode = document.getElementById('editStudentCodeOriginal').value;
+        siblingFound = students.find(s => s.code !== originalCode && s.parentPhone === phoneVal);
+    } else {
+        // في حالة الإضافة الجديدة
+        siblingFound = students.find(s => s.parentPhone === phoneVal);
+    }
+
+    // إظهار أو إخفاء البوكس بناءً على النتيجة
+    if (siblingFound) {
+        warningBox.innerHTML = `⚠️ مسجل كولي أمر للطالب: <strong style="color:var(--secondary-color);">${siblingFound.name}</strong>`;
+        warningBox.style.display = 'block';
+    } else {
+        warningBox.style.display = 'none';
+    }
+};
