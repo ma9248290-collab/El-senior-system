@@ -1184,7 +1184,7 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
                 localStorage.setItem("edu_parent_phone", phone);
                 localStorage.setItem("edu_teacher_id", globalTeacherId);
 
-                allOnlineExams = data.onlineExams || [];
+                allOnlineExams = Array.isArray(data.onlineExams) ? data.onlineExams.filter(e => e !== null) : Object.values(data.onlineExams || {}).filter(e => e !== null);
                 window.studentCode = code;
 
                 // ==========================================

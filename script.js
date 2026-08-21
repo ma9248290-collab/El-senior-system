@@ -4163,99 +4163,9 @@ window.addEditCourseVideoRow = function(title = "", url = "", linkedSessions = [
     container.appendChild(div);
 };
 
-// 3. الحفظ الجديد للكورس
-window.saveLecture = async function() {
-    let title = document.getElementById("lecTitle").value.trim();
-    let level = document.getElementById("lecLevel").value;
-    let desc = document.getElementById("lecDesc").value.trim();
-    let maxViews = parseInt(document.getElementById("lecMaxViews").value) || 0;
 
-    let videos = [];
-    document.querySelectorAll(".video-row").forEach(row => {
-        let vTitle = row.querySelector(".vid-title").value.trim();
-        let vUrl = row.querySelector(".vid-url").value.trim();
-        let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
-        let vExam = row.querySelector(".vid-exam").value;
-        let vType = row.querySelector(".vid-type").value;
-        let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
-        
-        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
-    });
 
-    if(!title || videos.length === 0) return showToast("يرجى إدخال اسم الكورس وفيديو واحد على الأقل!", "error");
 
-    let btn = document.querySelector('#platform-lectures .save-btn');
-    let originalText = btn.innerText; btn.innerText = "جاري النشر... ⏳";
-
-    try {
-        let imageBase64 = await window.readFileAsBase64("lecImageFile").catch(() => null);
-        let defaultImage = "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop";
-
-        let newLecture = { 
-            id: "lec_" + Date.now(), title: title, level: level, type: "mixed", 
-            term: document.getElementById("lecTerm").value.trim() || 'الترم الأول',
-            month: document.getElementById("lecMonth").value.trim() || 'شهر غير محدد',
-            price: 0, maxViews: maxViews, desc: desc, videos: videos, 
-            track: document.getElementById("lecTrack").value,
-            image: imageBase64 || defaultImage, date: new Date().toISOString().split('T')[0] 
-        };
-
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectures/${newLecture.id}.json`, { 
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newLecture) 
-        });
-        
-        showToast("تم نشر الكورس بنجاح! 🎬");
-        document.getElementById("lecTitle").value = ""; document.getElementById("lecMaxViews").value = "0";
-        document.getElementById("courseVideosContainer").innerHTML = ""; addCourseVideoRow();
-        btn.innerText = originalText; renderLectures();
-    } catch(e) { alert("حدث خطأ أثناء النشر!"); btn.innerText = originalText; }
-};
-
-// 4. الحفظ عند التعديل
-window.saveEditedCourse = async function() {
-    let id = document.getElementById("editLecId").value;
-    let title = document.getElementById("editLecTitle").value.trim();
-    let maxViews = parseInt(document.getElementById("editLecMaxViews").value) || 0;
-    
-    let videos = [];
-    document.querySelectorAll(".video-row-edit").forEach(row => {
-        let vTitle = row.querySelector(".vid-title").value.trim();
-        let vUrl = row.querySelector(".vid-url").value.trim();
-        let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
-        let vExam = row.querySelector(".vid-exam").value;
-        let vType = row.querySelector(".vid-type").value;
-        let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
-        
-        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
-    });
-
-    if(!title || videos.length === 0) return alert("يرجى إدخال اسم الكورس وفيديو واحد على الأقل!");
-
-    let btn = document.querySelector('#editCourseModal .save-btn');
-    let originalText = btn.innerText; btn.innerText = "جاري حفظ التعديلات... ⏳";
-
-    try {
-        let newImageBase64 = await window.readFileAsBase64("editLecImageFile");
-        let oldImage = document.getElementById("editLecImageBase64").value;
-        let lec = window.fetchedLectures.find(l => l.id === id);
-        
-        let updatedLecture = { 
-            ...lec, title: title, level: document.getElementById("editLecLevel").value,
-            term: document.getElementById("editLecTerm").value.trim() || 'الترم الأول',
-            month: document.getElementById("editLecMonth").value.trim() || 'شهر غير محدد',
-            track: document.getElementById("editLecTrack").value,
-            type: "mixed", price: 0, image: newImageBase64 || oldImage, maxViews: maxViews,
-            desc: document.getElementById("editLecDesc").value.trim(), videos: videos,
-            linkedSessions: null, linkedSession: null
-        };
-
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectures/${id}.json`, { 
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedLecture) 
-        });
-        showToast("تم حفظ التعديلات! 💾"); closeModal("editCourseModal"); renderLectures();
-    } catch(e) { alert("حدث خطأ أثناء الحفظ!"); }
-    btn.innerText = originalText;
-};
 
 // --- فتح نافذة التعديل (محدث ليدعم حصص متعددة) ---
 window.openEditCourseModal = function(id) {
@@ -7374,46 +7284,7 @@ window.openAddLectureModal = function() {
     addCourseVideoRow(); openModal("addLectureModal");
 };
 
-window.saveLecture = async function() {
-    let title = document.getElementById("lecTitle").value.trim();
-    let desc = document.getElementById("lecDesc").value.trim();
-    let maxViews = parseInt(document.getElementById("lecMaxViews").value) || 0;
 
-    let videos = [];
-    document.querySelectorAll(".video-row").forEach(row => {
-        let vTitle = row.querySelector(".vid-title").value.trim();
-        let vUrl = row.querySelector(".vid-url").value.trim();
-        let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
-        let vExam = row.querySelector(".vid-exam").value;
-        let vType = row.querySelector(".vid-type").value;
-        let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
-        if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
-    });
-
-    if(!title || videos.length === 0) return showToast("يرجى إدخال اسم الكورس وفيديو واحد على الأقل!", "error");
-
-    let btn = document.getElementById('saveLectureBtn');
-    let originalText = btn.innerText; btn.innerText = "جاري النشر... ⏳"; btn.disabled = true;
-
-    try {
-        let imageBase64 = await window.readFileAsBase64("lecImageFile").catch(() => null);
-        let defaultImage = "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop";
-
-        let newLecture = { 
-            id: "lec_" + Date.now(), title: title, level: window.explorerPath.level, term: window.explorerPath.termName, month: window.explorerPath.monthName,
-            type: "mixed", price: 0, maxViews: maxViews, desc: desc, videos: videos, track: document.getElementById("lecTrack").value,
-            image: imageBase64 || defaultImage, date: new Date().toISOString().split('T')[0] 
-        };
-
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectures/${newLecture.id}.json`, { 
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newLecture) 
-        });
-        
-        showToast("تم نشر الكورس بنجاح! 🎬");
-        window.fetchedLectures.push(newLecture); closeModal("addLectureModal"); renderLectures();
-    } catch(e) { showToast("حدث خطأ أثناء النشر!", "error"); }
-    btn.innerText = originalText; btn.disabled = false;
-};
 
 window.saveEditedCourse = async function() {
     let id = document.getElementById("editLecId").value;
@@ -7461,44 +7332,56 @@ window.saveEditedCourse = async function() {
 
 
 
-
-
 // ==========================================
-// 🚀 إصلاح إضافة الكورس والمحاضرات 
+// 🚀 إصلاح دالة إضافة الكورس والمحاضرات 
 // ==========================================
-
 window.openAddLectureModal = function() {
-    document.getElementById("lecTitle").value = "";
-    document.getElementById("courseVideosContainer").innerHTML = ""; 
+    let titleEl = document.getElementById("lecTitle");
+    if(titleEl) titleEl.value = "";
     
-    // إنشاء الحقل الوهمي بتاع الصف عشان الفلتر بتاع الحصص يشتغل بدون مشاكل
+    let contEl = document.getElementById("courseVideosContainer");
+    if(contEl) contEl.innerHTML = "";
+
+    // إنشاء الحقل الوهمي بتاع الصف عشان الفلتر يشتغل 
     if(!document.getElementById("lecLevel")) {
         let hiddenLvl = document.createElement("input");
-        hiddenLvl.type = "hidden"; 
+        hiddenLvl.type = "hidden";
         hiddenLvl.id = "lecLevel";
         document.body.appendChild(hiddenLvl);
     }
-    // سحب الصف الحالي اللي المدرس فاتحه
+    // سحب الصف من المجلد الحالي
     document.getElementById("lecLevel").value = (window.teacherLecPath && window.teacherLecPath.level) ? window.teacherLecPath.level : 'all';
 
-    addCourseVideoRow();
+    let descInput = document.getElementById("lecDesc");
+    if(descInput) descInput.value = "";
+    
+    let viewsInput = document.getElementById("lecMaxViews");
+    if(viewsInput) viewsInput.value = "0";
+
+    if (typeof addCourseVideoRow === 'function') addCourseVideoRow();
     openModal("addLectureModal");
 };
 
 window.saveLecture = async function() {
-    let title = document.getElementById("lecTitle").value.trim();
-    let desc = document.getElementById("lecDesc").value.trim();
-    let maxViews = parseInt(document.getElementById("lecMaxViews").value) || 0;
+    let titleEl = document.getElementById("lecTitle");
+    let title = titleEl ? titleEl.value.trim() : "";
+    
+    let descInput = document.getElementById("lecDesc");
+    let desc = descInput ? descInput.value.trim() : "";
+    
+    let viewsInput = document.getElementById("lecMaxViews");
+    let maxViews = viewsInput ? (parseInt(viewsInput.value) || 0) : 0;
 
     let videos = [];
     document.querySelectorAll(".video-row").forEach(row => {
-        let vTitle = row.querySelector(".vid-title").value.trim();
-        let vUrl = row.querySelector(".vid-url").value.trim();
+        let vTitle = row.querySelector(".vid-title") ? row.querySelector(".vid-title").value.trim() : "";
+        let vUrl = row.querySelector(".vid-url") ? row.querySelector(".vid-url").value.trim() : "";
         let vSessions = Array.from(row.querySelectorAll(".vid-session-cb:checked")).map(cb => cb.value);
-        let vExam = row.querySelector(".vid-exam").value;
-        let vType = row.querySelector(".vid-type").value;
-        let vPrice = row.querySelector(".vid-price") ? parseFloat(row.querySelector(".vid-price").value) || 0 : 0;
-        
+        let vExam = row.querySelector(".vid-exam") ? row.querySelector(".vid-exam").value : "";
+        let vType = row.querySelector(".vid-type") ? row.querySelector(".vid-type").value : "free";
+        let priceInput = row.querySelector(".vid-price");
+        let vPrice = priceInput ? (parseFloat(priceInput.value) || 0) : 0;
+
         if(vUrl) videos.push({ title: vTitle || "فيديو", url: vUrl, linkedSessions: vSessions, requiredExam: vExam, type: vType, price: vPrice });
     });
 
@@ -7509,50 +7392,54 @@ window.saveLecture = async function() {
     }
 
     let btn = document.getElementById('saveLectureBtn');
-    let originalText = btn.innerText; 
-    btn.innerText = "جاري النشر... ⏳"; 
-    btn.disabled = true;
+    let originalText = btn ? btn.innerText : "نشر الكورس للطلاب 🚀";
+    if(btn) { btn.innerText = "جاري النشر... ⏳"; btn.disabled = true; }
 
     try {
-        let imageBase64 = await window.readFileAsBase64("lecImageFile").catch(() => null);
+        let imageBase64 = null;
+        if(typeof window.readFileAsBase64 === 'function') {
+            imageBase64 = await window.readFileAsBase64("lecImageFile").catch(() => null);
+        }
         let defaultImage = "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=600&auto=format&fit=crop";
 
-        // سحب المسار أوتوماتيك من المجلد الحالي
+        // سحب المسار أوتوماتيك من المجلد الحالي (الترم والشهر)
         let currentLevel = (window.teacherLecPath && window.teacherLecPath.level) ? window.teacherLecPath.level : 'all';
         let currentTerm = (window.teacherLecPath && window.teacherLecPath.term) ? window.teacherLecPath.term : 'الترم الأول';
         let currentMonth = (window.teacherLecPath && window.teacherLecPath.month) ? window.teacherLecPath.month : 'شهر غير محدد';
 
-        let newLecture = { 
-            id: "lec_" + Date.now(), 
-            title: title, 
+        let trackInput = document.getElementById("lecTrack");
+        let trackVal = trackInput ? trackInput.value : "all";
+
+        let newLecture = {
+            id: "lec_" + Date.now(),
+            title: title,
             level: currentLevel,
             term: currentTerm,
             month: currentMonth,
-            type: "mixed", 
-            price: 0, 
-            maxViews: maxViews, 
-            desc: desc, 
-            videos: videos, 
-            track: document.getElementById("lecTrack").value,
-            image: imageBase64 || defaultImage, 
-            date: new Date().toISOString().split('T')[0] 
+            type: "mixed",
+            price: 0,
+            maxViews: maxViews,
+            desc: desc,
+            videos: videos,
+            track: trackVal,
+            image: imageBase64 || defaultImage,
+            date: new Date().toISOString().split('T')[0]
         };
 
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectures/${newLecture.id}.json`, { 
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newLecture) 
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectures/${newLecture.id}.json`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newLecture)
         });
-        
+
         if(typeof showToast === 'function') showToast("تم نشر الكورس بنجاح! 🎬", "success");
         else alert("تم نشر الكورس بنجاح!");
-        
-        window.fetchedLectures.push(newLecture);
+
+        if(window.fetchedLectures) window.fetchedLectures.push(newLecture);
         closeModal("addLectureModal");
         if(typeof renderLectures === 'function') renderLectures();
-    } catch(e) { 
+    } catch(e) {
         if(typeof showToast === 'function') showToast("حدث خطأ أثناء النشر!", "error");
-        else alert("حدث خطأ أثناء النشر!"); 
+        else alert("حدث خطأ أثناء النشر!");
     }
-    
-    btn.innerText = originalText; 
-    btn.disabled = false;
+
+    if(btn) { btn.innerText = originalText; btn.disabled = false; }
 };
