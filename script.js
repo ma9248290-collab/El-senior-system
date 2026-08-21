@@ -599,8 +599,7 @@ const oldSwitchPageForPerms = window.switchPage;
 window.switchPage = function(pageId) {
     if (localStorage.getItem("isAssistantMode") === "true") {
         let perms = JSON.parse(localStorage.getItem("assistantPermissions")) || [];
-        // تم السماح هنا لـ walletRequests و backup بالعمل بناءً على الصلاحيات المحددة
-        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance', 'walletRequests', 'backup'];
+        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance'];
         
         if (restrictedPages.includes(pageId) && !perms.includes(pageId)) {
             if(typeof showToast === "function") showToast("عفواً، ليس لديك صلاحية لهذه الصفحة 🚫", "error");
