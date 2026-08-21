@@ -1390,6 +1390,87 @@ window.backToGroups = function(fromHistory = false) {
         history.pushState({ page: 'center-details', type: 'sub', id: currentActiveCenter }, '', `#center-${encodeURIComponent(currentActiveCenter)}`);
     }
 };
+// ==========================================
+// 🔃 محرك الترتيب التصاعدي والتنازلي للجداول
+// ==========================================
+window.studentsSortState = { column: 'code', direction: 'asc' };
+window.groupStudentsSortState = { column: 'code', direction: 'asc' };
+
+// دالة المقارنة الذكية (تدعم الأكواد مثل F3501 والأسماء العربية)
+function smartCompare(a, b, column, direction) {
+    let valA = a[column] !== undefined ? String(a[column]).trim() : "";
+    let valB = b[column] !== undefined ? String(b[column]).trim() : "";
+
+    let result = valA.localeCompare(valB, 'ar', { numeric: true, sensitivity: 'base' });
+    return direction === 'asc' ? result : -result;
+}
+
+// 1. تبديل ترتيب جدول الطلاب الشامل
+window.sortStudentsTable = function(column) {
+    if (window.studentsSortState.column === column) {
+        window.studentsSortState.direction = window.studentsSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        window.studentsSortState.column = column;
+        window.studentsSortState.direction = 'asc';
+    }
+    renderTable();
+};
+
+// 2. تبديل ترتيب جدول المجموعة
+window.sortGroupStudentsTable = function(column) {
+    if (window.groupStudentsSortState.column === column) {
+        window.groupStudentsSortState.direction = window.groupStudentsSortState.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+        window.groupStudentsSortState.column = column;
+        window.groupStudentsSortState.direction = 'asc';
+    }
+    renderGroupStudentsTable();
+};
+
+// 3. رسم جدول سجل الطلاب الشامل مع الترتيب والأسهم
+window.renderTable = function() { 
+    const tbody = document.getElementById("students-list"); 
+    if(!tbody) return;
+
+    // تحديث أيقونات الترتيب في الهيدر
+    ['code', 'name', 'level', 'group'].forEach(col => {
+        let el = document.getElementById(`sort-st-${col}`);
+        if(el) {
+            if(window.studentsSortState.column === col) {
+                el.innerHTML = window.studentsSortState.direction === 'asc' ? '▲' : '▼';
+                el.style.color = 'var(--primary-color)';
+                el.style.fontWeight = '900';
+            } else {
+                el.innerHTML = '⇅';
+                el.style.color = 'var(--text-muted)';
+                el.style.fontWeight = 'normal';
+            }
+        }
+    });
+    
+    // عمل نسخة وترتيبها
+    let sortedList = [...students].sort((a, b) => smartCompare(a, b, window.studentsSortState.column, window.studentsSortState.direction));
+
+    let html = ""; 
+    sortedList.forEach((student) => { 
+        let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
+        let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
+        
+        html += `<tr>
+            <td><strong style="color:var(--primary-color);">${student.code}</strong></td>
+            <td>${student.name} ${specialBadge}</td>
+            <td>${student.level} ${trackBadge}</td>
+            <td>${student.group}</td>
+            <td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td>
+        </tr>`; 
+    }); 
+    
+    tbody.innerHTML = html; 
+    if(document.getElementById("total-students")) {
+        document.getElementById("total-students").innerText = students.length; 
+    }
+};
+
 window.renderGroupStudentsTable = function() { 
     const tbody = document.getElementById("group-students-list"); 
     if(!tbody) return;
@@ -1405,7 +1486,7 @@ window.renderGroupStudentsTable = function() {
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(-4);
 
-    let html = ""; // 🚀 متغير التجميع لمنع التهنيج
+    let html = ""; 
 
     groupStudents.forEach((student) => { 
         let trackName = student.track || 'عام';
@@ -1423,6 +1504,11 @@ window.renderGroupStudentsTable = function() {
                 if (status === 'present') { dotColor = "#10b981"; tooltipText = `${session.date}: حاضر ✅`; }
                 else if (status === 'late') { dotColor = "#f59e0b"; tooltipText = `${session.date}: متأخر ⏳`; }
                 else if (status === 'absent') { dotColor = "#ef4444"; tooltipText = `${session.date}: غائب ❌`; }
+                else if (typeof status === 'object' && status.status === 'makeup') {
+                    // 💻 نقطة زرقاء لحضور التعويض
+                    dotColor = "#2563eb"; 
+                    tooltipText = `${session.date}: حاضر كتعويض 💻`;
+                }
             }
             attendanceDotsHtml += `<span style="width: 14px; height: 14px; border-radius: 50%; background-color: ${dotColor}; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); cursor: help;" title="${tooltipText}"></span>`;
         }
@@ -1448,9 +1534,55 @@ window.renderGroupStudentsTable = function() {
         </tr>`; 
     }); 
 
-    tbody.innerHTML = html; // 🚀 حقن الداتا مرة واحدة فقط
+    tbody.innerHTML = html; 
 };
 function removeStudentFromGroup(code) { customConfirm("إزالة هذا الطالب من المجموعة؟", () => { const student = students.find(s => s.code === code); if(student) { student.group = ""; localStorage.setItem("students", JSON.stringify(students)); renderGroupStudentsTable(); renderGroupCards(); showToast("تمت الإزالة"); } }); }
+
+
+// ==========================================
+// 🔄 تنفيذ تحضير الطالب كتعويض في مجموعته الأصلية بلون أزرق فخم
+// ==========================================
+window.markAttendanceInActualGroup = function() {
+    if (!tempWrongGroupStudent) return;
+    
+    let sessionSelect = document.getElementById('wgActualGroupSessions');
+    if (!sessionSelect || !sessionSelect.value) {
+        showToast("يرجى اختيار الحصة المراد التعويض فيها!", "error");
+        return;
+    }
+    
+    let targetSessionId = sessionSelect.value;
+    let targetSession = classSessions.find(s => String(s.id) === String(targetSessionId));
+    
+    if (!targetSession) {
+        showToast("الحصة المستهدفة غير موجودة!", "error");
+        return;
+    }
+
+    // تسجيل الحضور في حصة المجموعة الأصلية على أنه تعويض
+    // نخزن كائن أو نص مميز عشان نقدر نميزه في الجدول
+    targetSession.attendance[tempWrongGroupStudent.code] = {
+        status: 'makeup', // تعويض
+        makeupGroup: currentActiveSessionId ? (classSessions.find(s => s.id === currentActiveSessionId)?.group || 'مجموعة أخرى') : 'مجموعة أخرى'
+    };
+
+    localStorage.setItem("classSessions", JSON.stringify(classSessions));
+
+    // تسجيل في سجل الحركات (Audit Trail)
+    if (typeof addSystemLog === "function") {
+        addSystemLog("حضور تعويض 🔄", `تم تسجيل الطالب ${tempWrongGroupStudent.name} (حاضر كتعويض) في حصة مجموعة ${targetSession.group} عن طريق مجموعة ${targetSession.group}`);
+    }
+
+    showToast(`✅ تم تسسجيل حضور الطالب (${tempWrongGroupStudent.name}) كتعويض بنجاح!`, "success");
+    
+    closeModal('wrongGroupModal');
+    tempWrongGroupStudent = null;
+
+    // إعادة التركيز على باركود الحصة الحالية
+    setTimeout(() => document.getElementById('attendanceBarcode')?.focus(), 100);
+};
+
+
 
 // ==========================================
 // 12. الحضور والانصراف (Sessions)
@@ -2111,8 +2243,109 @@ function generateLeaderboard() {
 // ==========================================
 // 16. الإكسيل (Import / Export)
 // ==========================================
-function exportData() { const data = { students, groups, classSessions, exams, homeworks, financeRecords, expenses, schedule }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `EduTrack_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url); showToast("تم تحميل النسخة الاحتياطية بنجاح"); }
-function importData(event) { const file = event.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const imp = JSON.parse(e.target.result); if(imp.students && imp.groups) { localStorage.setItem("students", JSON.stringify(imp.students)); localStorage.setItem("groups", JSON.stringify(imp.groups)); localStorage.setItem("classSessions", JSON.stringify(imp.classSessions || [])); localStorage.setItem("exams", JSON.stringify(imp.exams || [])); localStorage.setItem("homeworks", JSON.stringify(imp.homeworks || [])); localStorage.setItem("financeRecords", JSON.stringify(imp.financeRecords || {})); localStorage.setItem("expenses", JSON.stringify(imp.expenses || [])); localStorage.setItem("schedule", JSON.stringify(imp.schedule || [])); alert("تم الاسترجاع بنجاح!"); location.reload(); } } catch(err) { showToast("ملف غير صالح!", "error"); } }; reader.readAsText(file); }
+// ==========================================
+// 16. النسخ الاحتياطي الشامل (Export / Import)
+// ==========================================
+
+// 📥 تحميل نسخة احتياطية تشمل كل بيانات السيستم بنسبة 100%
+function exportData() { 
+    const data = { 
+        students, 
+        groups, 
+        classSessions, 
+        exams, 
+        homeworks, 
+        financeRecords, 
+        expenses, 
+        schedule, 
+        centers, 
+        books, 
+        onlineExams, 
+        monthlyPayments, 
+        activeLevels: window.activeLevels || [],
+        systemLogs: typeof systemLogs !== 'undefined' ? systemLogs : []
+    }; 
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); 
+    const url = URL.createObjectURL(blob); 
+    const a = document.createElement("a"); 
+    a.href = url; 
+    a.download = `EduTrack_Full_Backup_${new Date().toISOString().split('T')[0]}.json`; 
+    a.click(); 
+    URL.revokeObjectURL(url); 
+    
+    if(typeof showToast === "function") showToast("تم تحميل النسخة الاحتياطية الشاملة بنجاح 📥", "success");
+    if(typeof addSystemLog === "function") addSystemLog("تصدير نسخة احتياطية 💾", "تم تحميل نسخة احتياطية كاملة لبيانات النظام");
+}
+
+// 📤 استرجاع النسخة الاحتياطية مع حماية الرقم السري (Admin PIN)
+function importData(event) { 
+    const file = event.target.files[0]; 
+    if(!file) return; 
+
+    // 🔒 طلب الرقم السري للإدارة قبل السماح باسترجاع الداتا
+    const enteredPin = prompt("⚠️ تنبيه أمني حساس!\nاسترجاع النسخة الاحتياطية سيقوم باستبدال البيانات الحالية بالكامل.\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) للمتابعة:");
+    if (enteredPin === null) {
+        event.target.value = "";
+        return; 
+    }
+
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    if (enteredPin !== currentAdminPin) {
+        if(typeof showToast === "function") showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الاسترجاع.", "error");
+        event.target.value = "";
+        return;
+    }
+
+    const reader = new FileReader(); 
+    reader.onload = function(e) { 
+        try { 
+            const imp = JSON.parse(e.target.result); 
+            
+            // التأكد من صحة الملف بوجود جدول الطلاب والمجموعات على الأقل
+            if (imp.students && imp.groups) { 
+                // إيقاف المزامنة اللحظية مؤقتاً أثناء الاسترجاع
+                window.isIncomingSync = true;
+
+                localStorage.setItem("students", JSON.stringify(imp.students || [])); 
+                localStorage.setItem("groups", JSON.stringify(imp.groups || [])); 
+                localStorage.setItem("classSessions", JSON.stringify(imp.classSessions || [])); 
+                localStorage.setItem("exams", JSON.stringify(imp.exams || [])); 
+                localStorage.setItem("homeworks", JSON.stringify(imp.homeworks || [])); 
+                localStorage.setItem("financeRecords", JSON.stringify(imp.financeRecords || {})); 
+                localStorage.setItem("expenses", JSON.stringify(imp.expenses || [])); 
+                localStorage.setItem("schedule", JSON.stringify(imp.schedule || [])); 
+                localStorage.setItem("centers", JSON.stringify(imp.centers || ["السنتر الرئيسي"])); 
+                localStorage.setItem("books", JSON.stringify(imp.books || [])); 
+                localStorage.setItem("onlineExams", JSON.stringify(imp.onlineExams || [])); 
+                localStorage.setItem("monthlyPayments", JSON.stringify(imp.monthlyPayments || {})); 
+                
+                if (imp.activeLevels) {
+                    localStorage.setItem("activeLevels", JSON.stringify(imp.activeLevels));
+                }
+                if (imp.systemLogs) {
+                    localStorage.setItem("systemLogs", JSON.stringify(imp.systemLogs));
+                }
+
+                window.isIncomingSync = false;
+
+                // رفع الداتا الجديدة للسحابة فوراً لتتطابق مع الملف المسترجع
+                if(typeof syncDataToBot === "function") syncDataToBot();
+
+                alert("تم استرجاع النسخة الاحتياطية الشاملة وتحديث النظام بنجاح! 🚀"); 
+                location.reload(); 
+            } else {
+                if(typeof showToast === "function") showToast("ملف النسخة الاحتياطية غير صالح أو تالف!", "error");
+            }
+        } catch(err) { 
+            if(typeof showToast === "function") showToast("حدث خطأ أثناء قراءة الملف!", "error"); 
+        } 
+    }; 
+    reader.readAsText(file); 
+    event.target.value = ""; 
+}
+
+
 function downloadExcelTemplate() { const headers = [["الاسم", "الصف", "المجموعة", "هاتف الطالب", "هاتف ولي الأمر", "الجنس"]]; const worksheet = XLSX.utils.aoa_to_sheet(headers); worksheet['!cols'] = [{wch: 25}, {wch: 15}, {wch: 20}, {wch: 15}, {wch: 15}, {wch: 10}]; const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "الطلاب"); XLSX.writeFile(workbook, "نموذج_إضافة_الطلاب.xlsx"); showToast("تم تحميل النموذج!"); }
 
 function importStudentsFromExcel(event) {
@@ -5299,16 +5532,26 @@ window.openStudentProfile = function(code) {
         };
     }
 
-    // جداول الإحصائيات (حضور، امتحانات، واجبات)
+   // جداول الإحصائيات (حضور، امتحانات، واجبات)
     const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
+    
     groupSessions.forEach(s => { 
         const st = s.attendance[student.code] || s.attendance[student.phone]; 
-        if(st === 'present' || st === 'late') attended++; 
-        const badge = st === 'present' ? `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>` : st === 'late' ? `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>` : st === 'absent' ? `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>` : `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`; 
+        if(st === 'present' || st === 'late' || (typeof st === 'object' && st.status === 'makeup')) attended++; 
+        
+        let badge = '<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>';
+        if (st === 'present') badge = `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>`;
+        else if (st === 'late') badge = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>`;
+        else if (st === 'absent') badge = `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>`;
+        else if (typeof st === 'object' && st.status === 'makeup') {
+            badge = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض</span>`;
+        }
+
         if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
     });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
+
 
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
@@ -5321,22 +5564,7 @@ window.openStudentProfile = function(code) {
     document.getElementById("profile-hw").innerText = `${tHw > 0 ? Math.round((sHw / tHw) * 100) : 0}%`;
 };
 
-window.renderTable = function() { 
-    const tbody = document.getElementById("students-list"); 
-    if(!tbody) return;
-    
-    let html = ""; // 🚀 المتغير اللي هنجمع فيه الداتا عشان نمنع التهنيج
-    
-    students.forEach((student) => { 
-        let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
-        let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
-        
-        html += `<tr><td><strong style="color:var(--primary-color);">${student.code}</strong></td><td>${student.name} ${specialBadge}</td><td>${student.level} ${trackBadge}</td><td>${student.group}</td><td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td></tr>`; 
-    });
-    
-    tbody.innerHTML = html; // 🚀 حقن البيانات في الشاشة مرة واحدة فقط
-    document.getElementById("total-students").innerText = students.length; 
-};
+
 
 window.generateAdvancedReport = function() {
     const type = document.getElementById("reportType").value;
@@ -5534,35 +5762,55 @@ window.markAttendance = function(codeOrPhone, status) {
         if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
     }
 };
+
+
 window.renderAttendanceTable = function(session) { 
-    const tbody = document.getElementById("attendance-list"); const gStudents = students.filter(s => s.group === session.group); 
-    if(gStudents.length===0) return tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;">لا يوجد طلاب</td></tr>`; tbody.innerHTML = ""; 
+    const tbody = document.getElementById("attendance-list"); 
+    const gStudents = students.filter(s => s.group === session.group); 
+    if(gStudents.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">لا يوجد طلاب</td></tr>`; 
+    tbody.innerHTML = ""; 
+    
     const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
     const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
     
     gStudents.forEach(st => { 
-        const stat = session.attendance[st.code] || session.attendance[st.phone]; 
-        const statHtml = stat === 'present' ? '<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>' : stat === 'late' ? '<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>' : stat === 'absent' ? '<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>' : '<span style="color:#64748b;">لم يسجل</span>'; 
+        // فحص حالة الحضور (بما فيها التعويض الأزرق)
+        let rawStat = session.attendance[st.code] || session.attendance[st.phone];
+        let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
+        let dotColor = "#e2e8f0";
+
+        if (rawStat === 'present') {
+            statHtml = '<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>';
+            dotColor = "#10b981";
+        } else if (rawStat === 'late') {
+            statHtml = '<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>';
+            dotColor = "#f59e0b";
+        } else if (rawStat === 'absent') {
+            statHtml = '<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>';
+            dotColor = "#ef4444";
+        } else if (typeof rawStat === 'object' && rawStat.status === 'makeup') {
+            // 💻 حالة التعويض باللون الأزرق والنقطة الزرقاء
+            statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${rawStat.makeupGroup || 'أخرى'})</span>`;
+            dotColor = "#2563eb";
+        }
         
         let pHT = '--'; 
         if(prevSession) { 
             const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
             pHT = p==='present'?'<span style="color:#10b981; font-weight:bold;">حاضر</span>':p==='late'?'<span style="color:#f59e0b; font-weight:bold;">متأخر</span>':p==='absent'?'<span style="color:#ef4444; font-weight:bold;">غائب</span>':'--'; 
             
-            // 💻 الاكتشاف التلقائي للمنصة (بدون تدخل المدرس)
+            // الاكتشاف التلقائي للمنصة
             if (window.platformLectures && window.platformTracking) {
                 let linkedLecture = window.platformLectures.find(l => l.linkedSession === prevSession.id || (l.linkedSessions && l.linkedSessions.includes(prevSession.id)));
                 if (linkedLecture) {
                     let trackData = window.platformTracking[linkedLecture.id];
                     if (trackData && (trackData[st.phone] || trackData[st.code])) {
-                        // تصميم شيك جداً لكلمة حاضر منصة
                         pHT = '<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border: 1px solid rgba(37,99,235,0.2);">💻 حاضر منصة</span>';
                     }
                 }
             }
         } 
         
-        // ❌ تمت إزالة زرار المنصة اليدوي من هنا
         tbody.innerHTML += `<tr>
             <td><strong>${st.code}</strong></td>
             <td>${st.name}</td>
@@ -6789,151 +7037,15 @@ window.filterAnalyticsTable = function() {
         row.style.display = text.includes(input) ? "" : "none";
     });
 };
-
-
-// ==========================================
-// 🚀 الكود الشامل والنهائي لقسم المحاضرات والمجلدات
-// ==========================================
-
-window.lectureFolders = []; 
-window.explorerPath = { level: null, termName: null, monthName: null };
-
-
-
-
-
-
-
-
-
-
-window.deleteFolder = async function(folderId) {
-    if(!confirm("⚠️ تحذير: مسح المجلد سيؤدي لفقدان التنظيم داخله! هل أنت متأكد؟")) return;
-    try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/lectureFolders/${folderId}.json`, { method: 'DELETE' });
-        window.lectureFolders = window.lectureFolders.filter(f => f.id !== folderId);
-        if(typeof showToast === 'function') showToast("تم الحذف بنجاح! 🗑️");
-        window.renderLectures();
-    } catch(e) { 
-        if(typeof showToast === 'function') showToast("خطأ أثناء الحذف", "error"); 
-    }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // =========================================================================
-// 🚀 التحديث الشامل النهائي لقسم المنصة (المجلدات والمحاضرات) مضاد للأخطاء
+// 🚀 نظام المنصة والمحاضرات والمجلدات الموحد الشامل (مع التعديل وحماية PIN)
 // =========================================================================
-
-window.lectureFolders = []; 
-window.fetchedLectures = [];
-window.explorerPath = { level: null, termName: null, monthName: null };
-
-
-
-
-
-
-// دوال إدارة المجلدات مع السعر (أترام وشهور)
-window.currentFolderType = 'term';
-window.openAddFolderModal = function(type) {
-    window.currentFolderType = type;
-    document.getElementById("folderModalTitle").innerHTML = type === 'term' ? "إضافة ترم جديد 📚" : "إضافة شهر جديد 📆";
-    document.getElementById("folderName").placeholder = type === 'term' ? "مثال: الترم الأول" : "مثال: شهر أكتوبر";
-    document.getElementById("folderName").value = "";
-    document.getElementById("folderPrice").value = ""; // تفريغ السعر
-    document.getElementById("folderDesc").value = "";
-    document.getElementById("folderImage").value = "";
-    openModal('addFolderModal');
-};
-
-window.saveFolder = async function() {
-    let name = document.getElementById("folderName").value.trim();
-    let price = parseFloat(document.getElementById("folderPrice").value) || 0; // سحب السعر
-    let desc = document.getElementById("folderDesc").value.trim();
-    
-    if(!name) {
-        showToast("يرجى إدخال اسم المجلد!", "error");
-        return;
-    }
-
-    let btn = document.getElementById("saveFolderBtn");
-    let orig = btn.innerText; 
-    btn.innerText = "جاري الحفظ... ⏳"; 
-    btn.disabled = true;
-
-    try {
-        let imageBase64 = null;
-        if(typeof window.readFileAsBase64 === 'function') {
-            imageBase64 = await window.readFileAsBase64("folderImage").catch(() => null);
-        }
-        
-        let newFolder = { 
-            id: "folder_" + Date.now(), 
-            name: name, 
-            price: price, // حفظ السعر
-            desc: desc, 
-            type: window.currentFolderType, 
-            image: imageBase64 || "", 
-            parentLevel: window.explorerPath.level, 
-            parentTerm: window.currentFolderType === 'month' ? window.explorerPath.term : null 
-        };
-        
-        let uid = window.getSafeUid();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${newFolder.id}.json`, { 
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newFolder) 
-        });
-        
-        window.lectureFolders.push(newFolder);
-        showToast("تم إنشاء المجلد بنجاح! 📁", "success");
-        closeModal("addFolderModal");
-        window.renderLectures();
-    } catch(e) { 
-        showToast("خطأ في الاتصال بالإنترنت!", "error");
-    }
-    btn.innerText = orig; 
-    btn.disabled = false;
-};
-
-
-window.deleteFolder = async function(folderId) {
-    if(!confirm("⚠️ تحذير: مسح المجلد سيؤدي لفقدان التنظيم داخله! هل أنت متأكد؟")) return;
-    try {
-        let uid = typeof window.getSafeUid === 'function' ? window.getSafeUid() : "ElSenior_System_Master";
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${folderId}.json`, { method: 'DELETE' });
-        window.lectureFolders = window.lectureFolders.filter(f => f.id !== folderId);
-        if(typeof showToast === 'function') showToast("تم الحذف بنجاح! 🗑️");
-        window.renderLectures();
-    } catch(e) { 
-        if(typeof showToast === 'function') showToast("خطأ أثناء الحذف", "error"); 
-    }
-};
-
-
-
-
-// ==========================================
-// 💻 نظام المحاضرات والمجلدات الموحد (مضاد للأخطاء)
-// ==========================================
 
 window.lectureFolders = [];
 window.fetchedLectures = [];
 window.explorerPath = { level: null, term: null, month: null };
 
-// 1. فتح التابات مع جلب بيانات المحاضرات والمجلدات من السيرفر
+// 1. التبديل بين تابات المنصة وسحب البيانات
 window.switchPlatformTab = async function(tabName, fromHistory = false) {
     document.querySelectorAll('.platform-section').forEach(sec => sec.style.display = 'none');
     document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => btn.style.background = 'var(--secondary-color)');
@@ -6971,18 +7083,153 @@ window.switchPlatformTab = async function(tabName, fromHistory = false) {
     
     if(tabName === 'codes' && typeof renderChargeCodes === 'function') renderChargeCodes();
     if(tabName === 'exams' && typeof renderOnlineExams === 'function') renderOnlineExams();
-    if(tabName === 'notifications' && typeof loadSentNotifications === 'function') { toggleNotifTargetOptions(); loadSentNotifications(); }
+    if(tabName === 'notifications' && typeof loadSentNotifications === 'function') { if(typeof toggleNotifTargetOptions === 'function') toggleNotifTargetOptions(); loadSentNotifications(); }
     if(tabName === 'store' && typeof loadStoreData === 'function') loadStoreData();
     if(tabName === 'forum' && typeof loadPlatformForumQuestions === 'function') loadPlatformForumQuestions();
 };
 
+// 2. إنشاء المجلدات (أترام وشهور)
+window.currentFolderType = 'term';
+window.openAddFolderModal = function(type) {
+    window.currentFolderType = type;
+    document.getElementById("folderModalTitle").innerHTML = type === 'term' ? "إضافة ترم جديد 📚" : "إضافة شهر جديد 📆";
+    document.getElementById("folderName").placeholder = type === 'term' ? "مثال: الترم الأول" : "مثال: شهر أكتوبر";
+    document.getElementById("folderName").value = "";
+    document.getElementById("folderPrice").value = "";
+    document.getElementById("folderDesc").value = "";
+    document.getElementById("folderImage").value = "";
+    openModal('addFolderModal');
+};
 
+window.saveFolder = async function() {
+    let name = document.getElementById("folderName").value.trim();
+    let price = parseFloat(document.getElementById("folderPrice").value) || 0;
+    let desc = document.getElementById("folderDesc").value.trim();
+    
+    if(!name) {
+        showToast("يرجى إدخال اسم المجلد!", "error");
+        return;
+    }
 
+    let btn = document.getElementById("saveFolderBtn");
+    let orig = btn.innerText; 
+    btn.innerText = "جاري الحفظ... ⏳"; 
+    btn.disabled = true;
 
+    try {
+        let imageBase64 = null;
+        if(typeof window.readFileAsBase64 === 'function') {
+            imageBase64 = await window.readFileAsBase64("folderImage").catch(() => null);
+        }
+        
+        let newFolder = { 
+            id: "folder_" + Date.now(), 
+            name: name, 
+            price: price,
+            desc: desc, 
+            type: window.currentFolderType, 
+            image: imageBase64 || "", 
+            parentLevel: window.explorerPath.level, 
+            parentTerm: window.currentFolderType === 'month' ? window.explorerPath.term : null 
+        };
+        
+        let uid = window.getSafeUid();
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${newFolder.id}.json`, { 
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newFolder) 
+        });
+        
+        window.lectureFolders.push(newFolder);
+        showToast("تم إنشاء المجلد بنجاح! 📁", "success");
+        closeModal("addFolderModal");
+        window.renderLectures();
+    } catch(e) { 
+        showToast("خطأ في الاتصال بالإنترنت!", "error");
+    }
+    btn.innerText = orig; 
+    btn.disabled = false;
+};
 
+// 3. تعديل المجلدات (أترام وشهور)
+window.openEditFolderModal = function(folderId) {
+    let folder = window.lectureFolders.find(f => f && f.id === folderId);
+    if (!folder) return;
 
+    document.getElementById("editFolderId").value = folder.id;
+    document.getElementById("editFolderName").value = folder.name || "";
+    document.getElementById("editFolderPrice").value = folder.price || "";
+    document.getElementById("editFolderDesc").value = folder.desc || "";
+    document.getElementById("editFolderImageBase64").value = folder.image || "";
+    
+    let fileInp = document.getElementById("editFolderImage");
+    if (fileInp) fileInp.value = "";
+
+    document.getElementById("editFolderModalTitle").innerHTML = folder.type === 'term' ? "تعديل بيانات الترم ✏️" : "تعديل بيانات الشهر ✏️";
+    openModal('editFolderModal');
+};
+
+window.saveEditedFolder = async function() {
+    let id = document.getElementById("editFolderId").value;
+    let name = document.getElementById("editFolderName").value.trim();
+    let price = parseFloat(document.getElementById("editFolderPrice").value) || 0;
+    let desc = document.getElementById("editFolderDesc").value.trim();
+    let oldImage = document.getElementById("editFolderImageBase64").value;
+
+    if (!name) {
+        showToast("يرجى إدخال اسم المجلد!", "error");
+        return;
+    }
+
+    let btn = document.getElementById("saveEditFolderBtn");
+    let orig = btn.innerText; 
+    btn.innerText = "جاري الحفظ... ⏳"; 
+    btn.disabled = true;
+
+    try {
+        let imageBase64 = null;
+        if (typeof window.readFileAsBase64 === 'function') {
+            imageBase64 = await window.readFileAsBase64("editFolderImage").catch(() => null);
+        }
+
+        let folderIndex = window.lectureFolders.findIndex(f => f && f.id === id);
+        let folder = window.lectureFolders[folderIndex];
+
+        let updatedData = {
+            name: name,
+            price: price,
+            desc: desc,
+            image: imageBase64 || oldImage || ""
+        };
+
+        let uid = window.getSafeUid();
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedData)
+        });
+
+        if (folderIndex > -1) {
+            window.lectureFolders[folderIndex] = { ...folder, ...updatedData };
+        }
+
+        showToast("تم تعديل المجلد بنجاح! 💾", "success");
+        closeModal("editFolderModal");
+        window.renderLectures();
+    } catch(e) {
+        showToast("خطأ أثناء الحفظ!", "error");
+    }
+    btn.innerText = orig;
+    btn.disabled = false;
+};
+
+// 4. حذف المجلد (بطلب PIN الإدارة)
 window.deleteFolder = async function(folderId) {
-    if(!confirm("⚠️ تحذير: مسح المجلد سيؤدي لمسح ظهوره! هل أنت متأكد؟")) return;
+    const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد مسح المجلد:");
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    
+    if (enteredPin !== currentAdminPin) {
+        return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+    }
+
     try {
         let uid = window.getSafeUid();
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${folderId}.json`, { method: 'DELETE' });
@@ -6994,7 +7241,143 @@ window.deleteFolder = async function(folderId) {
     }
 };
 
-// 4. إدارة إضافة ونشر الكورسات
+// 5. عرض وتصفح المجلدات والكورسات للمدرس
+window.renderLectures = function() {
+    let breadcrumbs = document.getElementById("lectures-breadcrumbs");
+    let actions = document.getElementById("lectures-actions");
+    let grid = document.getElementById("lectures-explorer-grid");
+    
+    if(!breadcrumbs || !actions || !grid) return;
+    grid.innerHTML = "";
+
+    // المستوى الأول: اختيار الصف
+    if (!window.explorerPath.level) {
+        breadcrumbs.innerHTML = `🎓 اختر الصف الدراسي`;
+        actions.innerHTML = ``; 
+        let activeLevels = JSON.parse(localStorage.getItem("activeLevels")) || ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
+        
+        grid.innerHTML = activeLevels.map(lvl => `
+            <div class="explorer-card" onclick="window.explorerPath.level = '${lvl}'; renderLectures();">
+                <div class="explorer-img" style="color: var(--primary-color);">🎓</div>
+                <div class="explorer-content">
+                    <h3 class="explorer-title">${lvl}</h3>
+                    <p class="explorer-desc">اضغط لعرض الأترام</p>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    // المستوى الثاني: اختيار الترم
+    if (!window.explorerPath.term) {
+        breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.level=null; renderLectures();">الصفوف</span> <span style="color:var(--text-muted);">/</span> <span style="color:var(--primary-color);">${window.explorerPath.level}</span>`;
+        actions.innerHTML = `
+            <button class="theme-btn" onclick="window.explorerPath.level=null; renderLectures();">🔙 رجوع</button>
+            <button class="save-btn" style="margin:0; background:#3b82f6;" onclick="openAddFolderModal('term')">➕ إضافة ترم جديد</button>
+        `;
+
+        let terms = window.lectureFolders.filter(f => f && f.type === 'term' && f.parentLevel === window.explorerPath.level);
+        
+        if (terms.length === 0) {
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">لا توجد أترام مضافة حتى الآن. اضغط على (+ إضافة ترم جديد).</div>`;
+            return;
+        }
+
+        grid.innerHTML = terms.map(term => `
+            <div class="explorer-card" onclick="window.explorerPath.term = '${term.name}'; renderLectures();">
+                ${term.image ? `<img src="${term.image}" class="explorer-img">` : `<div class="explorer-img" style="color: #3b82f6;">📚</div>`}
+                <div class="explorer-content">
+                    <h3 class="explorer-title">${term.name}</h3>
+                    ${term.price > 0 ? `<p style="color:#10b981; font-weight:bold; font-size:14px; margin:5px 0;">سعر الباقة: ${term.price} ج.م</p>` : ''}
+                    ${term.desc ? `<p class="explorer-desc">${term.desc}</p>` : ''}
+                </div>
+                <div style="background: rgba(0,0,0,0.02); padding: 10px; display:flex; gap:8px; border-top: 1px solid var(--border-color);">
+                    <button class="icon-btn" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 6px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer;" onclick="event.stopPropagation(); openEditFolderModal('${term.id}')">✏️ تعديل</button>
+                    <button class="icon-btn danger" style="flex: 1; margin: 0; padding: 6px; font-size: 13px; font-weight: bold; border-radius: 6px;" onclick="event.stopPropagation(); deleteFolder('${term.id}')">🗑️ مسح</button>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    // المستوى الثالث: اختيار الشهر
+    if (!window.explorerPath.month) {
+        breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.level=null; renderLectures();">الصفوف</span> <span style="color:var(--text-muted);">/</span> <span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.term=null; renderLectures();">${window.explorerPath.level}</span> <span style="color:var(--text-muted);">/</span> <span style="color:var(--primary-color);">${window.explorerPath.term}</span>`;
+        actions.innerHTML = `
+            <button class="theme-btn" onclick="window.explorerPath.term=null; renderLectures();">🔙 رجوع</button>
+            <button class="save-btn" style="margin:0; background:#f59e0b;" onclick="openAddFolderModal('month')">➕ إضافة شهر جديد</button>
+        `;
+
+        let months = window.lectureFolders.filter(f => f && f.type === 'month' && f.parentTerm === window.explorerPath.term && f.parentLevel === window.explorerPath.level);
+        
+        if (months.length === 0) {
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">لا توجد شهور مضافة في هذا الترم. اضغط على (+ إضافة شهر جديد).</div>`;
+            return;
+        }
+
+        grid.innerHTML = months.map(month => `
+            <div class="explorer-card" onclick="window.explorerPath.month = '${month.name}'; renderLectures();">
+                ${month.image ? `<img src="${month.image}" class="explorer-img" style="border-bottom: 3px solid #f59e0b;">` : `<div class="explorer-img" style="color: #f59e0b; border-bottom: 3px solid #f59e0b;">📆</div>`}
+                <div class="explorer-content">
+                    <h3 class="explorer-title">${month.name}</h3>
+                    ${month.price > 0 ? `<p style="color:#10b981; font-weight:bold; font-size:14px; margin:5px 0;">سعر الباقة: ${month.price} ج.م</p>` : ''}
+                    ${month.desc ? `<p class="explorer-desc">${month.desc}</p>` : ''}
+                </div>
+                <div style="background: rgba(0,0,0,0.02); padding: 10px; display:flex; gap:8px; border-top: 1px solid var(--border-color);">
+                    <button class="icon-btn" style="flex: 1; background: #f59e0b; color: white; border: none; padding: 6px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer;" onclick="event.stopPropagation(); openEditFolderModal('${month.id}')">✏️ تعديل</button>
+                    <button class="icon-btn danger" style="flex: 1; margin: 0; padding: 6px; font-size: 13px; font-weight: bold; border-radius: 6px;" onclick="event.stopPropagation(); deleteFolder('${month.id}')">🗑️ مسح</button>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    // المستوى الرابع: عرض الكورسات داخل الشهر
+    breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted); font-size: 14px;" onclick="window.explorerPath.term=null; window.explorerPath.month=null; renderLectures();">${window.explorerPath.level}</span> <span style="color:var(--text-muted);">/</span> <span style="cursor:pointer; color:var(--text-muted); font-size: 14px;" onclick="window.explorerPath.month=null; renderLectures();">${window.explorerPath.term}</span> <span style="color:var(--text-muted);">/</span> <span style="color: #10b981;">${window.explorerPath.month}</span>`;
+    actions.innerHTML = `
+        <button class="theme-btn" onclick="window.explorerPath.month=null; renderLectures();">🔙 رجوع</button>
+        <button class="save-btn" style="margin:0; background:#10b981;" onclick="openAddLectureModal()">➕ إضافة كورس 🎬</button>
+    `;
+
+    let finalLectures = window.fetchedLectures.filter(l => l && l.level === window.explorerPath.level && l.term === window.explorerPath.term && l.month === window.explorerPath.month);
+
+    if (finalLectures.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">هذا الشهر فارغ. اضغط على (+ إضافة كورس) لنشر أول كورس!</div>`;
+        return;
+    }
+
+    finalLectures.forEach(lec => {
+        let vids = lec.videos || [];
+        let hasPaidVideos = vids.some(v => v.type === 'paid' && parseFloat(v.price) > 0);
+        let totalPrice = vids.reduce((sum, v) => sum + (v.type === 'paid' ? (parseFloat(v.price) || 0) : 0), 0);
+        let isPaid = lec.type === 'paid' || hasPaidVideos || (parseFloat(lec.price) > 0);
+
+        let priceBadge = isPaid
+            ? `<span style="background:#fee2e2; color:#ef4444; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold;">${totalPrice > 0 ? totalPrice + ' ج.م' : (lec.price ? lec.price + ' ج.م' : 'مدفوع 🔒')}</span>`
+            : `<span style="background:#d1fae5; color:#059669; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold;">مجاني</span>`;
+
+        let hasLinks = vids.some(v => v.linkedSessions && v.linkedSessions.length > 0) || lec.linkedSession;
+        let linkBadge = hasLinks ? `<span style="display:block; margin-top:5px; font-size:11px; color:#f59e0b;">🔗 مربوط بحصة</span>` : '';
+
+        grid.innerHTML += `
+        <div style="background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+            <img src="${lec.image}" style="width: 100%; height: 160px; object-fit: cover; border-bottom: 3px solid #10b981;">
+            <div style="padding: 15px; display: flex; flex-direction: column; flex-grow: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                    <h4 style="margin:0; color:var(--secondary-color); font-size: 16px;">${lec.title}</h4> ${priceBadge}
+                </div>
+                <p style="margin:0 0 15px 0; font-size:12px; color:var(--text-muted); font-weight: bold;">المسار: ${lec.track || 'عام'} ${linkBadge}</p>
+                <div style="display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap;">
+                    <button onclick="openEditCourseModal('${lec.id}')" style="flex:1; background:#f59e0b; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold;">تعديل ✏️</button>
+                    <button onclick="openCourseContent('${lec.id}')" style="flex:1; background:#3b82f6; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold;">المحتوى 📜</button>
+                    <button onclick="deleteLecture('${lec.id}')" style="width:100%; background:#ef4444; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold; margin-top:5px;">حذف 🗑️</button>
+                </div>
+            </div>
+        </div>`;
+    });
+};
+
+// 6. إضافة ونشر الكورسات
 window.openAddLectureModal = function() {
     let titleEl = document.getElementById("lecTitle");
     if(titleEl) titleEl.value = "";
@@ -7088,8 +7471,15 @@ window.saveLecture = async function() {
     if(btn) { btn.innerText = originalText; btn.disabled = false; }
 };
 
+// 7. حذف الكورس (بطلب PIN الإدارة)
 window.deleteLecture = async function(id) {
-    if(!confirm("هل تريد حذف المحاضرة نهائياً؟")) return;
+    const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد مسح الكورس:");
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    
+    if (enteredPin !== currentAdminPin) {
+        return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
+    }
+
     try {
         let uid = window.getSafeUid();
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectures/${id}.json`, { method: 'DELETE' });
@@ -7101,144 +7491,7 @@ window.deleteLecture = async function(id) {
     }
 };
 
-// ==========================================
-// 🎬 دوال إدارة المحاضرات وعرض الأسعار والتعديل
-// ==========================================
-
-// 1. دالة عرض المجلدات والكورسات (مع حساب السعر الذكي من الفيديوهات)
-window.renderLectures = function() {
-    let breadcrumbs = document.getElementById("lectures-breadcrumbs");
-    let actions = document.getElementById("lectures-actions");
-    let grid = document.getElementById("lectures-explorer-grid");
-    
-    if(!breadcrumbs || !actions || !grid) return;
-    grid.innerHTML = "";
-
-    // المستوى الأول: اختيار الصف
-    if (!window.explorerPath.level) {
-        breadcrumbs.innerHTML = `🎓 اختر الصف الدراسي`;
-        actions.innerHTML = ``; 
-        let activeLevels = JSON.parse(localStorage.getItem("activeLevels")) || ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
-        
-        grid.innerHTML = activeLevels.map(lvl => `
-            <div class="explorer-card" onclick="window.explorerPath.level = '${lvl}'; renderLectures();">
-                <div class="explorer-img" style="color: var(--primary-color);">🎓</div>
-                <div class="explorer-content">
-                    <h3 class="explorer-title">${lvl}</h3>
-                    <p class="explorer-desc">اضغط لعرض الأترام</p>
-                </div>
-            </div>
-        `).join('');
-        return;
-    }
-
-    // المستوى الثاني: اختيار الترم
-    if (!window.explorerPath.term) {
-        breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.level=null; renderLectures();">الصفوف</span> <span style="color:var(--text-muted);">/</span> <span style="color:var(--primary-color);">${window.explorerPath.level}</span>`;
-        actions.innerHTML = `
-            <button class="theme-btn" onclick="window.explorerPath.level=null; renderLectures();">🔙 رجوع</button>
-            <button class="save-btn" style="margin:0; background:#3b82f6;" onclick="openAddFolderModal('term')">➕ إضافة ترم جديد</button>
-        `;
-
-        let terms = window.lectureFolders.filter(f => f && f.type === 'term' && f.parentLevel === window.explorerPath.level);
-        
-        if (terms.length === 0) {
-            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">لا توجد أترام مضافة حتى الآن. اضغط على (+ إضافة ترم جديد).</div>`;
-            return;
-        }
-
-        grid.innerHTML = terms.map(term => `
-            <div class="explorer-card" onclick="window.explorerPath.term = '${term.name}'; renderLectures();">
-                ${term.image ? `<img src="${term.image}" class="explorer-img">` : `<div class="explorer-img" style="color: #3b82f6;">📚</div>`}
-                <div class="explorer-content">
-                    <h3 class="explorer-title">${term.name}</h3>
-                    ${term.desc ? `<p class="explorer-desc">${term.desc}</p>` : ''}
-                </div>
-                <div style="background: rgba(239,68,68,0.05); padding: 10px; display:flex;">
-                    <button class="icon-btn danger" style="margin: 0 auto; padding: 5px 15px; font-size: 12px;" onclick="event.stopPropagation(); deleteFolder('${term.id}')">🗑️ مسح الترم</button>
-                </div>
-            </div>
-        `).join('');
-        return;
-    }
-
-    // المستوى الثالث: اختيار الشهر
-    if (!window.explorerPath.month) {
-        breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.level=null; renderLectures();">الصفوف</span> <span style="color:var(--text-muted);">/</span> <span style="cursor:pointer; color:var(--text-muted);" onclick="window.explorerPath.term=null; renderLectures();">${window.explorerPath.level}</span> <span style="color:var(--text-muted);">/</span> <span style="color:var(--primary-color);">${window.explorerPath.term}</span>`;
-        actions.innerHTML = `
-            <button class="theme-btn" onclick="window.explorerPath.term=null; renderLectures();">🔙 رجوع</button>
-            <button class="save-btn" style="margin:0; background:#f59e0b;" onclick="openAddFolderModal('month')">➕ إضافة شهر جديد</button>
-        `;
-
-        let months = window.lectureFolders.filter(f => f && f.type === 'month' && f.parentTerm === window.explorerPath.term && f.parentLevel === window.explorerPath.level);
-        
-        if (months.length === 0) {
-            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">لا توجد شهور مضافة في هذا الترم. اضغط على (+ إضافة شهر جديد).</div>`;
-            return;
-        }
-
-        grid.innerHTML = months.map(month => `
-            <div class="explorer-card" onclick="window.explorerPath.month = '${month.name}'; renderLectures();">
-                ${month.image ? `<img src="${month.image}" class="explorer-img" style="border-bottom: 3px solid #f59e0b;">` : `<div class="explorer-img" style="color: #f59e0b; border-bottom: 3px solid #f59e0b;">📆</div>`}
-                <div class="explorer-content">
-                    <h3 class="explorer-title">${month.name}</h3>
-                    ${month.desc ? `<p class="explorer-desc">${month.desc}</p>` : ''}
-                </div>
-                <div style="background: rgba(239,68,68,0.05); padding: 10px; display:flex;">
-                    <button class="icon-btn danger" style="margin: 0 auto; padding: 5px 15px; font-size: 12px;" onclick="event.stopPropagation(); deleteFolder('${month.id}')">🗑️ مسح الشهر</button>
-                </div>
-            </div>
-        `).join('');
-        return;
-    }
-
-    // المستوى الرابع: عرض الكورسات داخل الشهر المختار
-    breadcrumbs.innerHTML = `<span style="cursor:pointer; color:var(--text-muted); font-size: 14px;" onclick="window.explorerPath.term=null; window.explorerPath.month=null; renderLectures();">${window.explorerPath.level}</span> <span style="color:var(--text-muted);">/</span> <span style="cursor:pointer; color:var(--text-muted); font-size: 14px;" onclick="window.explorerPath.month=null; renderLectures();">${window.explorerPath.term}</span> <span style="color:var(--text-muted);">/</span> <span style="color: #10b981;">${window.explorerPath.month}</span>`;
-    actions.innerHTML = `
-        <button class="theme-btn" onclick="window.explorerPath.month=null; renderLectures();">🔙 رجوع</button>
-        <button class="save-btn" style="margin:0; background:#10b981;" onclick="openAddLectureModal()">➕ إضافة كورس 🎬</button>
-    `;
-
-    let finalLectures = window.fetchedLectures.filter(l => l && l.level === window.explorerPath.level && l.term === window.explorerPath.term && l.month === window.explorerPath.month);
-
-    if (finalLectures.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--text-muted); font-weight:bold; border: 2px dashed var(--border-color); border-radius: 12px;">هذا الشهر فارغ. اضغط على (+ إضافة كورس) لنشر أول كورس!</div>`;
-        return;
-    }
-
-    finalLectures.forEach(lec => {
-        // فحص حالة الدفع وإجمالي سعر الفيديوهات
-        let vids = lec.videos || [];
-        let hasPaidVideos = vids.some(v => v.type === 'paid' && parseFloat(v.price) > 0);
-        let totalPrice = vids.reduce((sum, v) => sum + (v.type === 'paid' ? (parseFloat(v.price) || 0) : 0), 0);
-        let isPaid = lec.type === 'paid' || hasPaidVideos || (parseFloat(lec.price) > 0);
-
-        let priceBadge = isPaid
-            ? `<span style="background:#fee2e2; color:#ef4444; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold;">${totalPrice > 0 ? totalPrice + ' ج.م' : (lec.price ? lec.price + ' ج.م' : 'مدفوع 🔒')}</span>`
-            : `<span style="background:#d1fae5; color:#059669; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold;">مجاني</span>`;
-
-        let hasLinks = vids.some(v => v.linkedSessions && v.linkedSessions.length > 0) || lec.linkedSession;
-        let linkBadge = hasLinks ? `<span style="display:block; margin-top:5px; font-size:11px; color:#f59e0b;">🔗 مربوط بحصة</span>` : '';
-
-        grid.innerHTML += `
-        <div style="background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column;">
-            <img src="${lec.image}" style="width: 100%; height: 160px; object-fit: cover; border-bottom: 3px solid #10b981;">
-            <div style="padding: 15px; display: flex; flex-direction: column; flex-grow: 1;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                    <h4 style="margin:0; color:var(--secondary-color); font-size: 16px;">${lec.title}</h4> ${priceBadge}
-                </div>
-                <p style="margin:0 0 15px 0; font-size:12px; color:var(--text-muted); font-weight: bold;">المسار: ${lec.track || 'عام'} ${linkBadge}</p>
-                <div style="display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap;">
-                    <button onclick="openEditCourseModal('${lec.id}')" style="flex:1; background:#f59e0b; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold;">تعديل ✏️</button>
-                    <button onclick="openCourseContent('${lec.id}')" style="flex:1; background:#3b82f6; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold;">المحتوى 📜</button>
-                    <button onclick="deleteLecture('${lec.id}')" style="width:100%; background:#ef4444; color:white; border:none; border-radius:6px; padding:8px; cursor:pointer; font-weight: bold; margin-top:5px;">حذف 🗑️</button>
-                </div>
-            </div>
-        </div>`;
-    });
-};
-
-// 2. دالة إضافة صف فيديو داخل نافذة التعديل
+// 8. تعديل الكورسات
 window.addEditCourseVideoRow = function(title = "", url = "", linkedSessions = [], requiredExam = "", type = "free", price = "") {
     let container = document.getElementById("editCourseVideosContainer");
     if(!container) return;
@@ -7312,7 +7565,6 @@ window.addEditCourseVideoRow = function(title = "", url = "", linkedSessions = [
     container.appendChild(div);
 };
 
-// 3. دالة فتح نافذة تعديل الكورس (مصححة وخالية من الأخطاء)
 window.openEditCourseModal = function(id) {
     let lec = window.fetchedLectures.find(l => l.id === id);
     if(!lec) return;
@@ -7329,7 +7581,6 @@ window.openEditCourseModal = function(id) {
     let fileInp = document.getElementById("editLecImageFile");
     if(fileInp) fileInp.value = "";
 
-    // تعبئة قائمة الصفوف
     let selectLevel = document.getElementById("editLecLevel");
     if(selectLevel) {
         let activeLevels = JSON.parse(localStorage.getItem("activeLevels")) || ["الصف الأول الثانوي", "الصف الثاني الثانوي", "الصف الثالث الثانوي"];
@@ -7339,7 +7590,6 @@ window.openEditCourseModal = function(id) {
         });
     }
 
-    // تفريغ وإعادة بناء الفيديوهات
     let vContainer = document.getElementById("editCourseVideosContainer");
     if(vContainer) {
         vContainer.innerHTML = "";
@@ -7358,7 +7608,6 @@ window.openEditCourseModal = function(id) {
     openModal("editCourseModal");
 };
 
-// 4. دالة حفظ تعديلات الكورس
 window.saveEditedCourse = async function() {
     let id = document.getElementById("editLecId").value;
     let title = document.getElementById("editLecTitle").value.trim();
@@ -7428,4 +7677,224 @@ window.saveEditedCourse = async function() {
     }
 
     if(btn) { btn.innerText = origText; btn.disabled = false; }
+};
+
+// ==========================================
+// 💳 إدارة طلبات شحن المحفظة (لوحة المدرس)
+// ==========================================
+
+const oldSwitchPageForWallet = window.switchPage;
+window.switchPage = function(pageId) {
+    if (oldSwitchPageForWallet) oldSwitchPageForWallet(pageId);
+    if (pageId === "walletRequests") {
+        document.getElementById("page-title").innerText = "طلبات شحن المحفظة 💳";
+        document.getElementById("page-desc").innerText = "مراجعة إيصالات تحويل رصيد الطلاب وسجل الطلبات";
+        loadWalletRequests();
+    }
+};
+
+window.currentWalletRequests = {};
+window.loadWalletRequests = async function() {
+    let tbody = document.getElementById("wallet-requests-tbody");
+    let historyTbody = document.getElementById("wallet-history-tbody");
+    if(!tbody) return;
+    
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري جلب الطلبات... ⏳</td></tr>`;
+    if(historyTbody) historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري التحميل... ⏳</td></tr>`;
+    
+    try {
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests.json`);
+        let data = await res.json() || {};
+        window.currentWalletRequests = data;
+        
+        tbody.innerHTML = "";
+        if(historyTbody) historyTbody.innerHTML = "";
+
+        let keys = Object.keys(data).reverse();
+        
+        let pendingKeys = keys.filter(id => !data[id].status || data[id].status === "pending");
+        let historyKeys = keys.filter(id => data[id].status && data[id].status !== "pending");
+
+        // تحديث البادج الأحمر
+        let badge = document.getElementById("walletReqBadge");
+        if(badge) {
+            badge.innerText = pendingKeys.length;
+            badge.style.display = pendingKeys.length > 0 ? "inline-block" : "none";
+        }
+
+        // عرض الطلبات المعلقة
+        if(pendingKeys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-weight: bold; padding: 20px;">لا توجد طلبات شحن معلقة حالياً. 📭</td></tr>`;
+        } else {
+            pendingKeys.forEach(id => {
+                let req = data[id];
+                let dObj = new Date(req.timestamp);
+                let dateStr = dObj.toLocaleDateString('ar-EG') + " " + formatTime12(`${dObj.getHours()}:${dObj.getMinutes()}`);
+                
+                tbody.innerHTML += `
+                <tr>
+                    <td style="font-size: 13px; color: var(--text-muted);">${dateStr}</td>
+                    <td><strong>${req.studentName}</strong><br><span style="font-size: 12px; color: var(--primary-color);">كود: ${req.studentCode}</span></td>
+                    <td><strong style="color: #f59e0b; font-size: 16px;">${req.amount} ج.م</strong></td>
+                    <td style="font-family: monospace; font-weight: bold;">${req.transferNumber || 'غير مسجل'}</td>
+                    <td>
+                        <a href="${req.receiptImage}" target="_blank">
+                            <img src="${req.receiptImage}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
+                        </a>
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 5px; justify-content: center;">
+                            <button class="save-btn" style="margin:0; width:auto; padding:6px 12px; background:var(--success-color);" onclick="openApproveWalletModal('${id}')">مراجعة وقبول ✅</button>
+                            <button class="icon-btn danger" style="margin:0;" onclick="directRejectWallet('${id}')" title="رفض مباشر">❌</button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        // عرض السجل السابق
+        if(historyTbody) {
+            if(historyKeys.length === 0) {
+                historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد طلبات سابقة.</td></tr>`;
+            } else {
+                historyKeys.forEach(id => {
+                    let req = data[id];
+                    let dObj = new Date(req.timestamp);
+                    let dateStr = dObj.toLocaleDateString('ar-EG') + " " + formatTime12(`${dObj.getHours()}:${dObj.getMinutes()}`);
+                    let statusBadge = req.status === "approved" 
+                        ? `<span class="badge" style="background: #d1fae5; color: #047857;">مقبول وشحن (${req.approvedAmount || req.amount} ج) ✅</span>` 
+                        : `<span class="badge" style="background: #fee2e2; color: #b91c1c;">مرفوض ❌</span>`;
+
+                    historyTbody.innerHTML += `
+                    <tr>
+                        <td style="font-size: 13px; color: var(--text-muted);">${dateStr}</td>
+                        <td><strong>${req.studentName}</strong><br><span style="font-size: 12px; color: var(--primary-color);">كود: ${req.studentCode}</span></td>
+                        <td><strong style="color: #f59e0b; font-size: 16px;">${req.amount} ج.م</strong></td>
+                        <td style="font-family: monospace; font-weight: bold;">${req.transferNumber || 'غير مسجل'}</td>
+                        <td>
+                            <a href="${req.receiptImage}" target="_blank">
+                                <img src="${req.receiptImage}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
+                            </a>
+                        </td>
+                        <td>${statusBadge}</td>
+                    </tr>`;
+                });
+            }
+        }
+    } catch(e) { 
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">خطأ في الاتصال بالسيرفر!</td></tr>`; 
+    }
+};
+
+window.openApproveWalletModal = function(id) {
+    let req = window.currentWalletRequests[id];
+    if(!req) return;
+    
+    document.getElementById("approveWalletReqId").value = id;
+    document.getElementById("approveWalletStudentCode").value = req.studentCode;
+    document.getElementById("aprWalletStName").innerText = req.studentName;
+    document.getElementById("aprWalletStAmount").innerText = req.amount;
+    document.getElementById("aprWalletFinalAmount").value = req.amount;
+    
+    let imgPrev = document.getElementById("aprWalletImgPreview");
+    let imgLink = document.getElementById("aprWalletImgLink");
+    imgPrev.src = req.receiptImage;
+    imgLink.href = req.receiptImage;
+
+    openModal("approveWalletModal");
+};
+
+// 🚀 تحديث رصيد الطالب في ملفه الأساسي (حتى يظهر للطالب فوراً)
+window.confirmApproveWalletRequest = async function() {
+    let id = document.getElementById("approveWalletReqId").value;
+    let studentCode = document.getElementById("approveWalletStudentCode").value;
+    let finalAmount = parseFloat(document.getElementById("aprWalletFinalAmount").value);
+    
+    if(isNaN(finalAmount) || finalAmount <= 0) return showToast("يرجى إدخال مبلغ صحيح للشحن!", "error");
+
+    let btn = document.querySelector("#approveWalletModal .save-btn");
+    let origText = btn.innerText;
+    btn.innerText = "جاري إضافة الرصيد... ⏳"; btn.disabled = true;
+
+    try {
+        // 1. جلب بيانات السيستم بالكامل لتحديث رصيد الطالب في مصفوفة الطلاب
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data.json`);
+        let sysData = await res.json() || {};
+        
+        let studentsArr = Array.isArray(sysData.students) ? sysData.students : Object.values(sysData.students || {}).filter(s => s !== null);
+        let studentIndex = studentsArr.findIndex(s => s && String(s.code) === String(studentCode));
+
+        if (studentIndex === -1) {
+            showToast("لم يتم العثور على الطالب في سجلات النظام!", "error");
+            btn.innerText = origText; btn.disabled = false;
+            return;
+        }
+
+        // إضافة الرصيد لحساب الطالب
+        let currentBal = parseFloat(studentsArr[studentIndex].walletBalance) || 0;
+        let newBalance = currentBal + finalAmount;
+        studentsArr[studentIndex].walletBalance = newBalance;
+
+        // تحديث مصفوفة الطلاب في الفايربيز
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/students.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(studentsArr)
+        });
+
+        // تحديث الذاكرة المحلية
+        students = studentsArr;
+        localStorage.setItem("students", JSON.stringify(students));
+
+        // 2. تحديث حالة الطلب في قائمة الطلبات إلى "approved" ونقله للسجل بدلاً من حذفه
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: "approved", approvedAmount: finalAmount })
+        });
+
+        if(typeof addSystemLog === "function") {
+            addSystemLog("شحن محفظة 💰", `تم قبول طلب شحن بقيمة ${finalAmount} ج.م للطالب (كود: ${studentCode})`);
+        }
+
+        showToast(`✅ تم شحن رصيد الطالب بقيمة ${finalAmount} ج.م بنجاح!`, "success");
+        closeModal("approveWalletModal");
+        loadWalletRequests();
+
+        if(typeof syncDataToBot === "function") syncDataToBot();
+
+    } catch(e) {
+        showToast("حدث خطأ أثناء تنفيذ عملية الشحن!", "error");
+    }
+    
+    btn.innerText = origText; btn.disabled = false;
+};
+
+window.rejectWalletRequest = async function() {
+    let id = document.getElementById("approveWalletReqId").value;
+    if(!confirm("هل أنت متأكد من رفض طلب الشحن هذا؟")) return;
+    
+    try {
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: "rejected" })
+        });
+        showToast("تم رفض الطلب ❌");
+        closeModal("approveWalletModal");
+        loadWalletRequests();
+    } catch(e) { showToast("خطأ في الاتصال!", "error"); }
+};
+
+window.directRejectWallet = async function(id) {
+    if(!confirm("هل أنت متأكد من رفض هذا الطلب؟")) return;
+    try {
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: "rejected" })
+        });
+        showToast("تم رفض الطلب ❌");
+        loadWalletRequests();
+    } catch(e) { showToast("خطأ في الاتصال!", "error"); }
 };

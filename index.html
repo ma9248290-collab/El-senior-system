@@ -152,7 +152,7 @@
                 </li>
                 
                 <li id="nav-platform"><a href="#" onclick="switchPage('platform')">إدارة المنصة💻</a></li>
-
+                <li id="nav-walletRequests"><a href="#" onclick="switchPage('walletRequests')">طلبات الشحن 💳 <span id="walletReqBadge" style="background: red; color: white; padding: 2px 6px; border-radius: 50%; font-size: 12px; display: none;">0</span></a></li>
                 <li class="nav-dropdown admin-only">
                     <div class="dropdown-toggle" onclick="toggleSidebarDropdown(this)">
                         <span>📈 الإدارة والماليات</span>
@@ -167,7 +167,7 @@
                         <li id="nav-broadcast"><a href="#" onclick="switchPage('broadcast')">الإرسال الجماعي 📢</a></li>
                     </ul>
                 </li>
-
+                
                 <li id="nav-logs" class="admin-only"><a href="#" onclick="switchPage('logs')">سجل الحركات 🕵️‍♂️</a></li>
 
                 <li class="nav-dropdown admin-only">
@@ -342,6 +342,92 @@
         <button class="save-btn" style="width: 100%; background: var(--success-color);" onclick="confirmApproveRequest()">توليد الكود وإرسال واتساب 🚀</button>
     </div>
 </div>
+
+
+<!-- صفحة طلبات شحن المحفظة للمدرس -->
+<div id="walletRequests-view" class="view-section admin-only" style="display: none;">
+    <section class="students-section">
+        <div class="section-header">
+            <div>
+                <h2>طلبات شحن المحفظة 💳</h2>
+                <p style="color: var(--text-muted); font-size: 14px;">مراجعة إيصالات تحويل الطلاب ومتابعة سجل الطلبات السابقة</p>
+            </div>
+            <button class="theme-btn" onclick="loadWalletRequests()">🔄 تحديث الطلبات</button>
+        </div>
+        
+        <!-- الطلبات المعلقة -->
+        <div class="table-container" style="margin-bottom: 30px;">
+            <h3 style="color: var(--secondary); margin-bottom: 10px; font-size: 18px;">⏳ الطلبات المعلقة (تحتاج مراجعة)</h3>
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>الطالب</th>
+                        <th>المبلغ المُرسل</th>
+                        <th>رقم التحويل / الإيصال</th>
+                        <th>صورة الإيصال</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-requests-tbody">
+                    <tr><td colspan="6" style="text-align: center; padding: 30px;">جاري التحميل...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- سجل الطلبات السابقة -->
+        <div class="table-container">
+            <h3 style="color: var(--secondary); margin-bottom: 10px; font-size: 18px;">📜 سجل الطلبات السابقة (المقبولة والمرفوضة)</h3>
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>الطالب</th>
+                        <th>المبلغ</th>
+                        <th>رقم التحويل</th>
+                        <th>صورة الإيصال</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-history-tbody">
+                    <tr><td colspan="6" style="text-align: center; padding: 20px;">لا توجد طلبات سابقة.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<!-- نافذة تأكيد أو تعديل مبلغ شحن المحفظة -->
+<div id="approveWalletModal" class="modal" style="z-index: 1000000;">
+    <div class="modal-content" style="width: 450px; border-top: 5px solid var(--success-color);">
+        <span class="close-btn" onclick="closeModal('approveWalletModal')">&times;</span>
+        <h2 style="color: var(--success-color); margin-bottom: 15px;">مراجعة وقبول طلب الشحن ✅</h2>
+        
+        <input type="hidden" id="approveWalletReqId">
+        <input type="hidden" id="approveWalletStudentCode">
+
+        <div style="background: var(--hover-bg); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: right;">
+            <p style="margin: 0 0 5px 0;">اسم الطالب: <strong id="aprWalletStName" style="color: var(--primary-color);"></strong></p>
+            <p style="margin: 0 0 10px 0;">المبلغ الذي كتبه الطالب: <strong id="aprWalletStAmount" style="color: #f59e0b;"></strong> ج.م</p>
+            <div style="text-align: center; margin-top: 10px;">
+                <a id="aprWalletImgLink" href="#" target="_blank" title="اضغط لتكبير الصورة">
+                    <img id="aprWalletImgPreview" src="" style="max-width: 100%; height: 150px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer;">
+                </a>
+                <small style="display: block; color: var(--text-muted); margin-top: 5px;">(اضغط على الصورة لرؤيتها بحجمها الطبيعي)</small>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>المبلغ المراد اعتماده وشحنه في رصيد الطالب (ج.م):</label>
+            <input type="number" id="aprWalletFinalAmount" class="custom-input" style="font-size: 20px; font-weight: bold; text-align: center; color: var(--success-color);" min="1">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="save-btn" style="flex: 2; margin: 0; background: var(--success-color);" onclick="confirmApproveWalletRequest()">تأكيد الشحن وإضافة الرصيد 🚀</button>
+            <button class="theme-btn" style="flex: 1; margin: 0; border-color: var(--danger-color); color: var(--danger-color);" onclick="rejectWalletRequest()">رفض الطلب ❌</button>
+        </div>
+    </div>
+</div>
             
             <div id="students-view" class="view-section" style="display: none;">
                 <section id="students-overview" class="students-section">
@@ -358,7 +444,18 @@
                         </div>
                     </div>
                     <div class="table-container">
-                        <table class="students-table"><thead><tr><th>الكود</th><th>اسم الطالب</th><th>الصف</th><th>المجموعة</th><th>إجراءات</th></tr></thead><tbody id="students-list"></tbody></table>
+                        <table class="students-table">
+    <thead>
+        <tr>
+            <th onclick="sortStudentsTable('code')" style="cursor: pointer; user-select: none;" title="ترتيب حسب الكود">الكود <span id="sort-st-code" style="color: var(--primary-color); font-size: 13px;">⇅</span></th>
+            <th onclick="sortStudentsTable('name')" style="cursor: pointer; user-select: none;" title="ترتيب حسب الاسم">اسم الطالب <span id="sort-st-name" style="color: var(--text-muted); font-size: 13px;">⇅</span></th>
+            <th onclick="sortStudentsTable('level')" style="cursor: pointer; user-select: none;" title="ترتيب حسب الصف">الصف <span id="sort-st-level" style="color: var(--text-muted); font-size: 13px;">⇅</span></th>
+            <th onclick="sortStudentsTable('group')" style="cursor: pointer; user-select: none;" title="ترتيب حسب المجموعة">المجموعة <span id="sort-st-group" style="color: var(--text-muted); font-size: 13px;">⇅</span></th>
+            <th>إجراءات</th>
+        </tr>
+    </thead>
+    <tbody id="students-list"></tbody>
+</table>
                     </div>
                 </section>
                 
@@ -941,7 +1038,7 @@
                 <label>سعر الباقة بالكامل (ج.م) - اختياري</label>
                 <input type="number" id="folderPrice" class="custom-input" placeholder="0 = تسعير منفصل لكل محاضرة" min="0">
             </div>
-            
+
             <div class="input-group">
                 <label>وصف أو تفاصيل قصيرة (اختياري)</label>
                 <textarea id="folderDesc" class="custom-input" rows="2" placeholder="اكتب تفاصيل المجلد..."></textarea>
@@ -2578,7 +2675,7 @@
                 <p style="margin: 0; font-size: 14px; font-weight: bold;">المجموعة الحالية: <span id="wgCurrentGroup" style="color: var(--success-color);">---</span></p>
             </div>
 
-            <!-- خيار 1: يحضر كتعويض في مجموعته الأصلية -->
+            <!-- 🟢 خيار 1: يحضر كتعويض في مجموعته الأصلية (الذي كان يظهر فارغاً) -->
             <div id="wgAttendanceDiv" style="background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 8px; border: 1px solid #10b981; margin-bottom: 15px;">
                 <label style="font-weight: bold; color: #10b981; margin-bottom: 10px; display: block;">1. حضور كتعويض (تسجيل في حصة مجموعته)</label>
                 <div style="display: flex; gap: 10px;">
@@ -2598,7 +2695,33 @@
         </div>
     </div>
 
-    
+    <!-- ✏️ نافذة تعديل المجلد (ترم أو شهر) -->
+    <div id="editFolderModal" class="modal" style="z-index: 1000000;">
+        <div class="modal-content" style="width: 500px; border-top: 5px solid #f59e0b;">
+            <span class="close-btn" onclick="closeModal('editFolderModal')">&times;</span>
+            <h2 id="editFolderModalTitle" style="color: #f59e0b; margin-bottom: 20px;">تعديل المجلد ✏️</h2>
+            <input type="hidden" id="editFolderId">
+            
+            <div class="input-group">
+                <label>اسم المجلد</label>
+                <input type="text" id="editFolderName" class="custom-input" placeholder="اسم المجلد...">
+            </div>
+            <div class="input-group">
+                <label>تغيير صورة الغلاف (اختياري)</label>
+                <input type="file" id="editFolderImage" class="custom-input" accept="image/png, image/jpeg, image/jpg">
+                <input type="hidden" id="editFolderImageBase64">
+            </div>
+            <div class="input-group">
+                <label>سعر الباقة بالكامل (ج.م) - اختياري</label>
+                <input type="number" id="editFolderPrice" class="custom-input" min="0" placeholder="0 = بدون باقة">
+            </div>
+            <div class="input-group">
+                <label>وصف أو تفاصيل قصيرة (اختياري)</label>
+                <textarea id="editFolderDesc" class="custom-input" rows="2" placeholder="اكتب تفاصيل المجلد..."></textarea>
+            </div>
+            <button class="save-btn" id="saveEditFolderBtn" style="width: 100%; background: #f59e0b; font-size: 18px;" onclick="saveEditedFolder()">حفظ التعديلات 💾</button>
+        </div>
+    </div>
 
 
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
