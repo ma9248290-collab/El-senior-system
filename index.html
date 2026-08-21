@@ -891,47 +891,85 @@
             </div>
         </div>
     </div>
-
+<!-- ========================================== -->
+    <!-- 🎬 قسم المحاضرات (نظام المجلدات الشجري الذكي) -->
+    <!-- ========================================== -->
     <div id="platform-lectures" class="platform-section" style="display: none;">
-        <div class="card" style="margin-bottom: 20px;">
-            <h3 style="color: var(--primary-color); margin-top: 0; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">إضافة كورس جديد 🎬</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                
+        
+        <style>
+            /* ستايل المجلدات الفخم */
+            .explorer-card { background: white; border-radius: 16px; overflow: hidden; border: 2px solid var(--border-color); cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.03); display: flex; flex-direction: column; }
+            .explorer-card:hover { transform: translateY(-5px); border-color: var(--primary-color); box-shadow: 0 10px 20px rgba(14, 165, 233, 0.15); }
+            .explorer-img { width: 100%; height: 140px; object-fit: cover; background: var(--hover-bg); display: flex; justify-content: center; align-items: center; font-size: 50px; }
+            .explorer-content { padding: 15px; text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+            .explorer-title { margin: 0 0 5px 0; font-size: 20px; font-weight: 900; color: var(--secondary-color); }
+            .explorer-desc { margin: 0; font-size: 13px; color: var(--text-muted); font-weight: bold; }
+        </style>
+
+        <!-- شريط التصفح وأزرار التحكم -->
+        <div class="card" style="margin-bottom: 20px; padding: 20px; border-top: 4px solid var(--primary-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <div id="lectures-breadcrumbs" style="font-size: 18px; font-weight: 900; color: var(--secondary-color); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <!-- المسار هيترسم هنا أوتوماتيك -->
+            </div>
+            <div id="lectures-actions" style="display: flex; gap: 10px;">
+                <!-- أزرار الإضافة (ترم/شهر/كورس) هتظهر هنا ديناميكياً -->
+            </div>
+        </div>
+
+        <!-- شبكة العرض (الصفوف أو الأترام أو الشهور أو الكورسات) -->
+        <div id="lectures-explorer-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+            <!-- الكروت هتترسم هنا -->
+        </div>
+    </div>
+
+    <!-- 📁 نافذة إضافة مجلد (ترم أو شهر) -->
+    <div id="addFolderModal" class="modal" style="z-index: 1000000;">
+        <div class="modal-content" style="width: 500px; border-top: 5px solid #3b82f6;">
+            <span class="close-btn" onclick="closeModal('addFolderModal')">&times;</span>
+            <h2 id="folderModalTitle" style="color: #3b82f6; margin-bottom: 20px;">إضافة مجلد جديد 📁</h2>
+            
+            <div class="input-group">
+                <label>اسم المجلد (مثال: الترم الأول، أو شهر أكتوبر)</label>
+                <input type="text" id="folderName" class="custom-input" placeholder="اكتب الاسم هنا...">
+            </div>
+            <div class="input-group">
+                <label>صورة الغلاف (اختياري - سيتم ضغطها تلقائياً)</label>
+                <input type="file" id="folderImage" class="custom-input" accept="image/png, image/jpeg, image/jpg">
+            </div>
+            <div class="input-group">
+                <label>وصف أو تفاصيل قصيرة (اختياري)</label>
+                <textarea id="folderDesc" class="custom-input" rows="2" placeholder="اكتب تفاصيل المجلد..."></textarea>
+            </div>
+            
+            <button class="save-btn" id="saveFolderBtn" style="width: 100%; background: #3b82f6; font-size: 18px;" onclick="saveFolder()">حفظ وإنشاء المجلد 🚀</button>
+        </div>
+    </div>
+
+    <!-- 🎬 نافذة إضافة كورس/محاضرة (مخفية وتفتح فقط داخل الشهر) -->
+    <div id="addLectureModal" class="modal" style="z-index: 1000000;">
+        <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid var(--primary-color);">
+            <span class="close-btn" onclick="closeModal('addLectureModal')">&times;</span>
+            <h2 style="color: var(--primary-color); margin-bottom: 20px;">إضافة كورس جديد 🎬</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="input-group full-width" style="grid-column: span 2;">
                     <label>اسم الكورس</label>
-                    <input type="text" id="lecTitle" class="custom-input" placeholder="مثال: كورس المراجعة النهائية - الباب الأول">
+                    <input type="text" id="lecTitle" class="custom-input" placeholder="مثال: الحصة الأولى - الباب الأول">
                 </div>
                 
                 <div class="input-group">
-                    <label>الصف الدراسي المستهدف</label>
-                    <select id="lecLevel" class="custom-input" onchange="filterCourseSessions('lecLevel', 'lecSessionsContainer')">
-                        <option value="all">كل الصفوف (عام)</option>
+                    <label>المسار المستهدف (للمنصة)</label>
+                    <select id="lecTrack" class="custom-input">
+                        <option value="all">عام وأزهر معاً (الكل)</option>
+                        <option value="عام">طلاب العام فقط</option>
+                        <option value="أزهر">طلاب الأزهر فقط</option>
                     </select>
                 </div>
-
                 <div class="input-group">
-    <label>المسار المستهدف (للمنصة)</label>
-    <select id="lecTrack" class="custom-input">
-        <option value="all">عام وأزهر معاً (الكل)</option>
-        <option value="عام">طلاب العام فقط</option>
-        <option value="أزهر">طلاب الأزهر فقط</option>
-    </select>
-</div>
-
-                
-
-                <div class="input-group">
-    <label>عدد المشاهدات المسموح بها (اتركها 0 لعدد غير محدود)</label>
-    <input type="number" id="lecMaxViews" class="custom-input" placeholder="0 = لا نهائي" min="0">
-</div>
-
-                
-
-                <div class="input-group" id="priceContainer" style="display: none;">
-                    <label>سعر الكورس (يُخصم من المحفظة لمن كان غائباً)</label>
-                    <input type="number" id="lecPrice" class="custom-input" placeholder="مثال: 150" min="0">
+                    <label>عدد المشاهدات المسموح بها (0 لعدد غير محدود)</label>
+                    <input type="number" id="lecMaxViews" class="custom-input" placeholder="0 = لا نهائي" min="0">
                 </div>
-
+                
                 <div class="input-group" style="grid-column: span 2;">
                     <label>صورة غلاف الكورس (رفع من الجهاز PNG/JPG)</label>
                     <input type="file" id="lecImageFile" class="custom-input" accept="image/png, image/jpeg, image/jpg">
@@ -948,16 +986,10 @@
                     <textarea id="lecDesc" class="custom-input" rows="3" placeholder="اكتب تفاصيل الكورس..."></textarea>
                 </div>
 
-                <button class="save-btn" style="grid-column: span 2; font-size: 18px; padding: 15px;" onclick="saveLecture()">نشر الكورس للطلاب 🚀</button>
+                <button class="save-btn" id="saveLectureBtn" style="grid-column: span 2; font-size: 18px; padding: 15px;" onclick="saveLecture()">نشر الكورس للطلاب 🚀</button>
             </div>
         </div>
-
-        <div class="card">
-            <h3 style="margin-top: 0; color: var(--secondary-color); margin-bottom: 15px;">الكورسات المنشورة</h3>
-            <div id="lectures-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;"></div>
-        </div>
     </div>
-
     <div id="platform-exams" class="platform-section" style="display: none;">
         
         <div id="platform-exams-list-container">
@@ -2261,6 +2293,15 @@
                         <label>الصف الدراسي المستهدف</label>
                         <select id="editLecLevel" class="custom-input" onchange="filterCourseSessions('editLecLevel', 'editLecSessionsContainer')"></select>
                     </div>
+
+                    <div class="input-group">
+                        <label>الترم الدراسي</label>
+                        <input type="text" id="editLecTerm" list="termOptionsList" class="custom-input">
+                    </div>
+                    <div class="input-group">
+                        <label>الشهر</label>
+                        <input type="text" id="editLecMonth" list="monthOptionsList" class="custom-input">
+                    </div>
                     
                     <div class="input-group">
     <label>المسار المستهدف</label>
@@ -2319,6 +2360,10 @@
 
     <div id="courseAnalyticsModal" class="modal" style="z-index: 1000005;">
         <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid #8b5cf6;">
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="analyticsSearchInput" class="custom-input" placeholder="🔍 ابحث باسم الطالب أو الكود لإضافة مشاهدات..." onkeyup="filterAnalyticsTable()" style="border-color: #8b5cf6;">
+            </div>
+            
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px;">
                 <h2 id="analyticsVideoTitle" style="margin: 0; color: #8b5cf6;">📊 إحصائيات المشاهدة</h2>
                 <span class="close" onclick="closeModal('courseAnalyticsModal')" style="font-size: 28px; cursor: pointer; color: var(--danger-color);">&times;</span>
