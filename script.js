@@ -599,7 +599,8 @@ const oldSwitchPageForPerms = window.switchPage;
 window.switchPage = function(pageId) {
     if (localStorage.getItem("isAssistantMode") === "true") {
         let perms = JSON.parse(localStorage.getItem("assistantPermissions")) || [];
-        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance'];
+        // تم السماح هنا لـ walletRequests و backup بالعمل بناءً على الصلاحيات المحددة
+        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance', 'walletRequests', 'backup'];
         
         if (restrictedPages.includes(pageId) && !perms.includes(pageId)) {
             if(typeof showToast === "function") showToast("عفواً، ليس لديك صلاحية لهذه الصفحة 🚫", "error");
@@ -1475,11 +1476,30 @@ window.renderGroupStudentsTable = function() {
     const tbody = document.getElementById("group-students-list"); 
     if(!tbody) return;
 
-    const groupStudents = students.filter(s => s.group === currentActiveGroup); 
+    // تحديث أيقونات الترتيب في الهيدر
+    ['code', 'name', 'parentPhone'].forEach(col => {
+        let el = document.getElementById(`sort-gs-${col}`);
+        if(el) {
+            if(window.groupStudentsSortState.column === col) {
+                el.innerHTML = window.groupStudentsSortState.direction === 'asc' ? '▲' : '▼';
+                el.style.color = 'var(--primary-color)';
+                el.style.fontWeight = '900';
+            } else {
+                el.innerHTML = '⇅';
+                el.style.color = 'var(--text-muted)';
+                el.style.fontWeight = 'normal';
+            }
+        }
+    });
+
+    const groupStudentsFiltered = students.filter(s => s.group === currentActiveGroup); 
     
-    if(groupStudents.length === 0) {
+    if(groupStudentsFiltered.length === 0) {
         return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
     }
+
+    // فرز الطلاب بناءً على الحالة الحالية
+    let sortedGroupStudents = [...groupStudentsFiltered].sort((a, b) => smartCompare(a, b, window.groupStudentsSortState.column, window.groupStudentsSortState.direction));
 
     let last4Sessions = classSessions
         .filter(s => s.group === currentActiveGroup)
@@ -1488,7 +1508,7 @@ window.renderGroupStudentsTable = function() {
 
     let html = ""; 
 
-    groupStudents.forEach((student) => { 
+    sortedGroupStudents.forEach((student) => { 
         let trackName = student.track || 'عام';
         let trackBadge = `<span style="font-size: 11px; background: rgba(59, 130, 246, 0.1); color: var(--primary-color); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); margin-top: 5px; display: inline-block; font-weight: bold;">🎓 ${trackName}</span>`;
 
@@ -1505,7 +1525,6 @@ window.renderGroupStudentsTable = function() {
                 else if (status === 'late') { dotColor = "#f59e0b"; tooltipText = `${session.date}: متأخر ⏳`; }
                 else if (status === 'absent') { dotColor = "#ef4444"; tooltipText = `${session.date}: غائب ❌`; }
                 else if (typeof status === 'object' && status.status === 'makeup') {
-                    // 💻 نقطة زرقاء لحضور التعويض
                     dotColor = "#2563eb"; 
                     tooltipText = `${session.date}: حاضر كتعويض 💻`;
                 }
