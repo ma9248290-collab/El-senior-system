@@ -936,10 +936,18 @@
                 <label>صورة الغلاف (اختياري - سيتم ضغطها تلقائياً)</label>
                 <input type="file" id="folderImage" class="custom-input" accept="image/png, image/jpeg, image/jpg">
             </div>
+
+            <div class="input-group">
+                <label>سعر الباقة بالكامل (ج.م) - اختياري</label>
+                <input type="number" id="folderPrice" class="custom-input" placeholder="0 = تسعير منفصل لكل محاضرة" min="0">
+            </div>
+            
             <div class="input-group">
                 <label>وصف أو تفاصيل قصيرة (اختياري)</label>
                 <textarea id="folderDesc" class="custom-input" rows="2" placeholder="اكتب تفاصيل المجلد..."></textarea>
             </div>
+
+            
             
             <button class="save-btn" id="saveFolderBtn" style="width: 100%; background: #3b82f6; font-size: 18px;" onclick="saveFolder()">حفظ وإنشاء المجلد 🚀</button>
         </div>

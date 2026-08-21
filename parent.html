@@ -1142,6 +1142,9 @@ body {
                 window.allClassSessions = safeClassSessions;
 
                 let lecRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/lectures.json`);
+                let foldRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/lectureFolders.json`);
+                let foldersData = await foldRes.json() || {};
+                window.allFolders = Array.isArray(foldersData) ? foldersData.filter(f => f !== null) : Object.values(foldersData).filter(f => f !== null);
                 let lecturesData = await lecRes.json() || {};
                 
                 if (Array.isArray(lecturesData)) window.allLectures = lecturesData.filter(l => l !== null).reverse();
@@ -2108,61 +2111,159 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
         window.addEventListener('blur', applyBlackout);
         window.addEventListener('focus', removeBlackout);
 
-window.studentLecPath = { level: currentStudent.level, term: null, month: null };
 
+        window.studentLecPath = { level: null, term: null, month: null };
+
+window.studentLecPath = { level: null, term: null, month: null };
+
+
+
+
+window.studentLecPath = { level: null, term: null, month: null };
+
+// 1. عرض المحاضرات مع بانر شراء الترم أو الشهر
 window.renderStudentLectures = function() {
     let list = document.getElementById("studentLecturesList");
-    if(!list) return; list.innerHTML = "";
+    if(!list) return; 
+    list.innerHTML = "";
     
-    // فلترة الكورسات المتاحة لصف الطالب ومساره
-    let myLectures = window.allLectures.filter(l => {
+    if(!currentStudent) return;
+    
+    if(!window.studentLecPath.level) {
+        window.studentLecPath.level = currentStudent.level;
+    }
+
+    let myLectures = (window.allLectures || []).filter(l => {
         if (!l) return false;
         let levelMatch = l.level === "all" || l.level === currentStudent.level;
         let trackMatch = !l.track || l.track === 'all' || l.track === (currentStudent.track || 'عام');
         return levelMatch && trackMatch;
     });
 
-    if(myLectures.length === 0) {
-        list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: var(--card-bg); border-radius: 20px; border: 2px dashed var(--border);">لا توجد كورسات متاحة لصفك حالياً.</div>`;
-        return;
-    }
+    let folders = window.allFolders || [];
 
-    // 1. عرض الأترام
+    // 📚 1. عرض الأترام
     if (!window.studentLecPath.term) {
         let terms = [...new Set(myLectures.map(l => l.term || 'الترم الأول'))];
-        list.innerHTML = terms.map(term => `
-            <div onclick="window.studentLecPath.term = '${term}'; renderStudentLectures();" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 20px; padding: 30px; text-align: center; cursor: pointer; color: white; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1);" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
+        
+        if (terms.length === 0) {
+            list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: var(--card-bg); border-radius: 20px; border: 2px dashed var(--border);">لا توجد كورسات متاحة لصفك حالياً.</div>`;
+            return;
+        }
+
+        list.innerHTML = terms.map(termName => {
+            let termFolder = folders.find(f => f.type === 'term' && f.name === termName && f.parentLevel === currentStudent.level);
+            let termPrice = termFolder ? (parseFloat(termFolder.price) || 0) : 0;
+            let isPurchased = currentStudent.purchasedCourses && termFolder && currentStudent.purchasedCourses.includes(termFolder.id);
+
+            let priceBadge = isPurchased 
+                ? `<span style="background: rgba(16,185,129,0.2); color: #10b981; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-top: 10px; display: inline-block;">✅ باقة مفعلة</span>`
+                : (termPrice > 0 ? `<span style="background: rgba(255,255,255,0.2); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-top: 10px; display: inline-block;">باقة كاملة: ${termPrice} ج.م</span>` : '');
+
+            return `
+            <div onclick="window.studentLecPath.term = '${termName}'; renderStudentLectures();" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 20px; padding: 30px; text-align: center; cursor: pointer; color: white; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1);" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
                 <span style="font-size: 50px; display: block; margin-bottom: 10px;">📚</span>
-                <h3 style="margin: 0; font-size: 22px; font-weight: 900;">${term}</h3>
-            </div>
-        `).join('');
+                <h3 style="margin: 0; font-size: 22px; font-weight: 900;">${termName}</h3>
+                ${priceBadge}
+            </div>`;
+        }).join('');
         return;
     }
 
-    // 2. عرض الشهور
+    // 📆 2. عرض الشهور داخل الترم
     if (!window.studentLecPath.month) {
         let termLectures = myLectures.filter(l => (l.term || 'الترم الأول') === window.studentLecPath.term);
         let months = [...new Set(termLectures.map(l => l.month || 'شهر غير محدد'))].sort();
         
-        list.innerHTML = `<div style="grid-column: 1/-1; margin-bottom: 15px;"><button class="theme-btn" onclick="window.studentLecPath.term = null; renderStudentLectures();" style="width: auto;">🔙 عودة للأترام</button> <h3 style="display:inline-block; margin-right: 15px; color: var(--primary);">📂 ${window.studentLecPath.term}</h3></div>`;
-        
-        list.innerHTML += months.map(month => `
-            <div onclick="window.studentLecPath.month = '${month}'; renderStudentLectures();" style="background: white; border-radius: 20px; padding: 30px; text-align: center; cursor: pointer; border: 2px solid var(--border); transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                <span style="font-size: 50px; display: block; margin-bottom: 10px;">📆</span>
-                <h3 style="margin: 0; font-size: 22px; font-weight: 900; color: var(--secondary);">${month}</h3>
-                <p style="margin: 5px 0 0 0; font-size: 13px; color: var(--text-muted);">اضغط لعرض المحاضرات</p>
+        // فحص باقة الترم
+        let termFolder = folders.find(f => f.type === 'term' && f.name === window.studentLecPath.term && f.parentLevel === currentStudent.level);
+        let termPrice = termFolder ? (parseFloat(termFolder.price) || 0) : 0;
+        let isTermPurchased = currentStudent.purchasedCourses && termFolder && currentStudent.purchasedCourses.includes(termFolder.id);
+
+        let termBundleBanner = "";
+        if (termPrice > 0) {
+            termBundleBanner = isTermPurchased
+                ? `<div style="grid-column: 1/-1; background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 20px 25px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 20px rgba(16,185,129,0.2); margin-bottom: 10px;">
+                     <div><h3 style="margin:0; font-size:18px;">💎 باقة (${window.studentLecPath.term}) مفعلة بالكامل</h3><p style="margin:5px 0 0 0; font-size:13px; opacity:0.9;">جميع محاضرات واختبارات هذا الترم مفتوحة لك مجاناً!</p></div>
+                     <span style="background: white; color: #059669; padding: 8px 15px; border-radius: 12px; font-weight: 900;">مشترك ✅</span>
+                   </div>`
+                : `<div style="grid-column: 1/-1; background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 20px 25px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 2px dashed #f59e0b; margin-bottom: 10px; flex-wrap:wrap; gap:15px;">
+                     <div><h3 style="margin:0; font-size:18px; color: #f59e0b;">🎁 وفر واشترك في (${window.studentLecPath.term}) بالكامل</h3><p style="margin:5px 0 0 0; font-size:13px; color: #cbd5e1;">احصل على جميع شهور ومحاضرات الترم بـ <strong>${termPrice} ج.م</strong> فقط!</p></div>
+                     <button class="btn" style="width:auto; background: linear-gradient(45deg, #f59e0b, #d97706); padding: 10px 25px; font-size: 15px; border-radius: 12px;" onclick="purchaseFolder('${termFolder.id}', '${termFolder.name}', ${termPrice}, 'ترم')">شراء باقة الترم 💳</button>
+                   </div>`;
+        }
+
+        list.innerHTML = `
+        <div style="grid-column: 1/-1; margin-bottom: 15px; background: white; padding: 15px 25px; border-radius: 18px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">📂</span>
+                <h3 style="margin: 0; color: var(--secondary); font-size: 20px; font-weight: 900;">${window.studentLecPath.term}</h3>
             </div>
-        `).join('');
+            <button onclick="window.studentLecPath.term = null; renderStudentLectures();" style="background: #f1f5f9; color: var(--secondary); border: 1px solid var(--border); padding: 10px 22px; border-radius: 12px; font-weight: 800; font-family: 'Cairo'; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; font-size: 15px;">
+                <span>🔙</span> العودة للأترام
+            </button>
+        </div>
+        ${termBundleBanner}`;
+        
+        list.innerHTML += months.map(monthName => {
+            let monthFolder = folders.find(f => f.type === 'month' && f.name === monthName && f.parentTerm === window.studentLecPath.term && f.parentLevel === currentStudent.level);
+            let monthPrice = monthFolder ? (parseFloat(monthFolder.price) || 0) : 0;
+            let isMonthPurchased = currentStudent.purchasedCourses && monthFolder && currentStudent.purchasedCourses.includes(monthFolder.id);
+
+            let priceBadge = (isTermPurchased || isMonthPurchased)
+                ? `<span style="background: rgba(16,185,129,0.1); color: #10b981; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-top: 10px; display: inline-block;">✅ باقة مفعلة</span>`
+                : (monthPrice > 0 ? `<span style="background: rgba(245,158,11,0.1); color: #f59e0b; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 900; margin-top: 10px; display: inline-block;">باقة كاملة: ${monthPrice} ج.م</span>` : '');
+
+            return `
+            <div onclick="window.studentLecPath.month = '${monthName}'; renderStudentLectures();" style="background: white; border-radius: 20px; padding: 30px; text-align: center; cursor: pointer; border: 2px solid var(--border); transition: 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.05);" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                <span style="font-size: 50px; display: block; margin-bottom: 10px;">📆</span>
+                <h3 style="margin: 0; font-size: 22px; font-weight: 900; color: var(--secondary);">${monthName}</h3>
+                ${priceBadge}
+            </div>`;
+        }).join('');
         return;
     }
 
-    // 3. عرض المحاضرات
+    // 🎬 3. عرض المحاضرات داخل الشهر
     let finalLectures = myLectures.filter(l => (l.term || 'الترم الأول') === window.studentLecPath.term && (l.month || 'شهر غير محدد') === window.studentLecPath.month);
     
-    list.innerHTML = `<div style="grid-column: 1/-1; margin-bottom: 15px;"><button class="theme-btn" onclick="window.studentLecPath.month = null; renderStudentLectures();" style="width: auto;">🔙 عودة للشهور</button> <h3 style="display:inline-block; margin-right: 15px; color: var(--primary);">📂 ${window.studentLecPath.term} > ${window.studentLecPath.month}</h3></div>`;
+    // فحص باقة الترم والشهر
+    let termFolder = folders.find(f => f.type === 'term' && f.name === window.studentLecPath.term && f.parentLevel === currentStudent.level);
+    let isTermPurchased = currentStudent.purchasedCourses && termFolder && currentStudent.purchasedCourses.includes(termFolder.id);
+
+    let monthFolder = folders.find(f => f.type === 'month' && f.name === window.studentLecPath.month && f.parentTerm === window.studentLecPath.term && f.parentLevel === currentStudent.level);
+    let monthPrice = monthFolder ? (parseFloat(monthFolder.price) || 0) : 0;
+    let isMonthPurchased = currentStudent.purchasedCourses && monthFolder && currentStudent.purchasedCourses.includes(monthFolder.id);
+
+    let monthBundleBanner = "";
+    if (monthPrice > 0 && !isTermPurchased) {
+        monthBundleBanner = isMonthPurchased
+            ? `<div style="grid-column: 1/-1; background: linear-gradient(135deg, #059669, #10b981); color: white; padding: 20px 25px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 20px rgba(16,185,129,0.2); margin-bottom: 10px;">
+                 <div><h3 style="margin:0; font-size:18px;">💎 باقة (${window.studentLecPath.month}) مفعلة بالكامل</h3><p style="margin:5px 0 0 0; font-size:13px; opacity:0.9;">جميع محاضرات هذا الشهر مفتوحة لك مجاناً!</p></div>
+                 <span style="background: white; color: #059669; padding: 8px 15px; border-radius: 12px; font-weight: 900;">مشترك ✅</span>
+               </div>`
+            : `<div style="grid-column: 1/-1; background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 20px 25px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 2px dashed #10b981; margin-bottom: 10px; flex-wrap:wrap; gap:15px;">
+                 <div><h3 style="margin:0; font-size:18px; color: #10b981;">🎁 اشترك في (${window.studentLecPath.month}) بالكامل</h3><p style="margin:5px 0 0 0; font-size:13px; color: #cbd5e1;">افتح جميع محاضرات واختبارات هذا الشهر دفعة واحدة بـ <strong>${monthPrice} ج.م</strong>!</p></div>
+                 <button class="btn" style="width:auto; background: linear-gradient(45deg, #10b981, #059669); padding: 10px 25px; font-size: 15px; border-radius: 12px;" onclick="purchaseFolder('${monthFolder.id}', '${monthFolder.name}', ${monthPrice}, 'شهر')">شراء باقة الشهر 💳</button>
+               </div>`;
+    }
+
+    list.innerHTML = `
+    <div style="grid-column: 1/-1; margin-bottom: 15px; background: white; padding: 15px 25px; border-radius: 18px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.02); flex-wrap: wrap; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 900; color: var(--secondary); flex-wrap: wrap;">
+            <span style="font-size: 22px;">📂</span>
+            <span style="color: var(--text-muted); cursor: pointer;" onclick="window.studentLecPath.term = null; window.studentLecPath.month = null; renderStudentLectures();">${window.studentLecPath.term}</span>
+            <span style="color: var(--text-muted);">/</span>
+            <span style="color: var(--primary);">${window.studentLecPath.month}</span>
+        </div>
+        <button onclick="window.studentLecPath.month = null; renderStudentLectures();" style="background: #f1f5f9; color: var(--secondary); border: 1px solid var(--border); padding: 10px 22px; border-radius: 12px; font-weight: 800; font-family: 'Cairo'; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 8px; font-size: 15px;">
+            <span>🔙</span> العودة للشهور
+        </button>
+    </div>
+    ${monthBundleBanner}`;
 
     if (finalLectures.length === 0) {
-        list.innerHTML += `<div style="grid-column: 1/-1; text-align:center; padding: 20px; font-weight:bold; color:var(--text-muted);">لا توجد محاضرات في هذا الشهر.</div>`;
+        list.innerHTML += `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: white; border-radius: 20px; border: 2px dashed var(--border);">لا توجد محاضرات في هذا الشهر.</div>`;
     }
 
     finalLectures.forEach(lec => {
@@ -2188,7 +2289,52 @@ window.renderStudentLectures = function() {
         </div>`;
     });
 };
-// 2. النافذة المنبثقة للفيديوهات (هنا السحر كله: بيقيم كل فيديو لوحده)
+
+// 2. دالة شراء باقة المجلد (ترم أو شهر)
+window.purchaseFolder = async function(folderId, folderName, price, typeName) {
+    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء باقة (${folderName}) وفتح كل محاضراتها؟`)) return;
+    if((currentStudent.walletBalance || 0) < price) { 
+        alert("رصيد محفظتك لا يكفي! قم بشحن رصيدك أولاً من تبويب (محفظتي)."); 
+        return; 
+    }
+    
+    let btn = event.currentTarget;
+    let origText = btn.innerText;
+    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
+
+    try {
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
+        let data = await dataRes.json();
+        let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
+        
+        if(studentIndex !== -1) {
+            currentStudent.walletBalance -= price;
+            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
+            
+            if(!currentStudent.purchasedCourses.includes(folderId)) {
+                currentStudent.purchasedCourses.push(folderId);
+            }
+
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
+            });
+            
+            alert(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح وفُتحت لك كل المحاضرات!`);
+            
+            document.getElementById("top-balance").innerText = currentStudent.walletBalance;
+            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
+            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
+
+            renderStudentLectures();
+        }
+    } catch(e) { 
+        alert("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت."); 
+        btn.innerText = origText; btn.disabled = false;
+    }
+};
+
+// 3. فتح المحاضرة وفحص هل الباقة مفعلة
 window.openStudentCourseDetails = async function(courseId) {
     let course = window.allLectures.find(l => l.id === courseId);
     if(!course) return;
@@ -2196,12 +2342,10 @@ window.openStudentCourseDetails = async function(courseId) {
     let allSubs = {};
     let safeExams = [];
     try {
-        // جلب الإجابات عشان نتأكد الطالب امتحن ولا لا
         let subRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/onlineSubmissions.json`);
         allSubs = await subRes.json() || {};
         window.studentSubmissions = allSubs;
 
-        // جلب الامتحانات من السيرفر مباشرة عشان نجيب اسم الامتحان المطلوب
         let examsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/onlineExams.json`);
         let fetchedExams = await examsRes.json() || [];
         safeExams = Array.isArray(fetchedExams) ? fetchedExams : Object.values(fetchedExams).filter(e => e !== null);
@@ -2214,8 +2358,15 @@ window.openStudentCourseDetails = async function(courseId) {
     let vids = course.videos || [];
     let playlistHtml = "";
     
-    // دعم النظام القديم (لو الطالب كان شاري الكورس القديم كله يتفتحله)
+    let folders = window.allFolders || [];
+    let termFolder = folders.find(f => f.type === 'term' && f.name === course.term && f.parentLevel === currentStudent.level);
+    let monthFolder = folders.find(f => f.type === 'month' && f.name === course.month && f.parentTerm === course.term && f.parentLevel === currentStudent.level);
+
+    let hasPurchasedTerm = termFolder && currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(termFolder.id);
+    let hasPurchasedMonth = monthFolder && currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(monthFolder.id);
     let hasPurchasedWholeCourse = currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(courseId);
+
+    let isFolderBundleActive = hasPurchasedTerm || hasPurchasedMonth || hasPurchasedWholeCourse;
 
     vids.forEach((v, idx) => {
         let safeTitle = v.title.replace(/'/g, "\\'");
@@ -2224,55 +2375,39 @@ window.openStudentCourseDetails = async function(courseId) {
         let isVideoFree = v.type === 'free' || !v.type; 
         let videoPrice = v.price || 0;
         
-        let hasPurchasedVideo = currentStudent.purchasedCourses && (currentStudent.purchasedCourses.includes(specificVideoId) || hasPurchasedWholeCourse);
+        let hasPurchasedVideo = isFolderBundleActive || (currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(specificVideoId));
 
-       // فحص شرط الحضور (لو الفيديو مربوط بحصة)
         let didAttend = false;
         if (v.linkedSession) {
             let sessionObj = window.allClassSessions.find(s => String(s.id) === String(v.linkedSession));
             didAttend = sessionObj && sessionObj.attendance && (sessionObj.attendance[currentStudent.code] === 'present' || sessionObj.attendance[currentStudent.phone] === 'present' || sessionObj.attendance[currentStudent.code] === 'late');
         }
 
-        // فحص شرط الامتحان
         let isLockedByExam = false;
         let requiredExamObj = null;
         
-        // 💡 السحر هنا: بنقول للسيستم لو الطالب حضر (didAttend) متسألوش عن الامتحان خالص!
         if (v.requiredExam && !didAttend) {
-            // البحث عن تفاصيل الامتحان من الداتا
             requiredExamObj = safeExams.find(e => e.id === v.requiredExam); 
-            
             let examSubs = allSubs[v.requiredExam];
             let didSubmitExam = examSubs && (examSubs[currentStudent.code] || examSubs[currentStudent.phone]);
-            
-            // لو ممتحنش، هنقفل الفيديو
             if (!didSubmitExam) isLockedByExam = true;
         }
 
         let canWatch = isVideoFree || hasPurchasedVideo || didAttend;
+        
         if (isLockedByExam && requiredExamObj) {
-            // 🚨 التعديل الجديد: إظهار اسم الامتحان وزرار الانتقال للامتحان
             playlistHtml += `
             <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px; opacity: 0.9;">
                 <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
-                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3); animation: pulse-glow 2s infinite;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
-            </div>`;
-        } else if (isLockedByExam && !requiredExamObj) {
-            // لو المدرس مسح الامتحان من السيستم بس لسه مربوط هنا (أمان)
-            playlistHtml += `
-            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px; opacity: 0.7;">
-                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:12px; color:var(--danger);">الامتحان المطلوب غير متاح حالياً</span></span>
-                <button class="btn" style="background: #94a3b8; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; cursor: not-allowed;" disabled>مغلق 🔐</button>
+                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
             </div>`;
         } else if (canWatch) {
-            // مفتوح وجاهز للتشغيل
             playlistHtml += `
             <div style="background: #f0fdf4; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #10b981; margin-bottom: 10px;">
                 <span style="font-weight: 900; color: #065f46; font-size: 16px;">▶️ ${v.title}</span>
                 <button class="btn" style="background: var(--success); padding: 8px 20px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل المحاضرة ▶️</button>
             </div>`;
         } else {
-            // محتاج يشتري
             playlistHtml += `
             <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); margin-bottom: 10px;">
                 <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title}</span>
@@ -2284,7 +2419,6 @@ window.openStudentCourseDetails = async function(courseId) {
     document.getElementById("detailsCoursePlaylist").innerHTML = playlistHtml;
     document.getElementById("studentCourseDetailsModal").style.display = "flex";
 };
-
 
 // 3. دالة الشراء الجديدة (بتشتري فيديو معين مش كورس كامل)
 window.purchaseVideo = async function(courseId, videoIndex, price, videoTitle) {
