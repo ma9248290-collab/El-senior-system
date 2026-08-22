@@ -570,27 +570,55 @@ window.deleteAssistant = async function(user) {
 };
 
 
-// 🛡️ تطبيق الصلاحيات (إخفاء الشاشات اللي ملوش صلاحية عليها)
 window.applyAssistantPermissions = function() {
     if (localStorage.getItem("isAssistantMode") === "true") {
         let perms = JSON.parse(localStorage.getItem("assistantPermissions")) || [];
         
-        // إخفاء الروابط من القائمة الجانبية
+        // 1. التحكم في روابط القائمة الجانبية
         document.querySelectorAll('.sidebar .nav-links li[id^="nav-"]').forEach(li => {
             let pageName = li.id.replace('nav-', '');
-            // الصفحات دي محظورة إجبارياً للمساعدين
-            if (['logs', 'backup', 'settings', 'affiliate'].includes(pageName)) {
+            
+            // الصفحات دي محظورة إجبارياً (تم رفع الحظر عن الـ backup عشان نتحكم فيها بذكاء)
+            if (['logs', 'affiliate', 'bot'].includes(pageName)) {
                 li.style.display = 'none'; return;
             }
+            
             // إخفاء الصفحة لو مش في الصلاحيات
-            if (!perms.includes(pageName)) { li.style.display = 'none'; }
+            if (!perms.includes(pageName)) { 
+                li.style.display = 'none'; 
+            } else {
+                li.style.display = 'block'; // إظهارها لو معاها الصلاحية
+            }
         });
+
+        // 2. إخفاء زر "إعدادات السيرفر" إجبارياً لأنه بيفتح نافذة وليس صفحة
+        let settingsLink = document.querySelector('a[onclick*="settingsModal"]');
+        if (settingsLink && settingsLink.parentElement) {
+            settingsLink.parentElement.style.display = 'none';
+        }
         
-        // إخفاء العناوين المنسدلة (لو كل اللي تحتها مخفي)
+        // 3. إخفاء العناوين المنسدلة لو كل الروابط اللي تحتها مخفية
         document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
             let visibleLinks = dropdown.querySelectorAll('.dropdown-menu li:not([style*="display: none"])');
-            if (visibleLinks.length === 0) dropdown.style.display = 'none';
+            if (visibleLinks.length === 0) {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'flex';
+            }
         });
+
+        // 4. 🚀 السحر: فلترة لوحة الإدارة للمساعد
+        if (perms.includes('backup')) {
+            // هنجيب كل الكروت اللي جوه صفحة الإدارة
+            document.querySelectorAll('#backup-view .admin-panel-card').forEach(card => {
+                // لو الكارت مش بيحتوي على كلمة "النسخ الاحتياطي"، إخفيه فوراً!
+                if (!card.innerHTML.includes('أدوات النسخ الاحتياطي اليدوي')) {
+                    card.style.display = 'none';
+                } else {
+                    card.style.display = 'block';
+                }
+            });
+        }
     }
 };
 
@@ -599,7 +627,8 @@ const oldSwitchPageForPerms = window.switchPage;
 window.switchPage = function(pageId) {
     if (localStorage.getItem("isAssistantMode") === "true") {
         let perms = JSON.parse(localStorage.getItem("assistantPermissions")) || [];
-        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance'];
+        // تم السماح هنا لـ walletRequests و backup بالعمل بناءً على الصلاحيات المحددة
+        let restrictedPages = ['dashboard', 'schedule', 'students', 'groups', 'attendance', 'homework', 'exams', 'platform', 'books', 'reports', 'leaderboard', 'atrisk', 'broadcast', 'finance', 'walletRequests', 'backup'];
         
         if (restrictedPages.includes(pageId) && !perms.includes(pageId)) {
             if(typeof showToast === "function") showToast("عفواً، ليس لديك صلاحية لهذه الصفحة 🚫", "error");
@@ -1475,7 +1504,7 @@ window.renderGroupStudentsTable = function() {
     const tbody = document.getElementById("group-students-list"); 
     if(!tbody) return;
 
-    // تحديث أيقونات الترتيب في الهيدر
+    // 1. تحديث أيقونات الترتيب في الهيدر بتاع الجدول
     ['code', 'name', 'parentPhone'].forEach(col => {
         let el = document.getElementById(`sort-gs-${col}`);
         if(el) {
@@ -1491,15 +1520,17 @@ window.renderGroupStudentsTable = function() {
         }
     });
 
+    // 2. فلترة الطلاب عشان نجيب طلاب المجموعة دي بس
     const groupStudentsFiltered = students.filter(s => s.group === currentActiveGroup); 
     
     if(groupStudentsFiltered.length === 0) {
         return tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
     }
 
-    // فرز الطلاب بناءً على الحالة الحالية
+    // 3. 🚀 الخطوة الأهم: فرز الطلاب (Sort) بناءً على اللي اختاره المدرس
     let sortedGroupStudents = [...groupStudentsFiltered].sort((a, b) => smartCompare(a, b, window.groupStudentsSortState.column, window.groupStudentsSortState.direction));
 
+    // 4. جلب آخر 4 حصص للمجموعة عشان نعرض نقط الحضور
     let last4Sessions = classSessions
         .filter(s => s.group === currentActiveGroup)
         .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -1507,10 +1538,12 @@ window.renderGroupStudentsTable = function() {
 
     let html = ""; 
 
+    // 5. 🚀 الغلطة كانت هنا: دلوقتي هنرسم الجدول باستخدام (sortedGroupStudents) بدل (groupStudentsFiltered)
     sortedGroupStudents.forEach((student) => { 
         let trackName = student.track || 'عام';
         let trackBadge = `<span style="font-size: 11px; background: rgba(59, 130, 246, 0.1); color: var(--primary-color); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); margin-top: 5px; display: inline-block; font-weight: bold;">🎓 ${trackName}</span>`;
 
+        // رسم دوائر الغياب والحضور
         let attendanceDotsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;" dir="rtl">`;
         
         for(let i = 0; i < 4; i++) {
@@ -1532,6 +1565,7 @@ window.renderGroupStudentsTable = function() {
         }
         attendanceDotsHtml += `</div>`;
 
+        // تجميع السطر الخاص بالطالب
         html += `
         <tr>
             <td><strong style="color:var(--primary-color); font-size: 16px;">${student.code}</strong></td>
@@ -1552,8 +1586,11 @@ window.renderGroupStudentsTable = function() {
         </tr>`; 
     }); 
 
+    // عرض الجدول
     tbody.innerHTML = html; 
 };
+
+
 function removeStudentFromGroup(code) { customConfirm("إزالة هذا الطالب من المجموعة؟", () => { const student = students.find(s => s.code === code); if(student) { student.group = ""; localStorage.setItem("students", JSON.stringify(students)); renderGroupStudentsTable(); renderGroupCards(); showToast("تمت الإزالة"); } }); }
 
 
