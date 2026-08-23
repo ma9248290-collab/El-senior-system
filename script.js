@@ -69,17 +69,65 @@ function normalizeArabicName(text) {
 
 
 
+// ==========================================
+// 💡 الحل الجذري والنهائي لمشكلة الباركود (الكيبورد العربي/الإنجليزي - كابيتال/سمول)
+// ==========================================
 window.findStudentByCodeOrName = function(input) {
-    const val = input.trim();
-    // البحث بالكود أولاً (أدق شيء)
-    const studentByCode = students.find(s => String(s.code) === String(val));
+    let val = String(input).trim();
+    if (!val) return null;
+
+    // 1. تحويل الأرقام العربية (١٢٣) إلى إنجليزية (123) لضمان القراءة من أي جهاز
+    val = val.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+
+    // 2. خريطة سحرية لفك شفرة الباركود لو الكيبورد عربي (تدعم الحروف العادية + الـ Shift والتشكيل)
+    const mapArToEn = {
+        // بدون شيفت (الحروف السمول)
+        'ض':'Q', 'ص':'W', 'ث':'E', 'ق':'R', 'ف':'T', 'غ':'Y', 'ع':'U', 'ه':'I', 'خ':'O', 'ح':'P',
+        'ش':'A', 'س':'S', 'ي':'D', 'ب':'F', 'ل':'G', 'ا':'H', 'ت':'J', 'ن':'K', 'م':'L',
+        'ئ':'Z', 'ء':'X', 'ؤ':'C', 'ر':'V', 'لا':'B', 'ى':'N', 'ة':'M',
+        
+        // مع شيفت (الحروف الكابيتال - والأزرار اللي بتنتج علامات وتشكيل)
+        'َ':'Q', 'ً':'W', 'ُ':'E', 'ٌ':'R', 'لإ':'T', 'إ':'Y', '‘':'U', '÷':'I', '×':'O', '؛':'P',
+        'ِ':'A', 'ٍ':'S', ']':'D', '[':'F', 'لأ':'G', 'أ':'H', 'ـ':'J', '،':'K', '/':'L',
+        '~':'Z', 'ْ':'X', '}':'C', '{':'V', 'لآ':'B', 'آ':'N', '’':'M'
+    };
+
+    let decodedCode = val;
+    
+    // 3. معالجة الحالات الخاصة: فحص هل النص عبارة عن (حرف/رمز واحد) وبعده (أرقام) فقط؟
+    let firstChar = val.charAt(0);
+    let restChars = val.substring(1);
+
+    // لو الحرف الأول مكون من حرفين زي "لا" أو "لأ"
+    if (val.startsWith('لا') || val.startsWith('لأ') || val.startsWith('لإ') || val.startsWith('لآ')) {
+        firstChar = val.substring(0, 2);
+        restChars = val.substring(2);
+    }
+
+    // لو الجزء الأول موجود في الخريطة، والباقي أرقام صافية (يعني ده كود طالب مليون في المية)
+    if (mapArToEn[firstChar] && /^\d+$/.test(restChars)) {
+        decodedCode = mapArToEn[firstChar] + restChars;
+    }
+
+    // توحيد حالة الأحرف عشان لو الباركود كابيتال أو سمول
+    let normalValLower = val.toLowerCase();
+    let decodedValLower = decodedCode.toLowerCase();
+
+    // 4. البحث بالكود (أدق شيء - باستخدام النسخة العادية أو المفكوكة الشفرة)
+    const studentByCode = students.find(s => {
+        let sCode = String(s.code).toLowerCase();
+        return sCode === normalValLower || sCode === decodedValLower;
+    });
     if (studentByCode) return studentByCode;
     
-    // البحث بالاسم كخطة بديلة
+    // 5. البحث برقم الهاتف كخطة بديلة سريعة
+    const studentByPhone = students.find(s => String(s.phone).trim() === val || String(s.parentPhone).trim() === val);
+    if (studentByPhone) return studentByPhone;
+
+    // 6. البحث بالاسم (مع تجاهل التشكيل والمسافات الزائدة)
     const normalizedInput = normalizeArabicName(val);
     return students.find(s => normalizeArabicName(s.name) === normalizedInput);
 };
-
 
 // ==========================================
 // 🔍 البحث العام السريع عن طالب من أي صفحة
@@ -1700,11 +1748,15 @@ document.getElementById('attendanceBarcode')?.addEventListener('keypress', funct
     if(e.key === 'Enter') { 
         e.preventDefault(); 
         let val = this.value.trim(); 
+        if (!val) return; // 🛡️ حماية ضد الفراغات أو الضرب الخطأ
+
         let student = findStudentByCodeOrName(val); 
         const session = classSessions.find(s => s.id === currentActiveSessionId); 
         
         if(!student) {
-            showToast(`طالب غير موجود!`, 'error');
+            showToast(`طالب غير موجود! تأكد من الكود.`, 'error');
+        } else if(!session) {
+            showToast(`يرجى فتح الحصة أولاً!`, 'error');
         } else if(student.group !== session.group) {
             // 🔥 هنا السحر: فتح بوكس الإجراءات السريعة بدل الإيرور
             openWrongGroupModal(student, session);
@@ -1718,14 +1770,15 @@ document.getElementById('attendanceBarcode')?.addEventListener('keypress', funct
             // 2. التحضير الفعلي بالكود
             markAttendance(student.code, attStatus); 
             showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`); 
+            
             // 🔔 تنبيه صامت ومرئي فقط للحالات الخاصة
-if (student.isSpecialCase) {
-    let alertBox = document.createElement('div');
-    alertBox.innerHTML = `⭐ <b>حالة خاصة:</b> ${student.name} يدفع <b>(${student.specialAmount} ج.م)</b>`;
-    alertBox.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#f59e0b; color:white; padding:12px 30px; border-radius:30px; font-weight:900; font-size:16px; z-index:9999999; box-shadow:0 10px 25px rgba(245, 158, 11, 0.4); text-align:center; animation: slideInLeftToast 0.4s ease-out forwards;";
-    document.body.appendChild(alertBox);
-    setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(()=>alertBox.remove(), 400); }, 4000);
-}
+            if (student.isSpecialCase) {
+                let alertBox = document.createElement('div');
+                alertBox.innerHTML = `⭐ <b>حالة خاصة:</b> ${student.name} يدفع <b>(${student.specialAmount} ج.م)</b>`;
+                alertBox.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#f59e0b; color:white; padding:12px 30px; border-radius:30px; font-weight:900; font-size:16px; z-index:9999999; box-shadow:0 10px 25px rgba(245, 158, 11, 0.4); text-align:center; animation: slideInLeftToast 0.4s ease-out forwards;";
+                document.body.appendChild(alertBox);
+                setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(()=>alertBox.remove(), 400); }, 4000);
+            }
             
             // 3. التحقق من تفعيل الدفع السريع
             let autoPaymentEnabled = document.getElementById('autoPaymentCheckbox')?.checked;
