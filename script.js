@@ -129,6 +129,55 @@ window.findStudentByCodeOrName = function(input) {
     return students.find(s => normalizeArabicName(s.name) === normalizedInput);
 };
 
+
+
+
+
+
+// ==========================================
+// ✏️ فتح نافذة تعديل بيانات الحصة
+// ==========================================
+window.openEditSessionModal = function(id) {
+    const session = classSessions.find(s => s.id === id);
+    if (!session) return;
+    
+    // تعبئة البيانات في النافذة
+    document.getElementById('editSessionId').value = session.id;
+    document.getElementById('editSessionDate').value = session.date;
+    document.getElementById('editSessionTopic').value = session.topic || "";
+    
+    // فتح النافذة
+    openModal('editSessionModal');
+};
+
+// ==========================================
+// 💾 حفظ تعديلات الحصة
+// ==========================================
+document.getElementById('editSessionForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('editSessionId').value;
+    const sessionIndex = classSessions.findIndex(s => s.id === id);
+    
+    if (sessionIndex > -1) {
+        // تحديث البيانات
+        classSessions[sessionIndex].date = document.getElementById('editSessionDate').value;
+        classSessions[sessionIndex].topic = document.getElementById('editSessionTopic').value;
+        
+        // حفظ في الذاكرة
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        
+        // إغلاق النافذة وتحديث الشاشة
+        closeModal('editSessionModal');
+        renderSessionCards();
+        
+        showToast("تم تعديل بيانات الحصة بنجاح! ✏️", "success");
+        
+        // مزامنة مع السيرفر
+        if (typeof syncDataToBot === "function") syncDataToBot();
+    }
+});
+
 // ==========================================
 // 🔍 البحث العام السريع عن طالب من أي صفحة
 // ==========================================

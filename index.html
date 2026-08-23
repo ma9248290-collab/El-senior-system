@@ -2205,7 +2205,24 @@
             </form>
         </div>
     </div>
-    <div id="editSessionModal" class="modal"><div class="modal-content"><form id="editSessionForm"><input type="hidden" id="editSessionId"><div class="input-group"><input type="date" id="editSessionDate" class="custom-input"></div><div class="input-group"><input type="text" id="editSessionTopic" class="custom-input"></div><button type="submit" class="save-btn">حفظ</button></form></div></div>
+    <div id="editSessionModal" class="modal">
+    <div class="modal-content" style="width: 400px; border-top: 5px solid var(--primary-color);">
+        <span class="close-btn" onclick="closeModal('editSessionModal')">&times;</span>
+        <h2 style="color: var(--primary-color); margin-bottom: 20px;">تعديل بيانات الحصة ✏️</h2>
+        <form id="editSessionForm">
+            <input type="hidden" id="editSessionId">
+            <div class="input-group">
+                <label>تاريخ الحصة:</label>
+                <input type="date" id="editSessionDate" class="custom-input" required>
+            </div>
+            <div class="input-group">
+                <label>موضوع الحصة:</label>
+                <input type="text" id="editSessionTopic" class="custom-input" placeholder="مثال: مراجعة الباب الأول" required>
+            </div>
+            <button type="submit" class="save-btn" style="width: 100%; font-size: 18px; margin-top: 10px;">حفظ التعديلات 💾</button>
+        </form>
+    </div>
+</div>
     <div id="addStudentToGroupModal" class="modal"><div class="modal-content"><div style="display: flex; gap: 10px; margin-bottom: 20px;"><button class="theme-btn" onclick="switchAddStudentTab('existing')">طالب مسجل</button><button class="theme-btn" onclick="switchAddStudentTab('new')">طالب جديد</button></div><form id="addExistingStudentForm"><div class="input-group"><select id="existingStudentSelect" class="custom-input"></select></div><button type="submit" class="save-btn">إضافة للمجموعة</button></form><div id="newStudentTabContent" style="display: none;"><button type="button" class="save-btn" onclick="goToNewStudentForm()">انتقال لتسجيل طالب جديد</button></div></div></div>
 
 
