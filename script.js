@@ -5905,7 +5905,7 @@ window.renderAttendanceTable = function(session) {
     
     if(gStudents.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
     
-    // التصفية: هنجيب الطلاب اللي اتسجلهم حالة حضور أو تأخير أو تعويض
+    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور بس
     const recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
 
     if(recordedStudents.length === 0) {
@@ -5916,27 +5916,17 @@ window.renderAttendanceTable = function(session) {
     const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
     const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
     
-    // هنعكس المصفوفة عشان آخر طالب حضر يظهر فوق
+    // هنعكس المصفوفة عشان آخر طالب ضرب باركود يظهر فوق في أول الجدول
     recordedStudents.reverse().forEach(st => { 
         const stat = session.attendance[st.code] || session.attendance[st.phone]; 
         
+        // 🕒 سحب الوقت لو موجود
         let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
 
         let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
-        let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
-
-        // 🔥 إضافة زراير التحويل السريعة
-        if (stat === 'present') {
-            statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
-            actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','late')">تحويل لمتأخر ⏳</button>` + actionBtns;
-        }
-        else if (stat === 'late') {
-            statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
-            actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','present')">تحويل لحاضر ✅</button>` + actionBtns;
-        }
-        else if (stat === 'absent') {
-            statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
-        }
+        if (stat === 'present') statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
+        else if (stat === 'late') statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
+        else if (stat === 'absent') statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
         else if (typeof stat === 'object' && stat.status === 'makeup') {
             statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
         }
@@ -5963,8 +5953,8 @@ window.renderAttendanceTable = function(session) {
             <td style="direction: ltr;">${st.phone}</td>
             <td>${pHT}</td>
             <td>${statHtml}</td>
-            <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
-                ${actionBtns}
+            <td style="text-align: center;">
+                <button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
             </td>
         </tr>`; 
     }); 
