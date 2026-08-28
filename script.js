@@ -8151,3 +8151,177 @@ window.checkWhatsappServer = async function() {
         waStatus.innerHTML = "<span style='color: #ef4444; font-weight: bold;'>غير متصل ❌</span>";
     }
 };
+
+
+
+// ==========================================
+// 🚀 الإصلاح النهائي لشاشة الحضور والباركود 
+// ==========================================
+
+window.renderAttendanceTable = function(session) {
+    // 💡 سحب كل الجداول لتحديثها وتخطي مشكلة تكرار الـ HTML
+    const tbodies = document.querySelectorAll('tbody[id="attendance-list"]');
+    const gStudents = students.filter(s => String(s.group).trim() === String(session.group).trim());
+
+    tbodies.forEach(tbody => {
+        if(gStudents.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`;
+            return;
+        }
+
+        // التصفية: إظهار الطلاب اللي حضروا أو متأخرين أو تعويض بس
+        const recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
+
+        if(recordedStudents.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = "";
+        const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date));
+        const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1];
+
+        // عكس المصفوفة لظهور الأحدث فوق
+        recordedStudents.reverse().forEach(st => {
+            const stat = session.attendance[st.code] || session.attendance[st.phone];
+            let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
+            let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
+            let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
+
+            if (stat === 'present') {
+                statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
+                actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; margin-left:5px;" onclick="markAttendance('${st.code}','late')">تأخير ⏳</button>` + actionBtns;
+            }
+            else if (stat === 'late') {
+                statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
+                actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; margin-left:5px;" onclick="markAttendance('${st.code}','present')">حضور ✅</button>` + actionBtns;
+            }
+            else if (stat === 'absent') {
+                statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
+            }
+            else if (typeof stat === 'object' && stat.status === 'makeup') {
+                statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
+            }
+
+            let pHT = '--';
+            if(prevSession) {
+                const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone];
+                pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--';
+            }
+
+            tbody.innerHTML += `<tr>
+                <td><strong style="color:var(--primary-color);">${st.code}</strong></td>
+                <td>${window.getStudentNameHtml ? window.getStudentNameHtml(st) : st.name}</td>
+                <td style="direction: ltr;">${st.phone}</td>
+                <td>${pHT}</td>
+                <td>${statHtml}</td>
+                <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                    ${actionBtns}
+                </td>
+            </tr>`;
+        });
+    });
+};
+
+window.markAttendance = function(codeOrPhone, status) {
+    const s = classSessions.find(s => s.id === currentActiveSessionId);
+    if(s && s.status === 'open') {
+        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
+        if(!student) return;
+
+        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
+        if (oldStatus) {
+            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
+        }
+        if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
+        if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
+
+        s.attendance[student.code] = status;
+
+        if (!s.arrivalTimes) s.arrivalTimes = {};
+        let now = new Date();
+        let h = now.getHours().toString().padStart(2, '0');
+        let m = now.getMinutes().toString().padStart(2, '0');
+        s.arrivalTimes[student.code] = formatTime12(`${h}:${m}`);
+
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        localStorage.setItem("students", JSON.stringify(students));
+        renderAttendanceTable(s);
+
+        let title = "تحديث حضور وانصراف 🏫";
+        let msg = "";
+        if(status === 'present') msg = `✅ وصل ${student.name} لحضور الحصة.`;
+        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن الحصة.`;
+        
+        if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
+    }
+};
+
+window.cancelAttendance = function(studentCode) {
+    if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if(session) {
+        const student = students.find(s => s.code === studentCode);
+        if(student) {
+            let oldStatus = session.attendance[studentCode];
+            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
+        }
+        delete session.attendance[studentCode];
+        if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
+
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        localStorage.setItem("students", JSON.stringify(students));
+        renderAttendanceTable(session);
+        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
+
+        let barcodeInputs = document.querySelectorAll('input[id="attendanceBarcode"]');
+        barcodeInputs.forEach(inp => { if(inp.offsetParent !== null) inp.focus(); });
+    }
+};
+
+// 🎯 إعادة تفعيل صندوق الباركود بطريقة احترافية
+function attachBarcodeListeners() {
+    document.querySelectorAll('input[id="attendanceBarcode"]').forEach(input => {
+        let newInp = input.cloneNode(true);
+        input.parentNode.replaceChild(newInp, input);
+
+        newInp.addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                let val = this.value.trim();
+                if (!val) return;
+
+                let student = findStudentByCodeOrName(val);
+                const session = classSessions.find(s => s.id === currentActiveSessionId);
+
+                if(!student) {
+                    showToast(`طالب غير موجود! تأكد من الكود.`, 'error');
+                } else if(!session) {
+                    showToast(`يرجى فتح الحصة أولاً!`, 'error');
+                } else if(String(student.group).trim() !== String(session.group).trim()) {
+                    if(typeof openWrongGroupModal === 'function') openWrongGroupModal(student, session);
+                } else if(session.status === 'closed') {
+                    showToast(`الحصة مغلقة!`, 'error');
+                } else {
+                    let parentBox = this.closest('.barcode-scanner-box');
+                    let isLate = parentBox?.querySelector('input[id="markAsLateCheckbox"]')?.checked;
+                    let attStatus = isLate ? 'late' : 'present';
+
+                    markAttendance(student.code, attStatus);
+                    showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`);
+
+                    let autoPaymentEnabled = parentBox?.querySelector('input[id="autoPaymentCheckbox"]')?.checked;
+                    if (autoPaymentEnabled && typeof openQuickPaymentModal === 'function') {
+                        setTimeout(() => openQuickPaymentModal(student), 500);
+                    }
+                }
+
+                this.value = '';
+                this.focus();
+            }
+        });
+    });
+}
+setTimeout(attachBarcodeListeners, 1000);
