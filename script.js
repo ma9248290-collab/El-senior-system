@@ -8325,3 +8325,125 @@ function attachBarcodeListeners() {
     });
 }
 setTimeout(attachBarcodeListeners, 1000);
+
+
+
+
+
+// ==========================================
+// 💾 نظام النسخ الاحتياطي الشامل (النسخة الخارقة)
+// ==========================================
+
+window.exportData = function() {
+    // 1. سحب أحدث داتا من الذاكرة اللحظية مباشرة عشان نضمن إن مفيش طالب أو حصة ناقصة
+    const fullSystemData = {
+        students: JSON.parse(localStorage.getItem("students")) || typeof students !== 'undefined' ? students : [],
+        groups: JSON.parse(localStorage.getItem("groups")) || typeof groups !== 'undefined' ? groups : [],
+        classSessions: JSON.parse(localStorage.getItem("classSessions")) || typeof classSessions !== 'undefined' ? classSessions : [],
+        exams: JSON.parse(localStorage.getItem("exams")) || typeof exams !== 'undefined' ? exams : [],
+        homeworks: JSON.parse(localStorage.getItem("homeworks")) || typeof homeworks !== 'undefined' ? homeworks : [],
+        financeRecords: JSON.parse(localStorage.getItem("financeRecords")) || typeof financeRecords !== 'undefined' ? financeRecords : {},
+        expenses: JSON.parse(localStorage.getItem("expenses")) || typeof expenses !== 'undefined' ? expenses : [],
+        schedule: JSON.parse(localStorage.getItem("schedule")) || typeof schedule !== 'undefined' ? schedule : [],
+        centers: JSON.parse(localStorage.getItem("centers")) || typeof centers !== 'undefined' ? centers : ["السنتر الرئيسي"],
+        books: JSON.parse(localStorage.getItem("books")) || typeof books !== 'undefined' ? books : [],
+        onlineExams: JSON.parse(localStorage.getItem("onlineExams")) || typeof onlineExams !== 'undefined' ? onlineExams : [],
+        monthlyPayments: JSON.parse(localStorage.getItem("monthlyPayments")) || typeof monthlyPayments !== 'undefined' ? monthlyPayments : {},
+        activeLevels: JSON.parse(localStorage.getItem("activeLevels")) || window.activeLevels || [],
+        systemLogs: JSON.parse(localStorage.getItem("systemLogs")) || (typeof systemLogs !== 'undefined' ? systemLogs : []),
+        chargeCodes: JSON.parse(localStorage.getItem("chargeCodes")) || {} 
+    };
+
+    try {
+        // 2. تحويل الداتا لملف JSON
+        const blob = new Blob([JSON.stringify(fullSystemData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        
+        a.href = url;
+        
+        // 3. تسمية الملف باسم السنتر والتاريخ
+        let centerName = localStorage.getItem("centerName") || "El_Senior";
+        // تنظيف الاسم من المسافات عشان ما يعملش مشكلة في التحميل
+        centerName = centerName.replace(/\s+/g, '_'); 
+        let dateStr = new Date().toISOString().split('T')[0];
+        
+        a.download = `Backup_${centerName}_${dateStr}.json`;
+        
+        // 4. تحميل الملف
+        document.body.appendChild(a); // خطوة مهمة لبعض المتصفحات
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        if(typeof showToast === "function") showToast("تم تحميل النسخة الاحتياطية الشاملة بنجاح 📥", "success");
+        if(typeof addSystemLog === "function") addSystemLog("تصدير نسخة احتياطية 💾", "تم تحميل نسخة كاملة من النظام");
+        
+    } catch (error) {
+        console.error("Export Error:", error);
+        if(typeof showToast === "function") showToast("حدث خطأ أثناء استخراج النسخة!", "error");
+    }
+};
+
+// 📥 دالة استرجاع النسخة (Import) عشان تتأكد إنها مربوطة بالـ window
+window.importData = function(event) { 
+    const file = event.target.files[0]; 
+    if(!file) return; 
+
+    // 🔒 طلب الرقم السري للإدارة
+    const enteredPin = prompt("⚠️ تنبيه أمني حساس!\nاسترجاع النسخة الاحتياطية سيقوم باستبدال البيانات الحالية بالكامل.\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) للمتابعة:");
+    if (enteredPin === null) {
+        event.target.value = "";
+        return; 
+    }
+
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    if (enteredPin !== currentAdminPin) {
+        if(typeof showToast === "function") showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الاسترجاع.", "error");
+        event.target.value = "";
+        return;
+    }
+
+    const reader = new FileReader(); 
+    reader.onload = function(e) { 
+        try { 
+            const imp = JSON.parse(e.target.result); 
+            
+            // التأكد من صحة الملف
+            if (imp.students && imp.groups) { 
+                window.isIncomingSync = true; // إيقاف المزامنة أثناء الاسترجاع
+
+                localStorage.setItem("students", JSON.stringify(imp.students || [])); 
+                localStorage.setItem("groups", JSON.stringify(imp.groups || [])); 
+                localStorage.setItem("classSessions", JSON.stringify(imp.classSessions || [])); 
+                localStorage.setItem("exams", JSON.stringify(imp.exams || [])); 
+                localStorage.setItem("homeworks", JSON.stringify(imp.homeworks || [])); 
+                localStorage.setItem("financeRecords", JSON.stringify(imp.financeRecords || {})); 
+                localStorage.setItem("expenses", JSON.stringify(imp.expenses || [])); 
+                localStorage.setItem("schedule", JSON.stringify(imp.schedule || [])); 
+                localStorage.setItem("centers", JSON.stringify(imp.centers || ["السنتر الرئيسي"])); 
+                localStorage.setItem("books", JSON.stringify(imp.books || [])); 
+                localStorage.setItem("onlineExams", JSON.stringify(imp.onlineExams || [])); 
+                localStorage.setItem("monthlyPayments", JSON.stringify(imp.monthlyPayments || {})); 
+                
+                if (imp.activeLevels) localStorage.setItem("activeLevels", JSON.stringify(imp.activeLevels));
+                if (imp.systemLogs) localStorage.setItem("systemLogs", JSON.stringify(imp.systemLogs));
+                if (imp.chargeCodes) localStorage.setItem("chargeCodes", JSON.stringify(imp.chargeCodes));
+
+                window.isIncomingSync = false;
+
+                // رفع الداتا للسحابة بعد الاسترجاع مباشرة
+                if(typeof syncDataToBot === "function") syncDataToBot();
+
+                alert("تم استرجاع النسخة الاحتياطية الشاملة بنجاح! سيتم إعادة تحميل النظام 🚀"); 
+                location.reload(); 
+            } else {
+                if(typeof showToast === "function") showToast("ملف النسخة الاحتياطية غير صالح أو تالف!", "error");
+            }
+        } catch(err) { 
+            if(typeof showToast === "function") showToast("حدث خطأ أثناء قراءة الملف!", "error"); 
+        } 
+    }; 
+    reader.readAsText(file); 
+    event.target.value = ""; 
+};
