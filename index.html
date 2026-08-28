@@ -2752,7 +2752,7 @@
 <!-- 💾 نظام النسخ الاحتياطي المستقل (مضاد للتشفير نهائياً) -->
 <!-- ========================================== -->
 <script>
-    // 📥 دالة تحميل النسخة الاحتياطية بالاسم الجديد
+    // 📥 دالة تحميل النسخة الاحتياطية
     window.exportBackupSystem = function() {
         try {
             const fullSystemData = {
@@ -2801,7 +2801,7 @@
         }
     };
 
-    // 📤 دالة الاسترجاع بالاسم الجديد
+    // 📤 دالة الاسترجاع مع إصلاح التزامن السحابي
     window.importBackupSystem = function(event) { 
         const file = event.target.files[0]; 
         if(!file) return; 
@@ -2822,26 +2822,28 @@
                 const imp = JSON.parse(e.target.result); 
                 
                 if (imp.students && imp.groups) { 
-                    window.isIncomingSync = true;
+                    window.isIncomingSync = true; // نوقف التحديثات اللحظية مؤقتاً
                     
-                    if(imp.students) localStorage.setItem("students", JSON.stringify(imp.students)); 
-                    if(imp.groups) localStorage.setItem("groups", JSON.stringify(imp.groups)); 
-                    if(imp.classSessions) localStorage.setItem("classSessions", JSON.stringify(imp.classSessions)); 
-                    if(imp.exams) localStorage.setItem("exams", JSON.stringify(imp.exams)); 
-                    if(imp.homeworks) localStorage.setItem("homeworks", JSON.stringify(imp.homeworks)); 
-                    if(imp.financeRecords) localStorage.setItem("financeRecords", JSON.stringify(imp.financeRecords)); 
-                    if(imp.expenses) localStorage.setItem("expenses", JSON.stringify(imp.expenses)); 
-                    if(imp.schedule) localStorage.setItem("schedule", JSON.stringify(imp.schedule)); 
-                    if(imp.centers) localStorage.setItem("centers", JSON.stringify(imp.centers)); 
-                    if(imp.books) localStorage.setItem("books", JSON.stringify(imp.books)); 
-                    if(imp.onlineExams) localStorage.setItem("onlineExams", JSON.stringify(imp.onlineExams)); 
-                    if(imp.monthlyPayments) localStorage.setItem("monthlyPayments", JSON.stringify(imp.monthlyPayments)); 
-                    if(imp.activeLevels) localStorage.setItem("activeLevels", JSON.stringify(imp.activeLevels));
-                    if(imp.systemLogs) localStorage.setItem("systemLogs", JSON.stringify(imp.systemLogs));
-                    if(imp.chargeCodes) localStorage.setItem("chargeCodes", JSON.stringify(imp.chargeCodes));
+                    // 🚀 الحل هنا: تحديث قاعدة البيانات (localStorage) + تحديث المتغيرات في الميموري
+                    if(imp.students) { localStorage.setItem("students", JSON.stringify(imp.students)); students = imp.students; }
+                    if(imp.groups) { localStorage.setItem("groups", JSON.stringify(imp.groups)); groups = imp.groups; }
+                    if(imp.classSessions) { localStorage.setItem("classSessions", JSON.stringify(imp.classSessions)); classSessions = imp.classSessions; }
+                    if(imp.exams) { localStorage.setItem("exams", JSON.stringify(imp.exams)); exams = imp.exams; }
+                    if(imp.homeworks) { localStorage.setItem("homeworks", JSON.stringify(imp.homeworks)); homeworks = imp.homeworks; }
+                    if(imp.financeRecords) { localStorage.setItem("financeRecords", JSON.stringify(imp.financeRecords)); financeRecords = imp.financeRecords; }
+                    if(imp.expenses) { localStorage.setItem("expenses", JSON.stringify(imp.expenses)); expenses = imp.expenses; }
+                    if(imp.schedule) { localStorage.setItem("schedule", JSON.stringify(imp.schedule)); schedule = imp.schedule; }
+                    if(imp.centers) { localStorage.setItem("centers", JSON.stringify(imp.centers)); centers = imp.centers; }
+                    if(imp.books) { localStorage.setItem("books", JSON.stringify(imp.books)); books = imp.books; }
+                    if(imp.onlineExams) { localStorage.setItem("onlineExams", JSON.stringify(imp.onlineExams)); onlineExams = imp.onlineExams; }
+                    if(imp.monthlyPayments) { localStorage.setItem("monthlyPayments", JSON.stringify(imp.monthlyPayments)); monthlyPayments = imp.monthlyPayments; }
+                    if(imp.activeLevels) { localStorage.setItem("activeLevels", JSON.stringify(imp.activeLevels)); window.activeLevels = imp.activeLevels; }
+                    if(imp.systemLogs) { localStorage.setItem("systemLogs", JSON.stringify(imp.systemLogs)); systemLogs = imp.systemLogs; }
+                    if(imp.chargeCodes) { localStorage.setItem("chargeCodes", JSON.stringify(imp.chargeCodes)); }
 
                     if(typeof showToast === 'function') showToast("جاري دمج البيانات ورفعها للسحابة... ⏳", "info");
 
+                    // ☁️ دلوقتي السحابة هتاخد المتغيرات اللي إحنا لسه محدثينها فوق
                     if (typeof syncDataToBot === "function") {
                         await syncDataToBot(); 
                     }
@@ -2853,6 +2855,7 @@
                     alert("ملف النسخة الاحتياطية غير صالح أو تالف!");
                 }
             } catch(err) { 
+                console.error(err);
                 alert("حدث خطأ أثناء قراءة الملف!"); 
             } 
         }; 
