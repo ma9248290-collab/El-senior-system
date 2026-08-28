@@ -882,14 +882,14 @@
             <span style="font-size: 24px;">💾</span> أدوات النسخ الاحتياطي اليدوي
         </h2>
         <div class="admin-grid-2">
-            <button class="admin-btn btn-success" onclick="exportData()">
-                <span>📥</span> تحميل نسخة احتياطية (JSON)
-            </button>
-            <button class="admin-btn" style="background-color: #475569;" onclick="document.getElementById('importFile').click()">
-                <span>📤</span> استرجاع نسخة من ملف
-            </button>
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-        </div>
+    <button class="admin-btn btn-success" onclick="exportBackupSystem()">
+        <span>📥</span> تحميل نسخة احتياطية (JSON)
+    </button>
+    <button class="admin-btn" style="background-color: #475569;" onclick="document.getElementById('importFile').click()">
+        <span>📤</span> استرجاع نسخة من ملف
+    </button>
+    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackupSystem(event)">
+</div>
     </div>
 
     <div class="admin-panel-card" style="border-top: 5px solid #ef4444;">
@@ -2747,14 +2747,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
+
     <!-- ========================================== -->
-<!-- 💾 نظام النسخ الاحتياطي المستقل (مضاد للتشفير) -->
+<!-- 💾 نظام النسخ الاحتياطي المستقل (مضاد للتشفير نهائياً) -->
 <!-- ========================================== -->
 <script>
-    // 📥 دالة تحميل النسخة الاحتياطية (Export)
-    window.exportData = function() {
+    // 📥 دالة تحميل النسخة الاحتياطية بالاسم الجديد
+    window.exportBackupSystem = function() {
         try {
-            // سحب الداتا من المتصفح مباشرة كـ String لتجاوز التشفير
             const fullSystemData = {
                 students: JSON.parse(localStorage.getItem("students") || "[]"),
                 groups: JSON.parse(localStorage.getItem("groups") || "[]"),
@@ -2777,8 +2777,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             
-            // تسمية الملف باسم السنتر والتاريخ
-            let centerName = localStorage.getItem("centerName") || "Historia";
+            let centerName = localStorage.getItem("centerName") || "El-Senior";
             centerName = centerName.replace(/\s+/g, '_'); 
             let dateStr = new Date().toISOString().split('T')[0];
             
@@ -2791,9 +2790,9 @@
             URL.revokeObjectURL(url);
 
             if(typeof showToast === "function") {
-                showToast("تم تحميل النسخة الاحتياطية الشاملة بنجاح ✅", "success");
+                showToast("تم تحميل النسخة الاحتياطية بنجاح 📥", "success");
             } else {
-                alert("تم تحميل النسخة الاحتياطية بنجاح ✅");
+                alert("تم تحميل النسخة الاحتياطية بنجاح");
             }
             
         } catch (error) {
@@ -2802,21 +2801,17 @@
         }
     };
 
-    // 📤 دالة استرجاع النسخة (Import) مع الرفع السحابي
-    window.importData = function(event) { 
+    // 📤 دالة الاسترجاع بالاسم الجديد
+    window.importBackupSystem = function(event) { 
         const file = event.target.files[0]; 
         if(!file) return; 
 
-        // 🔒 الحماية بالرقم السري
-        const enteredPin = prompt("⚠️ تنبيه أمني حساس!\nاسترجاع النسخة الاحتياطية سيقوم باستبدال البيانات الحالية بالكامل.\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) للمتابعة:");
-        if (enteredPin === null) {
-            event.target.value = "";
-            return; 
-        }
+        const enteredPin = prompt("⚠️ تنبيه أمني حساس!\nاسترجاع النسخة سيستبدل البيانات الحالية بالكامل.\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) للمتابعة:");
+        if (enteredPin === null) { event.target.value = ""; return; }
 
         const currentAdminPin = localStorage.getItem("adminPin") || "1234";
         if (enteredPin !== currentAdminPin) {
-            alert("الرقم السري للإدارة غير صحيح! تم إلغاء الاسترجاع.");
+            alert("الرقم السري للإدارة غير صحيح!");
             event.target.value = "";
             return;
         }
@@ -2826,11 +2821,9 @@
             try { 
                 const imp = JSON.parse(e.target.result); 
                 
-                // التأكد من إن الملف سليم وفيه داتا
                 if (imp.students && imp.groups) { 
-                    window.isIncomingSync = true; // إيقاف الرادار بتاع المزامنة اللحظية
-
-                    // زرع الداتا في المتصفح مباشرة
+                    window.isIncomingSync = true;
+                    
                     if(imp.students) localStorage.setItem("students", JSON.stringify(imp.students)); 
                     if(imp.groups) localStorage.setItem("groups", JSON.stringify(imp.groups)); 
                     if(imp.classSessions) localStorage.setItem("classSessions", JSON.stringify(imp.classSessions)); 
@@ -2849,23 +2842,22 @@
 
                     if(typeof showToast === 'function') showToast("جاري دمج البيانات ورفعها للسحابة... ⏳", "info");
 
-                    // 🚀 رفع الداتا للسحابة إجبارياً بعد الاسترجاع
                     if (typeof syncDataToBot === "function") {
                         await syncDataToBot(); 
                     }
 
                     window.isIncomingSync = false;
-                    alert("تم استرجاع ورفع جميع البيانات بنجاح! سيتم إعادة تحميل النظام 🚀"); 
+                    alert("تم استرجاع النسخة الاحتياطية الشاملة وتحديث النظام بنجاح! 🚀"); 
                     location.reload(); 
                 } else {
-                    alert("ملف النسخة الاحتياطية غير صالح أو لا يحتوي على بيانات النظام الأساسية!");
+                    alert("ملف النسخة الاحتياطية غير صالح أو تالف!");
                 }
             } catch(err) { 
                 alert("حدث خطأ أثناء قراءة الملف!"); 
             } 
         }; 
         reader.readAsText(file); 
-        event.target.value = ""; // تصفير زرار الرفع
+        event.target.value = ""; 
     };
 </script>
 
