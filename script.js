@@ -5860,6 +5860,11 @@ window.switchPage = function(pageId) {
     }
 };
 
+
+// ==========================================
+// 🚀 دوال الحضور والانصراف (النسخة النهائية النظيفة)
+// ==========================================
+
 window.markAttendance = function(codeOrPhone, status) {
     const s = classSessions.find(s => s.id === currentActiveSessionId);
     if(s && s.status === 'open') {
@@ -5876,7 +5881,7 @@ window.markAttendance = function(codeOrPhone, status) {
 
         s.attendance[student.code] = status; // الحفظ بالكود دايماً
 
-        // ⏱️ التعديل الجديد: حفظ وقت الحضور بالساعة والدقيقة
+        // ⏱️ حفظ وقت الحضور بالساعة والدقيقة
         if (!s.arrivalTimes) s.arrivalTimes = {};
         let now = new Date();
         let h = now.getHours().toString().padStart(2, '0');
@@ -5887,7 +5892,7 @@ window.markAttendance = function(codeOrPhone, status) {
         localStorage.setItem("students", JSON.stringify(students));
         renderAttendanceTable(s);
 
-        // الإشعار اللحظي لتطبيق ولي الأمر (إن وجد)
+        // الإشعار اللحظي לתطبيق ولي الأمر
         let title = "تحديث حضور وانصراف 🏫";
         let msg = "";
         if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${s.topic || 'اليوم'}).`;
@@ -5898,25 +5903,30 @@ window.markAttendance = function(codeOrPhone, status) {
     }
 };
 
-
 window.renderAttendanceTable = function(session) { 
     const tbody = document.getElementById("attendance-list"); 
+    if(!tbody) return;
+
     const gStudents = students.filter(s => s.group === session.group); 
     
-    if(gStudents.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
+    if(gStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
+        return;
+    }
     
-    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور بس
+    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور أو تعويض بس
     const recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
 
     if(recordedStudents.length === 0) {
-        return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
+        return;
     }
 
     tbody.innerHTML = ""; 
     const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
     const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
     
-    // هنعكس المصفوفة عشان آخر طالب ضرب باركود يظهر فوق في أول الجدول
+    // هنعكس المصفوفة عشان آخر طالب ضرب باركود يظهر فوق
     recordedStudents.reverse().forEach(st => { 
         const stat = session.attendance[st.code] || session.attendance[st.phone]; 
         
@@ -5924,9 +5934,20 @@ window.renderAttendanceTable = function(session) {
         let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
 
         let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
-        if (stat === 'present') statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
-        else if (stat === 'late') statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
-        else if (stat === 'absent') statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
+        let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
+
+        // 🔥 إضافة زراير التحويل السريعة
+        if (stat === 'present') {
+            statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
+            actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','late')">تحويل لمتأخر ⏳</button>` + actionBtns;
+        }
+        else if (stat === 'late') {
+            statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
+            actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','present')">تحويل لحاضر ✅</button>` + actionBtns;
+        }
+        else if (stat === 'absent') {
+            statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
+        }
         else if (typeof stat === 'object' && stat.status === 'makeup') {
             statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
         }
@@ -5935,16 +5956,6 @@ window.renderAttendanceTable = function(session) {
         if(prevSession) { 
             const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
             pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--'; 
-            
-            if (window.platformLectures && window.platformTracking) {
-                let linkedLecture = window.platformLectures.find(l => l.linkedSession === prevSession.id || (l.linkedSessions && l.linkedSessions.includes(prevSession.id)));
-                if (linkedLecture) {
-                    let trackData = window.platformTracking[linkedLecture.id];
-                    if (trackData && (trackData[st.phone] || trackData[st.code])) {
-                        pHT = '<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border: 1px solid rgba(37,99,235,0.2);">💻 حاضر منصة</span>';
-                    }
-                }
-            }
         } 
         
         tbody.innerHTML += `<tr>
@@ -5953,14 +5964,13 @@ window.renderAttendanceTable = function(session) {
             <td style="direction: ltr;">${st.phone}</td>
             <td>${pHT}</td>
             <td>${statHtml}</td>
-            <td style="text-align: center;">
-                <button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
+            <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                ${actionBtns}
             </td>
         </tr>`; 
     }); 
 };
 
-// ❌ دالة إلغاء الحضور للطالب (بتشيله من الجدول وتصفر نقاطه)
 window.cancelAttendance = function(studentCode) {
     if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
     const session = classSessions.find(s => s.id === currentActiveSessionId);
