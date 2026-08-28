@@ -8055,3 +8055,90 @@ window.directRejectWallet = async function(id) {
         loadWalletRequests();
     } catch(e) { showToast("خطأ في الاتصال!", "error"); }
 };
+
+
+
+
+// ==========================================
+// 🌐 فحص حالة السيرفر والواتساب (بالتحديث التلقائي)
+// ==========================================
+window.waCheckInterval = null; // عداد الفحص التلقائي
+
+const oldModalOpenerForServer = window.openModal;
+window.openModal = function(modalId) {
+    if (oldModalOpenerForServer) oldModalOpenerForServer(modalId);
+    
+    // أول ما المدرس يفتح الإعدادات، نشغل الفحص الفوري والعداد
+    if (modalId === 'settingsModal') {
+        checkWhatsappServer(); 
+        window.waCheckInterval = setInterval(checkWhatsappServer, 3000); // يفحص كل 3 ثواني
+    }
+};
+
+const oldCloseModalForServer = window.closeModal;
+window.closeModal = function(modalId) {
+    if (oldCloseModalForServer) oldCloseModalForServer(modalId);
+    // إيقاف العداد لو قفل النافذة عشان منسحبش نت على الفاضي
+    if (modalId === 'settingsModal') {
+        if (window.waCheckInterval) clearInterval(window.waCheckInterval); 
+    }
+};
+
+window.checkWhatsappServer = async function() {
+    const nodeStatus = document.getElementById('nodeStatus');
+    const waStatus = document.getElementById('waStatus');
+    const qrContainer = document.getElementById('qrContainer');
+    const qrImage = document.getElementById('qrImage');
+
+    if (!nodeStatus || !waStatus) return;
+
+    if (!nodeStatus.innerHTML.includes('✅')) {
+        nodeStatus.innerHTML = "جاري الفحص... ⏳";
+        waStatus.innerHTML = "جاري الفحص... ⏳";
+        if (qrContainer) qrContainer.style.display = "none";
+    }
+
+    try {
+        // 👈 نرجع لمسار status عشان هو اللي بيدينا الحالة الحقيقية للسيرفر
+        let statusUrl = `${WHATSAPP_SERVER_URL}/status?clientId=${getSafeUid()}&t=${Date.now()}`;
+        let response = await fetch(statusUrl, { mode: 'cors' });
+        
+        if (!response.ok) throw new Error("Server returned " + response.status);
+        
+        nodeStatus.innerHTML = "<span style='color: #10b981; font-weight: bold;'>متصل ويعمل بنجاح ✅</span>";
+        let data = await response.json();
+        
+        if (data.status === "connected") {
+            waStatus.innerHTML = "<span style='color: #10b981; font-weight: bold;'>الرقم مربوط وجاهز للعمل 📱</span>";
+            if (qrContainer) qrContainer.style.display = "none";
+            if (window.waCheckInterval) clearInterval(window.waCheckInterval); // وقف العداد
+            
+        } else if (data.status === "need_scan") {
+            waStatus.innerHTML = "<span style='color: #f59e0b; font-weight: bold;'>في انتظار مسح الباركود ⚠️</span>";
+            
+            // 👈 جلب الباركود فقط لما السيرفر يطلبه
+            let qrUrl = `${WHATSAPP_SERVER_URL}/qr?clientId=${getSafeUid()}&t=${Date.now()}`;
+            let qrRes = await fetch(qrUrl, { mode: 'cors' });
+            let qrData = await qrRes.json();
+
+            if (qrData.qr && qrContainer && qrImage) {
+                if (qrContainer.getAttribute('data-last-qr') !== qrData.qr) {
+                    qrContainer.style.display = "block";
+                    qrImage.innerHTML = ""; 
+                    if (typeof QRCode !== 'undefined') {
+                        new QRCode(qrImage, { text: qrData.qr, width: 200, height: 200 });
+                        qrContainer.setAttribute('data-last-qr', qrData.qr);
+                    }
+                }
+            }
+        } else {
+            // الحالة دي بتظهر في أول 10 لـ 15 ثانية والسيرفر بيحمل الواتساب
+            waStatus.innerHTML = "<span style='color: #f59e0b; font-weight: bold;'>جاري تهيئة محرك الواتساب (انتظر 15 ثانية)... ⏳</span>";
+            if (qrContainer) qrContainer.style.display = "none";
+        }
+    } catch (error) {
+        console.error("الفحص فشل:", error);
+        nodeStatus.innerHTML = "<span style='color: #ef4444; font-weight: bold;'>متوقف (Offline) ❌</span>";
+        waStatus.innerHTML = "<span style='color: #ef4444; font-weight: bold;'>غير متصل ❌</span>";
+    }
+};
