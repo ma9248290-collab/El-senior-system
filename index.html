@@ -2822,9 +2822,9 @@
                 const imp = JSON.parse(e.target.result); 
                 
                 if (imp.students && imp.groups) { 
-                    window.isIncomingSync = true; // نوقف التحديثات اللحظية مؤقتاً
+                    window.isIncomingSync = true; // نوقف التحديثات اللحظية مؤقتاً عشان ميهنجش
                     
-                    // 🚀 الحل هنا: تحديث قاعدة البيانات (localStorage) + تحديث المتغيرات في الميموري
+                    // 🚀 زرع الداتا في قاعدة البيانات + المتغيرات
                     if(imp.students) { localStorage.setItem("students", JSON.stringify(imp.students)); students = imp.students; }
                     if(imp.groups) { localStorage.setItem("groups", JSON.stringify(imp.groups)); groups = imp.groups; }
                     if(imp.classSessions) { localStorage.setItem("classSessions", JSON.stringify(imp.classSessions)); classSessions = imp.classSessions; }
@@ -2843,12 +2843,14 @@
 
                     if(typeof showToast === 'function') showToast("جاري دمج البيانات ورفعها للسحابة... ⏳", "info");
 
-                    // ☁️ دلوقتي السحابة هتاخد المتغيرات اللي إحنا لسه محدثينها فوق
+                    // 💡 الحل القاطع للمشكلة: نفتح المزامنة تاني قبل ما ننده دالة الرفع
+                    window.isIncomingSync = false; 
+
+                    // ☁️ الرفع الفعلي للسحابة دلوقتي هيشتغل تمام بدون ما يتمنع
                     if (typeof syncDataToBot === "function") {
                         await syncDataToBot(); 
                     }
 
-                    window.isIncomingSync = false;
                     alert("تم استرجاع النسخة الاحتياطية الشاملة وتحديث النظام بنجاح! 🚀"); 
                     location.reload(); 
                 } else {
