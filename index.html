@@ -1050,51 +1050,78 @@
         </div>
     </div>
 
-    <!-- 🎬 نافذة إضافة كورس/محاضرة (مخفية وتفتح فقط داخل الشهر) -->
-    <div id="addLectureModal" class="modal" style="z-index: 1000000;">
-        <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid var(--primary-color);">
-            <span class="close-btn" onclick="closeModal('addLectureModal')">&times;</span>
-            <h2 style="color: var(--primary-color); margin-bottom: 20px;">إضافة كورس جديد 🎬</h2>
+    <!-- 🎬 نافذة إضافة كورس/محاضرة -->
+<div id="addLectureModal" class="modal" style="z-index: 1000000;">
+    <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid var(--primary-color);">
+        <span class="close-btn" onclick="closeModal('addLectureModal')">&times;</span>
+        <h2 style="color: var(--primary-color); margin-bottom: 20px;">إضافة كورس جديد 🎬</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="input-group full-width" style="grid-column: span 2;">
+                <label>اسم الكورس</label>
+                <input type="text" id="lecTitle" class="custom-input" placeholder="مثال: الحصة الأولى - الباب الأول">
+            </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="input-group full-width" style="grid-column: span 2;">
-                    <label>اسم الكورس</label>
-                    <input type="text" id="lecTitle" class="custom-input" placeholder="مثال: الحصة الأولى - الباب الأول">
-                </div>
+            <div class="input-group">
+                <label>المسار المستهدف (للمنصة)</label>
+                <select id="lecTrack" class="custom-input">
+                    <option value="all">عام وأزهر معاً (الكل)</option>
+                    <option value="عام">طلاب العام فقط</option>
+                    <option value="أزهر">طلاب الأزهر فقط</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>عدد المشاهدات المسموح بها (0 لعدد غير محدود)</label>
+                <input type="number" id="lecMaxViews" class="custom-input" placeholder="0 = لا نهائي" min="0">
+            </div>
+
+            <!-- 🌟 الإعدادات العامة للكورس (تم نقلها هنا) 🌟 -->
+            <div class="input-group full-width" style="grid-column: span 2; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; gap: 15px; flex-wrap: wrap;">
+                <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 5px; display: block; width: 100%;">إعدادات صلاحيات الكورس 🔐</label>
                 
-                <div class="input-group">
-                    <label>المسار المستهدف (للمنصة)</label>
-                    <select id="lecTrack" class="custom-input">
-                        <option value="all">عام وأزهر معاً (الكل)</option>
-                        <option value="عام">طلاب العام فقط</option>
-                        <option value="أزهر">طلاب الأزهر فقط</option>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 12px; color: #3b82f6; font-weight: bold;">نوع الكورس:</label>
+                    <select id="lecType" class="custom-input" style="margin: 0;" onchange="document.getElementById('lecPrice').style.display = this.value === 'paid' ? 'block' : 'none'">
+                        <option value="free">محتوى مجاني</option>
+                        <option value="paid">محتوى مدفوع</option>
+                    </select>
+                    <input type="number" id="lecPrice" class="custom-input" placeholder="السعر (ج.م)" style="margin-top: 5px; display: none;">
+                </div>
+                <div style="flex: 2; min-width: 250px;">
+                    <label style="font-size: 12px; color: #10b981; font-weight: 900; margin-bottom: 5px; display: block;">🔓 يُفتح مجاناً لمن حضر حصص (اختر حصة أو أكثر):</label>
+                    <div id="lecLinkedSessions" style="max-height: 120px; overflow-y: auto; background: var(--bg-color); padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                        <!-- الحصص هتظهر هنا أوتوماتيك -->
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
+                    <select id="lecRequiredExam" class="custom-input" style="margin: 0;">
+                        <!-- الامتحانات هتظهر هنا -->
                     </select>
                 </div>
-                <div class="input-group">
-                    <label>عدد المشاهدات المسموح بها (0 لعدد غير محدود)</label>
-                    <input type="number" id="lecMaxViews" class="custom-input" placeholder="0 = لا نهائي" min="0">
-                </div>
-                
-                <div class="input-group" style="grid-column: span 2;">
-                    <label>صورة غلاف الكورس (رفع من الجهاز PNG/JPG)</label>
-                    <input type="file" id="lecImageFile" class="custom-input" accept="image/png, image/jpeg, image/jpg">
-                </div>
-
-                <div class="input-group" style="grid-column: span 2; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed var(--primary-color);">
-                    <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 10px;">فيديوهات الكورس 🎥</label>
-                    <div id="courseVideosContainer"></div>
-                    <button class="theme-btn" style="width: auto; padding: 8px 15px; margin-top: 5px;" onclick="addCourseVideoRow()">➕ إضافة فيديو آخر للكورس</button>
-                </div>
-
-                <div class="input-group" style="grid-column: span 2;">
-                    <label>وصف الكورس (يظهر للطالب)</label>
-                    <textarea id="lecDesc" class="custom-input" rows="3" placeholder="اكتب تفاصيل الكورس..."></textarea>
-                </div>
-
-                <button class="save-btn" id="saveLectureBtn" style="grid-column: span 2; font-size: 18px; padding: 15px;" onclick="saveLecture()">نشر الكورس للطلاب 🚀</button>
             </div>
+            
+            <div class="input-group" style="grid-column: span 2;">
+                <label>صورة غلاف الكورس (رفع من الجهاز PNG/JPG)</label>
+                <input type="file" id="lecImageFile" class="custom-input" accept="image/png, image/jpeg, image/jpg">
+            </div>
+
+            <!-- فيديوهات الكورس (هتبقى مجرد عنوان ورابط فقط) -->
+            <div class="input-group" style="grid-column: span 2; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed var(--primary-color);">
+                <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 10px;">فيديوهات الكورس 🎥</label>
+                <div id="courseVideosContainer"></div>
+                <button class="theme-btn" style="width: auto; padding: 8px 15px; margin-top: 5px;" onclick="addCourseVideoRow()">➕ إضافة فيديو للكورس</button>
+            </div>
+
+            <div class="input-group" style="grid-column: span 2;">
+                <label>وصف الكورس (يظهر للطالب)</label>
+                <textarea id="lecDesc" class="custom-input" rows="3" placeholder="اكتب تفاصيل الكورس..."></textarea>
+            </div>
+
+            <button class="save-btn" id="saveLectureBtn" style="grid-column: span 2; font-size: 18px; padding: 15px;" onclick="saveLecture()">نشر الكورس للطلاب 🚀</button>
         </div>
     </div>
+</div>
     <div id="platform-exams" class="platform-section" style="display: none;">
         
         <div id="platform-exams-list-container">
@@ -2393,77 +2420,95 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- ✏️ نافذة تعديل كورس موجود -->
-    <!-- ========================================== -->
-    <div id="editCourseModal" class="modal" style="z-index: 1000000;">
-        <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid #f59e0b;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px;">
-                <h2 style="margin: 0; color: #f59e0b;">✏️ تعديل بيانات الكورس</h2>
-                <span class="close" onclick="closeModal('editCourseModal')" style="font-size: 28px; cursor: pointer; color: var(--danger-color);">&times;</span>
-            </div>
+   <!-- ✏️ نافذة تعديل كورس موجود -->
+<div id="editCourseModal" class="modal" style="z-index: 1000000;">
+    <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid #f59e0b;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #f59e0b;">✏️ تعديل بيانات الكورس</h2>
+            <span class="close" onclick="closeModal('editCourseModal')" style="font-size: 28px; cursor: pointer; color: var(--danger-color);">&times;</span>
+        </div>
 
-            <form id="editCourseForm">
-                <input type="hidden" id="editLecId">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="input-group full-width" style="grid-column: span 2;">
-                        <label>اسم الكورس</label>
-                        <input type="text" id="editLecTitle" class="custom-input" required>
-                    </div>
+        <form id="editCourseForm">
+            <input type="hidden" id="editLecId">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="input-group full-width" style="grid-column: span 2;">
+                    <label>اسم الكورس</label>
+                    <input type="text" id="editLecTitle" class="custom-input" required>
+                </div>
+                
+                <div class="input-group">
+                    <label>الصف الدراسي المستهدف</label>
+                    <select id="editLecLevel" class="custom-input" onchange="updateCourseGlobalSettings('editLec')"></select>
+                </div>
+
+                <div class="input-group">
+                    <label>الترم الدراسي</label>
+                    <input type="text" id="editLecTerm" list="termOptionsList" class="custom-input">
+                </div>
+                <div class="input-group">
+                    <label>الشهر</label>
+                    <input type="text" id="editLecMonth" list="monthOptionsList" class="custom-input">
+                </div>
+                
+                <div class="input-group">
+                    <label>المسار المستهدف</label>
+                    <select id="editLecTrack" class="custom-input">
+                        <option value="all">عام وأزهر معاً (الكل)</option>
+                        <option value="عام">طلاب العام فقط</option>
+                        <option value="أزهر">طلاب الأزهر فقط</option>
+                    </select>
+                </div>
+
+                <div class="input-group full-width" style="grid-column: span 2;">
+                    <label>عدد المشاهدات المسموح بها (0 لعدد لا نهائي)</label>
+                    <input type="number" id="editLecMaxViews" class="custom-input" min="0">
+                </div>
+
+                <!-- 🌟 الإعدادات العامة للكورس في التعديل 🌟 -->
+                <div class="input-group full-width" style="grid-column: span 2; background: #fef3c7; padding: 15px; border-radius: 8px; border: 1px dashed #f59e0b; display: flex; gap: 15px; flex-wrap: wrap;">
+                    <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 5px; display: block; width: 100%;">إعدادات صلاحيات الكورس 🔐</label>
                     
-                    <div class="input-group">
-                        <label>الصف الدراسي المستهدف</label>
-                        <select id="editLecLevel" class="custom-input" onchange="filterCourseSessions('editLecLevel', 'editLecSessionsContainer')"></select>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 12px; color: #3b82f6; font-weight: bold;">نوع الكورس:</label>
+                        <select id="editLecType" class="custom-input" style="margin: 0;" onchange="document.getElementById('editLecPrice').style.display = this.value === 'paid' ? 'block' : 'none'">
+                            <option value="free">محتوى مجاني</option>
+                            <option value="paid">محتوى مدفوع</option>
+                        </select>
+                        <input type="number" id="editLecPrice" class="custom-input" placeholder="السعر (ج.م)" style="margin-top: 5px; display: none;">
                     </div>
-
-                    <div class="input-group">
-                        <label>الترم الدراسي</label>
-                        <input type="text" id="editLecTerm" list="termOptionsList" class="custom-input">
+                    <div style="flex: 2; min-width: 250px;">
+                        <label style="font-size: 12px; color: #10b981; font-weight: 900; margin-bottom: 5px; display: block;">🔓 يُفتح مجاناً لمن حضر حصص:</label>
+                        <div id="editLecLinkedSessions" style="max-height: 120px; overflow-y: auto; background: white; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color);">
+                            <!-- الحصص هتظهر هنا -->
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label>الشهر</label>
-                        <input type="text" id="editLecMonth" list="monthOptionsList" class="custom-input">
-                    </div>
-                    
-                    <div class="input-group">
-    <label>المسار المستهدف</label>
-    <select id="editLecTrack" class="custom-input">
-        <option value="all">عام وأزهر معاً (الكل)</option>
-        <option value="عام">طلاب العام فقط</option>
-        <option value="أزهر">طلاب الأزهر فقط</option>
-    </select>
-</div>
-                    
-
-                    <div class="input-group">
-    <label>عدد المشاهدات المسموح بها (0 لعدد لا نهائي)</label>
-    <input type="number" id="editLecMaxViews" class="custom-input" min="0">
-</div>
-
-                    
-
-                    
-
-                    <div class="input-group" style="grid-column: span 2;">
-                        <label>تغيير صورة الغلاف (اختر صورة جديدة أو اتركها كما هي)</label>
-                        <input type="file" id="editLecImageFile" class="custom-input" accept="image/png, image/jpeg, image/jpg">
-                        <input type="hidden" id="editLecImageBase64"> </div>
-
-                    <div class="input-group" style="grid-column: span 2; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed #f59e0b;">
-                        <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 10px;">فيديوهات الكورس 🎥</label>
-                        <div id="editCourseVideosContainer"></div>
-                        <button type="button" class="theme-btn" style="width: auto; padding: 8px 15px; margin-top: 5px; border-color: #f59e0b; color: #f59e0b;" onclick="addEditCourseVideoRow()">➕ إضافة فيديو آخر</button>
-                    </div>
-
-                    <div class="input-group" style="grid-column: span 2;">
-                        <label>وصف الكورس</label>
-                        <textarea id="editLecDesc" class="custom-input" rows="3"></textarea>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
+                        <select id="editLecRequiredExam" class="custom-input" style="margin: 0;"></select>
                     </div>
                 </div>
-                <button type="button" class="save-btn" style="width: 100%; background: #f59e0b;" onclick="saveEditedCourse()">💾 حفظ التعديلات</button>
-            </form>
-        </div>
+
+                <div class="input-group" style="grid-column: span 2;">
+                    <label>تغيير صورة الغلاف (اختر صورة جديدة أو اتركها كما هي)</label>
+                    <input type="file" id="editLecImageFile" class="custom-input" accept="image/png, image/jpeg, image/jpg">
+                    <input type="hidden" id="editLecImageBase64"> 
+                </div>
+
+                <div class="input-group" style="grid-column: span 2; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px dashed #f59e0b;">
+                    <label style="color: var(--secondary-color); font-size: 16px; margin-bottom: 10px;">فيديوهات الكورس 🎥</label>
+                    <div id="editCourseVideosContainer"></div>
+                    <button type="button" class="theme-btn" style="width: auto; padding: 8px 15px; margin-top: 5px; border-color: #f59e0b; color: #f59e0b;" onclick="addCourseVideoRow('editCourseVideosContainer')">➕ إضافة فيديو آخر</button>
+                </div>
+
+                <div class="input-group" style="grid-column: span 2;">
+                    <label>وصف الكورس</label>
+                    <textarea id="editLecDesc" class="custom-input" rows="3"></textarea>
+                </div>
+            </div>
+            <button type="button" class="save-btn" style="width: 100%; background: #f59e0b;" onclick="saveEditedCourse()">💾 حفظ التعديلات</button>
+        </form>
     </div>
+</div>
 
     <!-- ========================================== -->
     <!-- 📊 نافذة التراكر (إحصائيات مشاهدات الكورس) -->
