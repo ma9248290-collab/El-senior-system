@@ -1341,127 +1341,146 @@ currentStudent.level = (studentGroupObj && studentGroupObj.level) ? studentGroup
             if(event && event.currentTarget) event.currentTarget.classList.add('active');
         }
 
-        async function submitRegistration() {
-            globalTeacherId = "ElSenior_System_Master";
-            let type = document.getElementById("regType").value;
+        // ==========================================
+// 🚀 دالة إنشاء الحساب (معدلة لإنشاء سنتر الأونلاين وربطه)
+// ==========================================
+async function submitRegistration() {
+    globalTeacherId = "ElSenior_System_Master";
+    let type = document.getElementById("regType").value;
+    
+    let genderInput = document.getElementById("regGender");
+    let studentGender = genderInput ? genderInput.value : "غير محدد";
+
+    let studentData = {
+        name: document.getElementById("regName").value.trim(),
+        track: document.getElementById("regTrackGroup") && document.getElementById("regTrackGroup").style.display !== 'none' ? document.getElementById("regTrack").value : "عام",
+        phone: document.getElementById("regPhone").value.trim() || "0",
+        parentPhone: document.getElementById("regParentPhone").value.trim() || "0",
+        level: document.getElementById("regLevel").value,
+        gender: studentGender,
+        timestamp: new Date().toISOString(),
+        regType: type
+    };
+
+    if (!studentData.name || studentData.phone === "0" || studentData.parentPhone === "0") {
+        return alert("يرجى ملء الاسم وأرقام الهواتف بشكل صحيح!");
+    }
+
+    let btn = document.getElementById("submitRegBtn");
+    let msgEl = document.getElementById("regMsg");
+    btn.innerText = "جاري الإرسال... ⏳"; btn.disabled = true;
+
+    try {
+        if (type === 'center') {
+            // طالب السنتر
+            studentData.centerName = document.getElementById("regCenterName").value.trim();
+            studentData.groupPref = document.getElementById("regGroupPref").value.trim();
+            studentData.status = "pending";
+
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/join_requests/${Date.now()}.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentData)
+            });
+
+            msgEl.style.color = "var(--success)";
+            msgEl.innerText = "✅ تم إرسال طلبك بنجاح! في انتظار موافقة الإدارة.";
+            setTimeout(() => { closeAuthModal(); msgEl.innerText = ""; }, 3000);
+
+        } else {
+            // طالب الأونلاين (تفعيل فوري)
+            studentData.gov = document.getElementById("regGov").value.trim();
+            studentData.school = document.getElementById("regSchool").value.trim();
             
-            let genderInput = document.getElementById("regGender");
-            let studentGender = genderInput ? genderInput.value : "غير محدد";
+            let targetGroup = "أونلاين - " + studentData.level;
+            studentData.group = targetGroup; 
+            studentData.behaviorPoints = 0;
 
-            let studentData = {
-                name: document.getElementById("regName").value.trim(),
-                track: document.getElementById("regTrackGroup") && document.getElementById("regTrackGroup").style.display !== 'none' ? document.getElementById("regTrack").value : "عام",
-                phone: document.getElementById("regPhone").value.trim() || "0",
-                parentPhone: document.getElementById("regParentPhone").value.trim() || "0",
-                level: document.getElementById("regLevel").value,
-                gender: studentGender,
-                timestamp: new Date().toISOString(),
-                regType: type
-            };
+            let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`);
+            let studentsArray = await res.json() || [];
+            studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
+            
+            // --- 🚨 الحماية من التكرار 🚨 ---
+            let duplicate = studentsArray.find(s => 
+                (studentData.phone !== "0" && s.phone === studentData.phone) || 
+                (studentData.parentPhone !== "0" && s.parentPhone === studentData.parentPhone) || 
+                (s.name.trim() === studentData.name.trim())
+            );
 
-            if (!studentData.name || studentData.phone === "0" || studentData.parentPhone === "0") {
-                return alert("يرجى ملء الاسم وأرقام الهواتف بشكل صحيح!");
-            }
-
-            let btn = document.getElementById("submitRegBtn");
-            let msgEl = document.getElementById("regMsg");
-            btn.innerText = "جاري الإرسال... ⏳"; btn.disabled = true;
-
-            try {
-                if (type === 'center') {
-                    // طالب السنتر
-                    studentData.centerName = document.getElementById("regCenterName").value.trim();
-                    studentData.groupPref = document.getElementById("regGroupPref").value.trim();
-                    studentData.status = "pending";
-
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/join_requests/${Date.now()}.json`, {
-                        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentData)
-                    });
-
-                    msgEl.style.color = "var(--success)";
-                    msgEl.innerText = "✅ تم إرسال طلبك بنجاح! في انتظار موافقة الإدارة.";
-                    setTimeout(() => { closeAuthModal(); msgEl.innerText = ""; }, 3000);
-
-                } else {
-                    // طالب الأونلاين (تفعيل فوري)
-                    studentData.gov = document.getElementById("regGov").value.trim();
-                    studentData.school = document.getElementById("regSchool").value.trim();
-                    
-                    let targetGroup = "أونلاين - " + studentData.level;
-                    studentData.group = targetGroup; 
-                    studentData.behaviorPoints = 0;
-
-                    let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`);
-                    let studentsArray = await res.json() || [];
-                    studentsArray = Array.isArray(studentsArray) ? studentsArray : Object.values(studentsArray).filter(s => s !== null);
-                    
-                    // --- 🚨 الحماية من التكرار 🚨 ---
-                    let duplicate = studentsArray.find(s => 
-                        (studentData.phone !== "0" && s.phone === studentData.phone) || 
-                        (studentData.parentPhone !== "0" && s.parentPhone === studentData.parentPhone) || 
-                        (s.name.trim() === studentData.name.trim())
-                    );
-
-                    if (duplicate) {
-                        msgEl.style.color = "var(--danger)";
-                        msgEl.innerText = "❌ مسجل مسبقاً! استخدم 'نسيت كود الطالب' لاسترجاع الكود.";
-                        btn.innerText = 'إنشاء حساب أونلاين 🚀'; 
-                        btn.disabled = false;
-                        return; // وقف التسجيل هنا ومنع التكرار
-                    }
-                    // ---------------------------------
-
-                    let baseNum = 0;
-                    if (studentData.level.includes("الأول")) baseNum = 1000;
-                    else if (studentData.level.includes("الثاني")) baseNum = 2000;
-                    else if (studentData.level.includes("الثالث")) baseNum = 3000;
-
-                    let lastNum = baseNum;
-                    for (let i = studentsArray.length - 1; i >= 0; i--) {
-                        let s = studentsArray[i];
-                        if (s.code && String(s.code).startsWith("O-") && s.level === studentData.level) {
-                            let num = parseInt(String(s.code).split("-")[1], 10);
-                            if (!isNaN(num)) {
-                                lastNum = num;
-                                break;
-                            }
-                        }
-                    }
-
-                    studentData.code = "O-" + (lastNum + 1).toString();
-
-                    studentsArray.push(studentData);
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, {
-                        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentsArray)
-                    });
-
-                    let groupsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`);
-                    let groupsArray = await groupsRes.json() || [];
-                    groupsArray = Array.isArray(groupsArray) ? groupsArray : Object.values(groupsArray).filter(g => g !== null);
-
-                    let groupExists = groupsArray.some(g => g.name === targetGroup);
-                    if (!groupExists) {
-                        groupsArray.push({ name: targetGroup, level: studentData.level, payType: "session", price: 0 });
-                        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`, {
-                            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupsArray)
-                        });
-                    }
-
-                    document.getElementById('auth-modal').classList.remove('active');
-                    document.getElementById('newOnlineCodeDisplay').innerText = studentData.code;
-                    document.getElementById('successOnlineModal').style.display = 'flex';
-                    
-                    document.getElementById("studentCode").value = studentData.code;
-                    document.getElementById("parentPhone").value = studentData.parentPhone;
-                }
-            } catch(e) {
+            if (duplicate) {
                 msgEl.style.color = "var(--danger)";
-                msgEl.innerText = "❌ حدث خطأ أثناء الاتصال بالإنترنت!";
+                msgEl.innerText = "❌ مسجل مسبقاً! استخدم 'نسيت كود الطالب' لاسترجاع الكود.";
+                btn.innerText = 'إنشاء حساب أونلاين 🚀'; 
+                btn.disabled = false;
+                return; // وقف التسجيل هنا ومنع التكرار
             }
-            btn.innerText = type === 'center' ? 'إرسال طلب الانضمام 🚀' : 'إنشاء حساب أونلاين 🚀';
-            btn.disabled = false;
+            // ---------------------------------
+
+            let baseNum = 0;
+            if (studentData.level.includes("الأول")) baseNum = 1000;
+            else if (studentData.level.includes("الثاني")) baseNum = 2000;
+            else if (studentData.level.includes("الثالث")) baseNum = 3000;
+
+            let lastNum = baseNum;
+            for (let i = studentsArray.length - 1; i >= 0; i--) {
+                let s = studentsArray[i];
+                if (s.code && String(s.code).startsWith("O-") && s.level === studentData.level) {
+                    let num = parseInt(String(s.code).split("-")[1], 10);
+                    if (!isNaN(num)) {
+                        lastNum = num;
+                        break;
+                    }
+                }
+            }
+
+            studentData.code = "O-" + (lastNum + 1).toString();
+
+            studentsArray.push(studentData);
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(studentsArray)
+            });
+
+            // ==========================================
+            // 🚀 الجديد 1: إنشاء سنتر "أونلاين" لو مش موجود 
+            // ==========================================
+            let centersRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/centers.json`);
+            let centersArray = await centersRes.json() || ["السنتر الرئيسي"];
+
+            if (!centersArray.includes("أونلاين")) {
+                centersArray.push("أونلاين");
+                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/centers.json`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(centersArray)
+                });
+            }
+
+            // ==========================================
+            // 🚀 الجديد 2: إنشاء مجموعة الأونلاين ووضعها بداخل سنتر "أونلاين"
+            // ==========================================
+            let groupsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`);
+            let groupsArray = await groupsRes.json() || [];
+            groupsArray = Array.isArray(groupsArray) ? groupsArray : Object.values(groupsArray).filter(g => g !== null);
+
+            let groupExists = groupsArray.some(g => g.name === targetGroup);
+            if (!groupExists) {
+                // ضفنا center: "أونلاين" عشان تتربط بالسنتر الصح
+                groupsArray.push({ name: targetGroup, level: studentData.level, payType: "session", price: 0, center: "أونلاين" });
+                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupsArray)
+                });
+            }
+
+            document.getElementById('auth-modal').classList.remove('active');
+            document.getElementById('newOnlineCodeDisplay').innerText = studentData.code;
+            document.getElementById('successOnlineModal').style.display = 'flex';
+            
+            document.getElementById("studentCode").value = studentData.code;
+            document.getElementById("parentPhone").value = studentData.parentPhone;
         }
-        
+    } catch(e) {
+        msgEl.style.color = "var(--danger)";
+        msgEl.innerText = "❌ حدث خطأ أثناء الاتصال بالإنترنت!";
+    }
+    btn.innerText = type === 'center' ? 'إرسال طلب الانضمام 🚀' : 'إنشاء حساب أونلاين 🚀';
+    btn.disabled = false;
+}
 
         async function retrieveStudentCode() {
             let phone = document.getElementById("forgotPhoneInput").value.trim();
