@@ -1454,14 +1454,27 @@ async function submitRegistration() {
             // ==========================================
             // 🚀 الجديد 2: إنشاء مجموعة الأونلاين ووضعها بداخل سنتر "أونلاين"
             // ==========================================
+           // ==========================================
+            // 🚀 الجديد 2: إنشاء مجموعة الأونلاين أو تحديث السنتر بتاعها لو قديمة
+            // ==========================================
             let groupsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`);
             let groupsArray = await groupsRes.json() || [];
             groupsArray = Array.isArray(groupsArray) ? groupsArray : Object.values(groupsArray).filter(g => g !== null);
 
-            let groupExists = groupsArray.some(g => g.name === targetGroup);
-            if (!groupExists) {
-                // ضفنا center: "أونلاين" عشان تتربط بالسنتر الصح
+            let existingGroupIndex = groupsArray.findIndex(g => g.name === targetGroup);
+            let needGroupUpdate = false;
+
+            if (existingGroupIndex === -1) {
+                // لو المجموعة مش موجودة أصلاً، هنكريتها ونحطها في سنتر أونلاين
                 groupsArray.push({ name: targetGroup, level: studentData.level, payType: "session", price: 0, center: "أونلاين" });
+                needGroupUpdate = true;
+            } else if (groupsArray[existingGroupIndex].center !== "أونلاين") {
+                // لو المجموعة كانت موجودة من زمان بس في سنتر تاني، هنصلحها وننقلها لأونلاين
+                groupsArray[existingGroupIndex].center = "أونلاين";
+                needGroupUpdate = true;
+            }
+
+            if (needGroupUpdate) {
                 await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/groups.json`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupsArray)
                 });
