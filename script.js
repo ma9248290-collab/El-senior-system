@@ -5748,6 +5748,24 @@ window.openStudentProfile = function(code) {
     if(document.getElementById("profile-parent")) document.getElementById("profile-parent").innerText = student.parentPhone;
     if(document.getElementById("profile-level")) document.getElementById("profile-level").innerText = student.level;
     if(document.getElementById("profile-gender")) document.getElementById("profile-gender").innerText = student.gender;
+    // =========================================================
+    // 🌟 إظهار المحافظة والمدرسة لطلاب الأونلاين فقط (بشكل شيك ومستقل) 🌟
+    // =========================================================
+    let onlineDetailsBox = document.getElementById("online-student-details");
+    
+    // هنختبر هل الطالب أونلاين؟ (يا إما مسجل محافظة، يا مدرسته، يا اسم جروبه فيه كلمة أونلاين)
+    let isOnlineStudent = student.gov || student.school || (student.group && student.group.includes('أونلاين'));
+
+    if (isOnlineStudent) {
+        if(onlineDetailsBox) onlineDetailsBox.style.display = "grid"; // نظهره كـ Grid عشان يملأ العرض
+        
+        if(document.getElementById("profile-gov")) document.getElementById("profile-gov").innerText = student.gov || "غير مسجل";
+        if(document.getElementById("profile-school")) document.getElementById("profile-school").innerText = student.school || "غير مسجل";
+    } else {
+        // لو طالب سنتر عادي هنخفي السطر ده كله
+        if(onlineDetailsBox) onlineDetailsBox.style.display = "none";
+    }
+    // =========================================================
     document.getElementById("profile-behavior-points").innerText = student.behaviorPoints || 0; 
 
     // زراير الواتساب

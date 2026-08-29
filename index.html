@@ -492,9 +492,24 @@
                         <div class="stat-card" style="border-top: 4px solid var(--exam-color);"><h3>متوسط الامتحانات</h3><p class="stat-number" id="profile-exams" style="color: var(--exam-color);">0%</p></div>
                         <div class="stat-card" style="border-top: 4px solid var(--hw-color);"><h3>متوسط الواجبات</h3><p class="stat-number" id="profile-hw" style="color: var(--hw-color);">0%</p></div>
                     </div>
-                    <div class="profile-details-grid" style="margin-bottom: 30px;">
-                        <div class="detail-box"><strong>📱 الهاتف:</strong> <span id="profile-phone"></span></div><div class="detail-box"><strong>👨‍👩‍👦 ولي الأمر:</strong> <span id="profile-parent"></span></div><div class="detail-box"><strong>🏫 الصف:</strong> <span id="profile-level"></span></div><div class="detail-box"><strong>👤 الجنس:</strong> <span id="profile-gender"></span></div>
-                    </div>
+                    <div class="profile-details-grid" style="margin-bottom: 15px;">
+    <div class="detail-box"><strong>📱 الهاتف:</strong> <span id="profile-phone"></span></div>
+    <div class="detail-box"><strong>👨‍👩‍👦 ولي الأمر:</strong> <span id="profile-parent"></span></div>
+    <div class="detail-box"><strong>🏫 الصف:</strong> <span id="profile-level"></span></div>
+    <div class="detail-box"><strong>👤 الجنس:</strong> <span id="profile-gender"></span></div>
+</div>
+
+<!-- 👇 بوكس بيانات الأونلاين (شياكة وفي سطر لوحده) 👇 -->
+<div id="online-student-details" style="display: none; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+    <div class="detail-box" style="border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); display: flex; justify-content: space-between; align-items: center;">
+        <strong style="color: #3b82f6;">🌍 المحافظة:</strong> 
+        <span id="profile-gov" style="color: #1e3a8a; font-weight: 900; font-size: 16px;"></span>
+    </div>
+    <div class="detail-box" style="border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); display: flex; justify-content: space-between; align-items: center;">
+        <strong style="color: #3b82f6;">🏫 المدرسة:</strong> 
+        <span id="profile-school" style="color: #1e3a8a; font-weight: 900; font-size: 16px;"></span>
+    </div>
+</div>
                     <div style="margin-top: 30px;">
                         <h3 style="margin-bottom: 15px; color: var(--primary-color);">السجل التفصيلي</h3>
                         <div class="profile-history-grid">
