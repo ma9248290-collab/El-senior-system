@@ -2230,7 +2230,7 @@ window.renderStudentLectures = function() {
 
     // 📚 1. عرض الأترام
     if (!window.studentLecPath.term) {
-        let terms = [...new Set(myLectures.map(l => l.term || 'الترم الأول'))];
+        let terms = [...new Set(folders.filter(f => f.type === 'term' && f.parentLevel === currentStudent.level).map(f => f.name))];
         
         if (terms.length === 0) {
             list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; font-weight:bold; color:var(--text-muted); background: var(--card-bg); border-radius: 20px; border: 2px dashed var(--border);">لا توجد كورسات متاحة لصفك حالياً.</div>`;
@@ -2259,7 +2259,7 @@ window.renderStudentLectures = function() {
     // 📆 2. عرض الشهور داخل الترم
     if (!window.studentLecPath.month) {
         let termLectures = myLectures.filter(l => (l.term || 'الترم الأول') === window.studentLecPath.term);
-        let months = [...new Set(termLectures.map(l => l.month || 'شهر غير محدد'))].sort();
+        let months = [...new Set(folders.filter(f => f.type === 'month' && f.parentTerm === window.studentLecPath.term && f.parentLevel === currentStudent.level).map(f => f.name))].sort();
         
         // فحص باقة الترم
         let termFolder = folders.find(f => f.type === 'term' && f.name === window.studentLecPath.term && f.parentLevel === currentStudent.level);
@@ -2458,23 +2458,41 @@ window.openStudentCourseDetails = async function(courseId) {
         let safeTitle = v.title.replace(/'/g, "\\'");
         let specificVideoId = `${courseId}_v${idx}`; 
         
-        let isVideoFree = v.type === 'free' || !v.type; 
-        let videoPrice = v.price || 0;
+        // 1. تحديد نوع الكورس (مدفوع ولا مجاني) من الكورس نفسه ثم الفيديو (للدعم القديم)
+        let cType = course.type || v.type || 'free';
+        let isVideoFree = (cType === 'free'); 
+        let videoPrice = course.price || v.price || 0;
         
-        let hasPurchasedVideo = isFolderBundleActive || (currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(specificVideoId));
+        let hasPurchasedVideo = isFolderBundleActive || (currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(courseId)) || (currentStudent.purchasedCourses && currentStudent.purchasedCourses.includes(specificVideoId));
 
+        // 2. التحقق من الحضور في الحصص المربوطة بدقة (سواء من إعدادات الكورس أو الفيديو)
         let didAttend = false;
-        if (v.linkedSession) {
-            let sessionObj = window.allClassSessions.find(s => String(s.id) === String(v.linkedSession));
-            didAttend = sessionObj && sessionObj.attendance && (sessionObj.attendance[currentStudent.code] === 'present' || sessionObj.attendance[currentStudent.phone] === 'present' || sessionObj.attendance[currentStudent.code] === 'late');
+        let linkedArr = [];
+        if (course.linkedSessions && Array.isArray(course.linkedSessions)) linkedArr = linkedArr.concat(course.linkedSessions);
+        if (v.linkedSession) linkedArr.push(v.linkedSession);
+
+        if (linkedArr.length > 0 && window.allClassSessions) {
+            for (let sessId of linkedArr) {
+                let sessionObj = window.allClassSessions.find(s => String(s.id) === String(sessId));
+                if (sessionObj && sessionObj.attendance) {
+                    let stat = sessionObj.attendance[currentStudent.code] || sessionObj.attendance[currentStudent.phone];
+                    // دعم الحضور العادي، المتأخر، والتعويض
+                    if (stat === 'present' || stat === 'late' || (typeof stat === 'object' && stat.status === 'makeup')) {
+                        didAttend = true;
+                        break;
+                    }
+                }
+            }
         }
 
+        // 3. التحقق من شرط الامتحان
+        let cExam = course.requiredExam || v.requiredExam;
         let isLockedByExam = false;
         let requiredExamObj = null;
         
-        if (v.requiredExam && !didAttend) {
-            requiredExamObj = safeExams.find(e => e.id === v.requiredExam); 
-            let examSubs = allSubs[v.requiredExam];
+        if (cExam && !didAttend) {
+            requiredExamObj = safeExams.find(e => e.id === cExam); 
+            let examSubs = allSubs[cExam];
             let didSubmitExam = examSubs && (examSubs[currentStudent.code] || examSubs[currentStudent.phone]);
             if (!didSubmitExam) isLockedByExam = true;
         }
