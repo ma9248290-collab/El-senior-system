@@ -1052,7 +1052,7 @@ window.processStudentSaving = async function(keepOpen) {
     if(typeof addSystemLog === "function") addSystemLog("إضافة طالب 🎓", `تسجيل الطالب: ${name} (كود: ${code}) في ${group}`);
 
     // إرسال الواتساب
-    const portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
+    const portalLink = `https://elsenoir.online/.html`;
     const teacherName = localStorage.getItem("teacherName") || "Sami Samir";
     const centerName = localStorage.getItem("centerName") || "El-Senior";
 
@@ -3192,7 +3192,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function updateParentLinkUI() {
     const linkInput = document.getElementById("parentPortalLink");
     if (linkInput) {
-        linkInput.value = "https://ma9248290-collab.github.io/El-senior-system/parent";
+        linkInput.value = "https://elsenoir.online/";
     }
 }
 
@@ -6410,7 +6410,7 @@ window.confirmApproveRequest = async function() {
         await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
 
         // إرسال رسالة واتساب للطالب (ولو مش كاتب رقمه هيبعت لولي الأمر احتياطي)
-        let portalLink = `https://ma9248290-collab.github.io/El-senior-system/parent.html`;
+        let portalLink = `https://elsenoir.online/.html`;
         let waMsg = `🎉 *تمت الموافقة على طلب الانضمام*\nأهلاً بك في نظام ${localStorage.getItem("teacherName") || "السنتر"}.\n\n👤 *اسم الطالب:* ${newStudent.name}\n📚 *المجموعة:* ${newStudent.group}\n🔑 *كود الدخول الخاص بك:* ${newCode}\n\n🔗 *رابط منصة الطالب:* ${portalLink}`;
         
         if (typeof sendAutoWhatsApp === "function") {
@@ -7755,94 +7755,88 @@ window.switchPage = function(pageId) {
 
 window.currentWalletRequests = {};
 window.loadWalletRequests = async function() {
-    let tbody = document.getElementById("wallet-requests-tbody");
-    let historyTbody = document.getElementById("wallet-history-tbody");
-    if(!tbody) return;
+    let tbodyReqs = document.getElementById("wallet-requests-tbody");
+    let tbodyHist = document.getElementById("wallet-history-tbody");
+    if (!tbodyReqs || !tbodyHist) return;
+
+    let badge = document.getElementById("walletReqBadge");
     
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري جلب الطلبات... ⏳</td></tr>`;
-    if(historyTbody) historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري التحميل... ⏳</td></tr>`;
-    
+    tbodyReqs.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري التحميل... ⏳</td></tr>`;
+    tbodyHist.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري التحميل... ⏳</td></tr>`;
+
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests.json`);
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/wallet_requests.json`);
         let data = await res.json() || {};
-        window.currentWalletRequests = data;
         
-        tbody.innerHTML = "";
-        if(historyTbody) historyTbody.innerHTML = "";
-
-        let keys = Object.keys(data).reverse();
+        let reqs = Object.values(data).reverse();
         
-        let pendingKeys = keys.filter(id => !data[id].status || data[id].status === "pending");
-        let historyKeys = keys.filter(id => data[id].status && data[id].status !== "pending");
+        let pendingReqs = reqs.filter(r => r.status === 'pending');
+        let historyReqs = reqs.filter(r => r.status !== 'pending');
 
-        // تحديث البادج الأحمر
-        let badge = document.getElementById("walletReqBadge");
-        if(badge) {
-            badge.innerText = pendingKeys.length;
-            badge.style.display = pendingKeys.length > 0 ? "inline-block" : "none";
+        // تحديث البادج الأحمر في القائمة الجانبية
+        if (badge) {
+            badge.innerText = pendingReqs.length;
+            badge.style.display = pendingReqs.length > 0 ? "inline-block" : "none";
         }
 
-        // عرض الطلبات المعلقة
-        if(pendingKeys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-weight: bold; padding: 20px;">لا توجد طلبات شحن معلقة حالياً. 📭</td></tr>`;
+        // 1. رسم الطلبات المعلقة
+        if (pendingReqs.length === 0) {
+            tbodyReqs.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا توجد طلبات شحن معلقة حالياً.</td></tr>`;
         } else {
-            pendingKeys.forEach(id => {
-                let req = data[id];
+            tbodyReqs.innerHTML = pendingReqs.map(req => {
                 let dObj = new Date(req.timestamp);
                 let dateStr = dObj.toLocaleDateString('ar-EG') + " " + formatTime12(`${dObj.getHours()}:${dObj.getMinutes()}`);
                 
-                tbody.innerHTML += `
-                <tr>
+                return `
+                <tr style="background: rgba(245, 158, 11, 0.05);">
                     <td style="font-size: 13px; color: var(--text-muted);">${dateStr}</td>
                     <td><strong>${req.studentName}</strong><br><span style="font-size: 12px; color: var(--primary-color);">كود: ${req.studentCode}</span></td>
                     <td><strong style="color: #f59e0b; font-size: 16px;">${req.amount} ج.م</strong></td>
-                    <td style="font-family: monospace; font-weight: bold;">${req.transferNumber || 'غير مسجل'}</td>
+                    <td style="direction: ltr; font-weight: bold;">${req.transferNumber}</td>
                     <td>
-                        <a href="${req.receiptImage}" target="_blank">
-                            <img src="${req.receiptImage}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
-                        </a>
+                        <img src="${req.receiptImage}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
                     </td>
                     <td>
                         <div style="display: flex; gap: 5px; justify-content: center;">
-                            <button class="save-btn" style="margin:0; width:auto; padding:6px 12px; background:var(--success-color);" onclick="openApproveWalletModal('${id}')">مراجعة وقبول ✅</button>
-                            <button class="icon-btn danger" style="margin:0;" onclick="directRejectWallet('${id}')" title="رفض مباشر">❌</button>
+                            <button class="save-btn" style="margin:0; width:auto; padding:6px 12px; background:var(--success-color);" onclick="openApproveWalletModal('${req.id}')">مراجعة وقبول ✅</button>
+                            <button class="icon-btn danger" style="margin:0;" onclick="deleteWalletRequest('${req.id}')">❌</button>
                         </div>
                     </td>
                 </tr>`;
-            });
+            }).join('');
         }
 
-        // عرض السجل السابق
-        if(historyTbody) {
-            if(historyKeys.length === 0) {
-                historyTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد طلبات سابقة.</td></tr>`;
-            } else {
-                historyKeys.forEach(id => {
-                    let req = data[id];
-                    let dObj = new Date(req.timestamp);
-                    let dateStr = dObj.toLocaleDateString('ar-EG') + " " + formatTime12(`${dObj.getHours()}:${dObj.getMinutes()}`);
-                    let statusBadge = req.status === "approved" 
-                        ? `<span class="badge" style="background: #d1fae5; color: #047857;">مقبول وشحن (${req.approvedAmount || req.amount} ج) ✅</span>` 
-                        : `<span class="badge" style="background: #fee2e2; color: #b91c1c;">مرفوض ❌</span>`;
+        // 2. رسم سجل الطلبات السابقة
+        if (historyReqs.length === 0) {
+            tbodyHist.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد سجل لطلبات سابقة.</td></tr>`;
+        } else {
+            tbodyHist.innerHTML = historyReqs.map(req => {
+                let dObj = new Date(req.timestamp);
+                let dateStr = dObj.toLocaleDateString('ar-EG') + " " + formatTime12(`${dObj.getHours()}:${dObj.getMinutes()}`);
+                
+                let isApproved = req.status === 'approved';
+                let statusBadge = isApproved 
+                    ? `<span style="background: #d1fae5; color: #059669; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;">مقبول ✅</span>`
+                    : `<span style="background: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;">مرفوض ❌</span>`;
 
-                    historyTbody.innerHTML += `
-                    <tr>
-                        <td style="font-size: 13px; color: var(--text-muted);">${dateStr}</td>
-                        <td><strong>${req.studentName}</strong><br><span style="font-size: 12px; color: var(--primary-color);">كود: ${req.studentCode}</span></td>
-                        <td><strong style="color: #f59e0b; font-size: 16px;">${req.amount} ج.م</strong></td>
-                        <td style="font-family: monospace; font-weight: bold;">${req.transferNumber || 'غير مسجل'}</td>
-                        <td>
-                            <a href="${req.receiptImage}" target="_blank">
-                                <img src="${req.receiptImage}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
-                            </a>
-                        </td>
-                        <td>${statusBadge}</td>
-                    </tr>`;
-                });
-            }
+                return `
+                <tr style="opacity: 0.8;">
+                    <td style="font-size: 13px; color: var(--text-muted);">${dateStr}</td>
+                    <td><strong>${req.studentName}</strong><br><span style="font-size: 12px; color: var(--primary-color);">كود: ${req.studentCode}</span></td>
+                    <td><strong style="color: ${isApproved ? '#10b981' : '#ef4444'}; font-size: 15px;">${req.amount} ج.م</strong></td>
+                    <td style="direction: ltr; font-weight: bold;">${req.transferNumber}</td>
+                    <td>
+                        <img src="${req.receiptImage}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;" title="اضغط لتكبير الصورة">
+                    </td>
+                    <td>${statusBadge}</td>
+                </tr>`;
+            }).join('');
         }
-    } catch(e) { 
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">خطأ في الاتصال بالسيرفر!</td></tr>`; 
+
+        window.currentWalletRequests = data;
+
+    } catch (e) {
+        tbodyReqs.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red; font-weight: bold;">حدث خطأ في الاتصال بالخادم!</td></tr>`;
     }
 };
 
