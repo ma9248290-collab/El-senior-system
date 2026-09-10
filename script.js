@@ -4372,16 +4372,25 @@ window.loadSentNotifications = async function() {
             });
         }
 
-        // تعبئة الامتحانات
-        let examsToSelect = JSON.parse(localStorage.getItem("onlineExams")) || [];
+        // 🔥 التعديل تم هنا: تعبئة الامتحانات من الداتا اللايف مش من الـ LocalStorage
+        let examsToSelect = window.fetchedOnlineExams || [];
         let examOpts = '<option value="">بدون شرط امتحان</option>';
-        examsToSelect.forEach(e => { 
+        
+        // فلترة الامتحانات عشان يظهر امتحانات الصف الخاص بالكورس فقط
+        let validExams = examsToSelect.filter(e => {
+            if (e.group === 'all' || (Array.isArray(e.group) && e.group.includes('all'))) return true;
+            let examGroups = Array.isArray(e.group) ? e.group : [e.group];
+            return examGroups.some(g => validGroups.includes(g));
+        });
+
+        validExams.forEach(e => { 
             let isSelected = selectedExam === e.id ? "selected" : "";
             examOpts += `<option value="${e.id}" ${isSelected}>${e.title}</option>`; 
         });
+        
         examSelect.innerHTML = examOpts;
     };
-
+    
     // 3. لما ندوس إضافة كورس
     window.openAddLectureModal = function() {
         document.getElementById("lecTitle").value = "";
