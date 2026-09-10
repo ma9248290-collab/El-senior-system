@@ -4372,11 +4372,10 @@ window.loadSentNotifications = async function() {
             });
         }
 
-        // 🔥 التعديل تم هنا: تعبئة الامتحانات من الداتا اللايف مش من الـ LocalStorage
+        // 🔥 التعديل تم هنا: تعبئة الامتحانات 
         let examsToSelect = window.fetchedOnlineExams || [];
-        let examOpts = '<option value="">بدون شرط امتحان</option>';
+        let examOpts = '<option value="">-- اختر الامتحان من هنا --</option>';
         
-        // فلترة الامتحانات عشان يظهر امتحانات الصف الخاص بالكورس فقط
         let validExams = examsToSelect.filter(e => {
             if (e.group === 'all' || (Array.isArray(e.group) && e.group.includes('all'))) return true;
             let examGroups = Array.isArray(e.group) ? e.group : [e.group];
@@ -4389,6 +4388,18 @@ window.loadSentNotifications = async function() {
         });
         
         examSelect.innerHTML = examOpts;
+
+        // 💡 السحر هنا: تظبيط القائمة الأولى (الشرط) تظهر وتخفي القائمة التانية حسب لو فيه امتحان متسجل أو لأ
+        let conditionTypeSelect = document.getElementById(prefix + "ExamConditionType");
+        if(conditionTypeSelect) {
+            if (selectedExam && selectedExam !== "") {
+                conditionTypeSelect.value = "yes";
+                examSelect.style.display = "block";
+            } else {
+                conditionTypeSelect.value = "no";
+                examSelect.style.display = "none";
+            }
+        }
     };
     
     // 3. لما ندوس إضافة كورس

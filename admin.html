@@ -1109,11 +1109,17 @@
                     </div>
                 </div>
                 <div style="flex: 1; min-width: 150px;">
-                    <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
-                    <select id="lecRequiredExam" class="custom-input" style="margin: 0;">
-                        <!-- الامتحانات هتظهر هنا -->
-                    </select>
-                </div>
+    <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
+    <!-- القائمة الأولى (تحديد الشرط) -->
+    <select id="lecExamConditionType" class="custom-input" style="margin: 0; margin-bottom: 5px;" onchange="document.getElementById('lecRequiredExam').style.display = this.value === 'yes' ? 'block' : 'none'; if(this.value === 'no') document.getElementById('lecRequiredExam').value = '';">
+        <option value="no">بدون شرط امتحان</option>
+        <option value="yes">بشرط اجتياز امتحان</option>
+    </select>
+    <!-- القائمة التانية (اختيار الامتحان وتكون مخفية في البداية) -->
+    <select id="lecRequiredExam" class="custom-input" style="margin: 0; display: none;">
+        <!-- الامتحانات هتظهر هنا -->
+    </select>
+</div>
             </div>
             
             <div class="input-group" style="grid-column: span 2;">
@@ -2498,9 +2504,15 @@
                         </div>
                     </div>
                     <div style="flex: 1; min-width: 150px;">
-                        <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
-                        <select id="editLecRequiredExam" class="custom-input" style="margin: 0;"></select>
-                    </div>
+    <label style="font-size: 12px; color: #f59e0b; font-weight: bold;">شرط الفتح (اجتياز امتحان):</label>
+    <!-- القائمة الأولى (تحديد الشرط) -->
+    <select id="editLecExamConditionType" class="custom-input" style="margin: 0; margin-bottom: 5px;" onchange="document.getElementById('editLecRequiredExam').style.display = this.value === 'yes' ? 'block' : 'none'; if(this.value === 'no') document.getElementById('editLecRequiredExam').value = '';">
+        <option value="no">بدون شرط امتحان</option>
+        <option value="yes">بشرط اجتياز امتحان</option>
+    </select>
+    <!-- القائمة التانية (اختيار الامتحان وتكون مخفية في البداية) -->
+    <select id="editLecRequiredExam" class="custom-input" style="margin: 0; display: none;"></select>
+</div>
                 </div>
 
                 <div class="input-group" style="grid-column: span 2;">
