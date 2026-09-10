@@ -6018,73 +6018,7 @@ window.markAttendance = function(codeOrPhone, status) {
     }
 };
 
-window.renderAttendanceTable = function(session) { 
-    const tbody = document.getElementById("attendance-list"); 
-    if(!tbody) return;
 
-    const gStudents = students.filter(s => s.group === session.group); 
-    
-    if(gStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
-        return;
-    }
-    
-    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور أو تعويض بس
-    const recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
-
-    if(recordedStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = ""; 
-    const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
-    const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
-    
-    // هنعكس المصفوفة عشان آخر طالب ضرب باركود يظهر فوق
-    recordedStudents.reverse().forEach(st => { 
-        const stat = session.attendance[st.code] || session.attendance[st.phone]; 
-        
-        // 🕒 سحب الوقت لو موجود
-        let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
-
-        let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
-        let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
-
-        // 🔥 إضافة زراير التحويل السريعة
-        if (stat === 'present') {
-            statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
-            actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','late')">تحويل لمتأخر ⏳</button>` + actionBtns;
-        }
-        else if (stat === 'late') {
-            statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
-            actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','present')">تحويل لحاضر ✅</button>` + actionBtns;
-        }
-        else if (stat === 'absent') {
-            statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
-        }
-        else if (typeof stat === 'object' && stat.status === 'makeup') {
-            statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
-        }
-        
-        let pHT = '--'; 
-        if(prevSession) { 
-            const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
-            pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--'; 
-        } 
-        
-        tbody.innerHTML += `<tr>
-            <td><strong>${st.code}</strong></td>
-            <td>${window.getStudentNameHtml(st)}</td>
-            <td style="direction: ltr;">${st.phone}</td>
-            <td>${pHT}</td>
-            <td>${statHtml}</td>
-            <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
-                ${actionBtns}
-            </td>
-        </tr>`; 
-    }); 
-};
 
 window.cancelAttendance = function(studentCode) {
     if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
@@ -8066,69 +8000,81 @@ window.checkWhatsappServer = async function() {
 // 🚀 الإصلاح النهائي لشاشة الحضور والباركود 
 // ==========================================
 
-window.renderAttendanceTable = function(session) {
-    // 💡 سحب كل الجداول لتحديثها وتخطي مشكلة تكرار الـ HTML
-    const tbodies = document.querySelectorAll('tbody[id="attendance-list"]');
-    const gStudents = students.filter(s => String(s.group).trim() === String(session.group).trim());
+window.renderAttendanceTable = function(session) { 
+    const tbody = document.getElementById("attendance-list"); 
+    if(!tbody) return;
 
-    tbodies.forEach(tbody => {
-        if(gStudents.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`;
-            return;
-        }
+    const gStudents = students.filter(s => s.group === session.group); 
+    
+    if(gStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
+        return;
+    }
+    
+    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور أو تعويض بس
+    let recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
 
-        // التصفية: إظهار الطلاب اللي حضروا أو متأخرين أو تعويض بس
-        const recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
+    if(recordedStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
+        return;
+    }
 
-        if(recordedStudents.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = "";
-        const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date));
-        const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1];
-
-        // عكس المصفوفة لظهور الأحدث فوق
-        recordedStudents.reverse().forEach(st => {
-            const stat = session.attendance[st.code] || session.attendance[st.phone];
-            let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
-            let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
-            let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
-
-            if (stat === 'present') {
-                statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
-                actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; margin-left:5px;" onclick="markAttendance('${st.code}','late')">تأخير ⏳</button>` + actionBtns;
-            }
-            else if (stat === 'late') {
-                statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
-                actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer; margin-left:5px;" onclick="markAttendance('${st.code}','present')">حضور ✅</button>` + actionBtns;
-            }
-            else if (stat === 'absent') {
-                statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
-            }
-            else if (typeof stat === 'object' && stat.status === 'makeup') {
-                statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
-            }
-
-            let pHT = '--';
-            if(prevSession) {
-                const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone];
-                pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--';
-            }
-
-            tbody.innerHTML += `<tr>
-                <td><strong style="color:var(--primary-color);">${st.code}</strong></td>
-                <td>${window.getStudentNameHtml ? window.getStudentNameHtml(st) : st.name}</td>
-                <td style="direction: ltr;">${st.phone}</td>
-                <td>${pHT}</td>
-                <td>${statHtml}</td>
-                <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
-                    ${actionBtns}
-                </td>
-            </tr>`;
-        });
+    tbody.innerHTML = ""; 
+    const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
+    const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
+    
+    // 🔥 التعديل السحري هنا: ترتيب الطلاب بناءً على ترتيب الرصد الفعلي (الأحدث يظهر فوق)
+    const scanOrder = Object.keys(session.attendance);
+    recordedStudents.sort((a, b) => {
+        let keyA = session.attendance[a.code] ? a.code : String(a.phone);
+        let keyB = session.attendance[b.code] ? b.code : String(b.phone);
+        // الترتيب التنازلي: الأحدث (اللي ليه اندكس أكبر) ييجي في الأول
+        return scanOrder.indexOf(keyB) - scanOrder.indexOf(keyA);
     });
+
+    // رسم الجدول بعد الترتيب الصحيح
+    recordedStudents.forEach(st => { 
+        const stat = session.attendance[st.code] || session.attendance[st.phone]; 
+        
+        // 🕒 سحب الوقت لو موجود
+        let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
+
+        let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
+        let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
+
+        // 🔥 إضافة زراير التحويل السريعة
+        if (stat === 'present') {
+            statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
+            actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','late')">تحويل لمتأخر ⏳</button>` + actionBtns;
+        }
+        else if (stat === 'late') {
+            statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
+            actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','present')">تحويل لحاضر ✅</button>` + actionBtns;
+        }
+        else if (stat === 'absent') {
+            statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
+        }
+        else if (typeof stat === 'object' && stat.status === 'makeup') {
+            statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
+        }
+        
+        let pHT = '--'; 
+        if(prevSession) { 
+            const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
+            pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--'; 
+        } 
+        
+        tbody.innerHTML += `<tr>
+            <td><strong>${st.code}</strong></td>
+            <td>${window.getStudentNameHtml ? window.getStudentNameHtml(st) : st.name}</td>
+            <td style="direction: ltr;">${st.phone}</td>
+            <td>${pHT}</td>
+            <td>${statHtml}</td>
+            <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                ${actionBtns}
+            </td>
+        </tr>`; 
+    }); 
 };
 
 window.markAttendance = function(codeOrPhone, status) {
