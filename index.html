@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+    
 
 <meta name="google-site-verification" content="sM5gaAdXc3PbInAu4BnGrl5-y3G6fe3voZw9MLm6Xe4" />
     <!-- الكلمات المفتاحية ووصف الموقع لجوجل -->
@@ -2486,38 +2487,7 @@ window.openStudentCourseDetails = async function(courseId) {
     let attendedAny = false;
     let linkedArr = [];
     if (course.linkedSessions && Array.isArray(course.linkedSessions)) linkedArr = linkedArr.concat(course.linkedSessions);
-    vids.forEach(v => { if (v.linkedSession) linkedArr.push(v.linkedSession); });
-
-    if (linkedArr.length > 0 && window.allClassSessions) {
-        for (let sessId of linkedArr) {
-            let sessionObj = window.allClassSessions.find(s => String(s.id) === String(sessId));
-            if (sessionObj && sessionObj.attendance) {
-                let stat = sessionObj.attendance[currentStudent.code] || sessionObj.attendance[currentStudent.phone];
-                if (stat === 'present' || stat === 'late' || (typeof stat === 'object' && stat.status === 'makeup')) {
-                    attendedAny = true;
-                    break;
-                }
-            }
-        }
-    }
-
-    // هل الكورس متاح للطالب؟ (مجاني أو تم شراؤه أو حضر الحصة)
-    let isCourseUnlocked = isCourseFree || isFolderBundleActive || attendedAny;
-
-    // لو الكورس غير متاح وله سعر، نعرض زرار الشراء للكورس بالكامل فوق الفيديوهات
-    if (!isCourseUnlocked && coursePrice > 0) {
-        playlistHtml += `
-        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; border: 2px dashed var(--primary); flex-wrap: wrap; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-            <div>
-                <h4 style="margin: 0 0 5px 0; color: white; font-size: 18px;">🛒 شراء الكورس بالكامل</h4>
-                <p style="margin: 0; color: #cbd5e1; font-size: 13px; font-weight: bold;">افتح جميع أجزاء هذا الكورس دفعة واحدة.</p>
-            </div>
-            <button class="btn" style="background: linear-gradient(45deg, var(--primary), var(--secondary)); padding: 12px 25px; width: auto; font-size: 16px; font-weight: 900; border-radius: 10px;" onclick="purchaseWholeCourse('${course.id}', ${coursePrice}, '${course.title.replace(/'/g, "\\'")}')">شراء بـ ${coursePrice} ج.م</button>
-        </div>
-        `;
-    }
-
-    vids.forEach((v, idx) => {
+vids.forEach((v, idx) => {
         let safeTitle = v.title.replace(/'/g, "\\'");
         
         let cExam = course.requiredExam || v.requiredExam;
@@ -2532,28 +2502,46 @@ window.openStudentCourseDetails = async function(courseId) {
             if (!didSubmitExam) isLockedByExam = true;
         }
 
+        // 1. الكورس محتاج امتحان
         if (isLockedByExam && requiredExamObj) {
-            playlistHtml += `
-            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); margin-bottom: 10px; opacity: 0.9;">
-                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
-                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
-            </div>`;
-        } else if (isCourseUnlocked) {
-            playlistHtml += `
-            <div style="background: #f0fdf4; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #10b981; margin-bottom: 10px;">
-                <span style="font-weight: 900; color: #065f46; font-size: 16px;">▶️ ${v.title}</span>
-                <button class="btn" style="background: var(--success); padding: 8px 20px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل ▶️</button>
-            </div>`;
-        } else {
-            // الكورس مقفول (بدون زر شراء هنا، زر الشراء فوق)
+            
+            // هل الكورس متاح للطالب (مجاني أو اشتراه)؟
+            if (isCourseUnlocked) {
+                // الكورس معاه -> الزرار برتقالي وشغال
+                playlistHtml += `
+                <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); margin-bottom: 10px; opacity: 0.9;">
+                    <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
+                    <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
+                </div>`;
+            } else {
+                // الكورس مش معاه (لازم يشتريه الأول) -> الزرار رصاصي وباهت ومش شغال
+                playlistHtml += `
+                <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px dashed #cbd5e1; margin-bottom: 10px; opacity: 0.6;">
+                    <span style="font-weight: 900; color: var(--text-muted); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#94a3b8;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
+                    <button class="btn" style="background: #e2e8f0; color: #94a3b8; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: none; cursor: not-allowed;" disabled title="يجب شراء الكورس أولاً لفتح الامتحان">انتقل للامتحان 📝</button>
+                </div>`;
+            }
+            
+        } 
+        // 2. الكورس مش محتاج امتحان، بس مقفول ولازم يشتريه
+        else if (!isCourseUnlocked) {
             playlistHtml += `
             <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); margin-bottom: 10px; opacity: 0.7;">
                 <span style="font-weight: 900; color: var(--text-muted); font-size: 15px;">🔒 ${v.title}</span>
                 <span style="color: var(--danger); font-size: 12px; font-weight: bold; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">يتطلب شراء الكورس</span>
             </div>`;
+        } 
+        // 3. الكورس متاح ومفيش امتحان (أو امتحن وخلص) -> زرار التشغيل
+        else {
+            playlistHtml += `
+            <div style="background: #f0fdf4; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #10b981; margin-bottom: 10px;">
+                <span style="font-weight: 900; color: #065f46; font-size: 16px;">▶️ ${v.title}</span>
+                <button class="btn" style="background: var(--success); padding: 8px 20px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل ▶️</button>
+            </div>`;
         }
     });
 
+    
     document.getElementById("detailsCoursePlaylist").innerHTML = playlistHtml;
     document.getElementById("studentCourseDetailsModal").style.display = "flex";
 };
