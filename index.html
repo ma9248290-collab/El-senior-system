@@ -2034,49 +2034,26 @@ window.openCoursePlayer = function(courseId, startVideoIndex = 0) {
     
     vids.forEach((v, idx) => {
         let safeTitle = v.title.replace(/'/g, "\\'");
+        let isActive = idx === startVideoIndex;
         
-        let cExam = course.requiredExam || v.requiredExam;
-        let isLockedByExam = false;
-        let requiredExamObj = null;
-        
-        // لو في امتحان مطلوب والطالب محضرش الحصة
-        if (cExam && !attendedAny) {
-            requiredExamObj = safeExams.find(e => e.id === cExam); 
-            let examSubs = allSubs[cExam];
-            let didSubmitExam = examSubs && (examSubs[currentStudent.code] || examSubs[currentStudent.phone]);
-            if (!didSubmitExam) isLockedByExam = true;
-        }
+        let bgStyle = isActive ? "background: rgba(59, 130, 246, 0.15); border-right: 4px solid #3b82f6; color: #3b82f6; font-weight: 900;" : "background: transparent; color: #94a3b8; border-right: 4px solid transparent; font-weight: bold;";
+        let icon = isActive ? '▶️' : '📺';
 
-        // 🔥 التعديل هنا: ترتيب الشروط منطقياً
-        if (!isCourseUnlocked) {
-            // 1. الكورس بفلوس ولسه الطالب مشتراهوش (أو محضروش في السنتر)
-            playlistHtml += `
-            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); margin-bottom: 10px; opacity: 0.7;">
-                <span style="font-weight: 900; color: var(--text-muted); font-size: 15px;">🔒 ${v.title}</span>
-                <span style="color: var(--danger); font-size: 12px; font-weight: bold; background: #fee2e2; padding: 4px 10px; border-radius: 6px;">يتطلب شراء الكورس</span>
-            </div>`;
-            
-        } else if (isLockedByExam && requiredExamObj) {
-            // 2. الكورس متاح له (مجاني أو اشتراه)، بس في شرط امتحان لسه محلوش
-            playlistHtml += `
-            <div style="background: var(--bg-color); padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); margin-bottom: 10px; opacity: 0.9;">
-                <span style="font-weight: 900; color: var(--secondary); font-size: 15px;">🔒 ${v.title} <br><span style="font-size:13px; color:#f59e0b;">مغلق بامتحان: (${requiredExamObj.title})</span></span>
-                <button class="btn" style="background: #f59e0b; padding: 8px 15px; width: auto; font-size: 13px; font-weight: bold; border-radius: 10px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; showOnlineExams();">انتقل للامتحان 📝</button>
-            </div>`;
-            
-        } else {
-            // 3. الكورس متاح ومفيش امتحان (أو امتحن وخلص) -> يظهر زرار التشغيل
-            playlistHtml += `
-            <div style="background: #f0fdf4; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #10b981; margin-bottom: 10px;">
-                <span style="font-weight: 900; color: #065f46; font-size: 16px;">▶️ ${v.title}</span>
-                <button class="btn" style="background: var(--success); padding: 8px 20px; width: auto; font-size: 14px; font-weight: bold; border-radius: 10px;" onclick="document.getElementById('studentCourseDetailsModal').style.display='none'; openCoursePlayer('${course.id}', ${idx})">تشغيل ▶️</button>
-            </div>`;
-        }
+        playlistHtml += `
+        <div class="playlist-item" data-index="${idx}" style="${bgStyle} padding:15px; border-radius:8px; margin-bottom:8px; cursor:pointer; transition:0.3s; display: flex; align-items: center; gap: 10px;" 
+             onmouseover="if(this.getAttribute('data-active') !== 'true') this.style.background='rgba(255,255,255,0.05)'" 
+             onmouseout="if(this.getAttribute('data-active') !== 'true') this.style.background='transparent'" 
+             onclick="playCourseVideo('${v.url}', '${safeTitle}', '${course.id}', ${idx}, this)"
+             data-active="${isActive ? 'true' : 'false'}">
+            <span class="vid-icon" style="font-size: 18px;">${icon}</span> 
+            <span style="flex: 1; font-size: 15px;">${v.title}</span>
+        </div>`;
     });
+    
     document.getElementById("player-playlist").innerHTML = playlistHtml;
 
     if(vids.length > startVideoIndex) {
-        // بنبعت العنصر الأولاني كـ Reference
+        // بنبعت العنصر الأولاني كـ Reference عشان يشتغل أوتوماتيك أول ما الشاشة تفتح
         let firstElement = document.querySelector('.playlist-item[data-index="'+startVideoIndex+'"]');
         playCourseVideo(vids[startVideoIndex].url, vids[startVideoIndex].title, course.id, startVideoIndex, firstElement);
     }
@@ -2086,7 +2063,6 @@ window.openCoursePlayer = function(courseId, startVideoIndex = 0) {
     window.addEventListener('blur', applyBlackout);
     window.addEventListener('focus', removeBlackout);
 };
-
 window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, element = null) {
     let course = window.allLectures.find(l => l.id === courseId);
     if (!course) return;
