@@ -2346,11 +2346,12 @@ window.renderStudentLectures = function() {
     });
 };
 
-// 2. دالة شراء باقة المجلد (ترم أو شهر)
-window.purchaseFolder = async function(folderId, folderName, price, typeName) {
-    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء باقة (${folderName}) وفتح كل محاضراتها؟`)) return;
+// دالة شراء الكورس بالكامل (المحدثة والآمنة)
+window.purchaseWholeCourse = async function(courseId, price, courseTitle) {
+    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء كورس (${courseTitle}) وفتح جميع أجزائه؟`)) return;
     if((currentStudent.walletBalance || 0) < price) { 
-        alert("رصيد محفظتك لا يكفي! قم بشحن رصيدك أولاً من تبويب (محفظتي)."); 
+        if (typeof showToast === 'function') showToast("رصيد محفظتك لا يكفي! قم بشحن الرصيد أولاً.", "error");
+        else alert("رصيد محفظتك لا يكفي! قم بشحن الرصيد أولاً.");
         return; 
     }
     
@@ -2361,7 +2362,84 @@ window.purchaseFolder = async function(folderId, folderName, price, typeName) {
     try {
         let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
         let data = await dataRes.json();
-        let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
+        
+        // حماية عشان لو فايربيز رجع الطلاب كـ Object بدل Array
+        let studentIndex = -1;
+        if (Array.isArray(data.students)) {
+            studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
+        } else if (typeof data.students === 'object') {
+            let keys = Object.keys(data.students);
+            for(let k of keys) {
+                if(data.students[k] && data.students[k].code === currentStudent.code) {
+                    studentIndex = k; break;
+                }
+            }
+        }
+        
+        if(studentIndex !== -1) {
+            currentStudent.walletBalance -= price;
+            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
+            
+            // حفظ ID الكورس بالكامل
+            if(!currentStudent.purchasedCourses.includes(courseId)) {
+                currentStudent.purchasedCourses.push(courseId);
+            }
+
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
+            });
+            
+            if (typeof showToast === 'function') showToast("تم شراء الكورس بنجاح! جميع الأجزاء مفتوحة الآن 🎉", "success");
+            else alert("تم شراء الكورس بنجاح! جميع الأجزاء مفتوحة الآن 🎉");
+            
+            // تحديث رصيد المحفظة في الشاشة
+            document.getElementById("top-balance").innerText = currentStudent.walletBalance;
+            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
+            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
+
+            // تحديث النافذة عشان الفيديوهات تتفتح
+            openStudentCourseDetails(courseId);
+        } else {
+            throw new Error("لم يتم العثور على الطالب في قاعدة البيانات");
+        }
+    } catch(e) { 
+        console.error(e);
+        if (typeof showToast === 'function') showToast("حدث خطأ أثناء الشراء! تأكد من الإنترنت.", "error"); 
+        else alert("حدث خطأ أثناء الشراء! تأكد من الإنترنت.");
+        btn.innerText = origText; btn.disabled = false;
+    }
+};
+
+// دالة شراء باقة المجلد (ترم أو شهر)
+window.purchaseFolder = async function(folderId, folderName, price, typeName) {
+    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء باقة (${folderName}) وفتح كل محاضراتها؟`)) return;
+    if((currentStudent.walletBalance || 0) < price) { 
+        if (typeof showToast === 'function') showToast("رصيد محفظتك لا يكفي! قم بشحن رصيدك أولاً.", "error");
+        else alert("رصيد محفظتك لا يكفي! قم بشحن رصيدك أولاً من تبويب (محفظتي)."); 
+        return; 
+    }
+    
+    let btn = event.currentTarget;
+    let origText = btn.innerText;
+    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
+
+    try {
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
+        let data = await dataRes.json();
+        
+        // حماية عشان لو فايربيز رجع الطلاب كـ Object بدل Array
+        let studentIndex = -1;
+        if (Array.isArray(data.students)) {
+            studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
+        } else if (typeof data.students === 'object') {
+            let keys = Object.keys(data.students);
+            for(let k of keys) {
+                if(data.students[k] && data.students[k].code === currentStudent.code) {
+                    studentIndex = k; break;
+                }
+            }
+        }
         
         if(studentIndex !== -1) {
             currentStudent.walletBalance -= price;
@@ -2376,20 +2454,24 @@ window.purchaseFolder = async function(folderId, folderName, price, typeName) {
                 body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
             });
             
-            alert(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح وفُتحت لك كل المحاضرات!`);
+            if (typeof showToast === 'function') showToast(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح!`, "success");
+            else alert(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح وفُتحت لك كل المحاضرات!`);
             
             document.getElementById("top-balance").innerText = currentStudent.walletBalance;
             if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
             if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
 
             renderStudentLectures();
+        } else {
+            throw new Error("لم يتم العثور على الطالب في قاعدة البيانات");
         }
     } catch(e) { 
-        alert("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت."); 
+        console.error(e);
+        if (typeof showToast === 'function') showToast("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت.", "error"); 
+        else alert("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت.");
         btn.innerText = origText; btn.disabled = false;
     }
 };
-
 window.openStudentCourseDetails = async function(courseId) {
     let course = window.allLectures.find(l => l.id === courseId);
     if(!course) return;
@@ -2521,52 +2603,6 @@ window.openStudentCourseDetails = async function(courseId) {
     document.getElementById("studentCourseDetailsModal").style.display = "flex";
 };
 
-// دالة شراء الكورس بالكامل
-window.purchaseWholeCourse = async function(courseId, price, courseTitle) {
-    if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء كورس (${courseTitle}) وفتح جميع أجزائه؟`)) return;
-    if((currentStudent.walletBalance || 0) < price) { 
-        showToast("رصيد محفظتك لا يكفي! قم بشحن الرصيد أولاً.", "error"); 
-        return; 
-    }
-    
-    let btn = event.currentTarget;
-    let origText = btn.innerText;
-    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
-
-    try {
-        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
-        let data = await dataRes.json();
-        let studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
-        
-        if(studentIndex !== -1) {
-            currentStudent.walletBalance -= price;
-            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
-            
-            // حفظ ID الكورس بالكامل
-            if(!currentStudent.purchasedCourses.includes(courseId)) {
-                currentStudent.purchasedCourses.push(courseId);
-            }
-
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
-            });
-            
-            showToast("تم شراء الكورس بنجاح! جميع الأجزاء مفتوحة الآن 🎉", "success");
-            
-            // تحديث رصيد المحفظة في الشاشة
-            document.getElementById("top-balance").innerText = currentStudent.walletBalance;
-            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
-            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
-
-            // تحديث النافذة عشان الفيديوهات تتفتح
-            openStudentCourseDetails(courseId);
-        }
-    } catch(e) { 
-        showToast("حدث خطأ أثناء الشراء! تأكد من الإنترنت.", "error"); 
-        btn.innerText = origText; btn.disabled = false;
-    }
-};
 
         window.redeemCode = async function() {
             const code = document.getElementById("rechargeCodeInput").value.trim();
@@ -2910,7 +2946,43 @@ window.recordPlatformMakeup = async function(courseId) {
     }
 };
 
+window.showToast = function(message, type = 'success') {
+    if (!document.getElementById("premium-toast-styles")) {
+        const style = document.createElement("style");
+        style.id = "premium-toast-styles";
+        style.innerHTML = `
+            #premium-toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 999999; display: flex; flex-direction: column; gap: 15px; pointer-events: none; }
+            .premium-toast { min-width: 300px; max-width: 400px; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; animation: slideDownToast 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; border: 1px solid rgba(255,255,255,0.5); }
+            .premium-toast-content { display: flex; align-items: center; padding: 15px 20px; gap: 15px; direction: rtl; }
+            .toast-icon { font-size: 24px; display: flex; align-items: center; justify-content: center; }
+            .toast-text { color: #1e293b; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 800; line-height: 1.5; flex: 1; text-align: right; }
+            .toast-progress-bg { width: 100%; height: 4px; background: rgba(0,0,0,0.05); }
+            .toast-progress-bar { height: 100%; width: 100%; animation: shrinkProgress 4s linear forwards; border-radius: 0 5px 5px 0; }
+            .toast-success .toast-progress-bar { background: linear-gradient(90deg, #10b981, #34d399); }
+            .toast-success { border-bottom: 4px solid #10b981; }
+            .toast-error .toast-progress-bar { background: linear-gradient(90deg, #ef4444, #f87171); }
+            .toast-error { border-bottom: 4px solid #ef4444; }
+            @keyframes slideDownToast { 0% { opacity: 0; transform: translateY(-30px); } 100% { opacity: 1; transform: translateY(0); } }
+            @keyframes slideOutToast { 0% { opacity: 1; transform: translateY(0); max-height: 100px; } 100% { opacity: 0; transform: translateY(-30px); max-height: 0; padding: 0; border: none; } }
+            @keyframes shrinkProgress { from { width: 100%; } to { width: 0%; } }
+        `;
+        document.head.appendChild(style);
+    }
 
+    let container = document.getElementById('premium-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'premium-toast-container';
+        document.body.appendChild(container);
+    }
+
+    let icon = type === 'success' ? '✅' : '❌';
+    const toast = document.createElement('div');
+    toast.className = `premium-toast toast-${type}`;
+    toast.innerHTML = `<div class="premium-toast-content"><div class="toast-icon">${icon}</div><div class="toast-text">${message}</div></div><div class="toast-progress-bg"><div class="toast-progress-bar"></div></div>`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.animation = 'slideOutToast 0.5s forwards'; setTimeout(() => toast.remove(), 500); }, 4000);
+};
     </script>
 </body>
 </html>
