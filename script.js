@@ -1653,9 +1653,14 @@ window.renderGroupStudentsTable = function() {
                 if (status === 'present') { dotColor = "#10b981"; tooltipText = `${session.date}: حاضر ✅`; }
                 else if (status === 'late') { dotColor = "#f59e0b"; tooltipText = `${session.date}: متأخر ⏳`; }
                 else if (status === 'absent') { dotColor = "#ef4444"; tooltipText = `${session.date}: غائب ❌`; }
-                else if (typeof status === 'object' && status.status === 'makeup') {
-                    dotColor = "#2563eb"; 
-                    tooltipText = `${session.date}: حاضر كتعويض 💻`;
+                else if (typeof status === 'object') {
+                    if (status.status === 'makeup') {
+                        dotColor = "#2563eb"; 
+                        tooltipText = `${session.date}: حاضر كتعويض 💻`;
+                    } else if (status.status === 'platform_makeup') {
+                        dotColor = "#a855f7"; 
+                        tooltipText = `${session.date}: تعويض منصة 💻`;
+                    }
                 }
             }
             attendanceDotsHtml += `<span style="width: 14px; height: 14px; border-radius: 50%; background-color: ${dotColor}; display: inline-block; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); cursor: help;" title="${tooltipText}"></span>`;
@@ -5806,26 +5811,35 @@ window.openStudentProfile = function(code) {
     }
 
    // جداول الإحصائيات (حضور، امتحانات، واجبات)
-    const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
+const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
     
     groupSessions.forEach(s => { 
         const st = s.attendance[student.code] || s.attendance[student.phone]; 
-        if(st === 'present' || st === 'late' || (typeof st === 'object' && st.status === 'makeup')) attended++; 
+        
+        let isMakeup = typeof st === 'object' && (st.status === 'makeup' || st.status === 'platform_makeup');
+        if(st === 'present' || st === 'late' || isMakeup) attended++; 
         
         let badge = '<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>';
-        if (st === 'present') badge = `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>`;
-        else if (st === 'late') badge = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>`;
-        else if (st === 'absent') badge = `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>`;
-        else if (typeof st === 'object' && st.status === 'makeup') {
-            badge = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض</span>`;
+        
+        if (st === 'present') {
+            badge = `<span style="color:var(--success-color); font-weight:bold;">حاضر ✓</span>`;
+        } else if (st === 'late') {
+            badge = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>`;
+        } else if (st === 'absent') {
+            badge = `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>`;
+        } else if (typeof st === 'object') {
+            if (st.status === 'makeup') {
+                badge = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (سنتر)</span>`;
+            } else if (st.status === 'platform_makeup') {
+                badge = `<span style="color:#a855f7; font-weight:900; background:rgba(168, 85, 247, 0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(168, 85, 247, 0.2);">💻 تعويض (منصة)</span>`;
+            }
         }
 
         if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
     });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
-
-
+    
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
     groupExams.forEach(e => { let g = e.grades[student.code] !== undefined ? e.grades[student.code] : e.grades[student.phone]; if(g !== undefined) { tExam += parseFloat(e.maxScore); sExam += parseFloat(g); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${e.maxScore}</td></tr>`; });
@@ -5893,11 +5907,13 @@ window.generateAdvancedReport = function() {
             let cellValue = "--";
             
             if (type === 'attendance') {
-                let stat = item.attendance[st.code] || item.attendance[st.phone];
-                if (stat === 'present') cellValue = "حاضر";
-                else if (stat === 'absent') cellValue = "غائب";
-                else if (stat === 'late') cellValue = "متأخر";
-            } 
+    let stat = item.attendance[st.code] || item.attendance[st.phone];
+    if (stat === 'present') cellValue = "حاضر";
+    else if (stat === 'absent') cellValue = "غائب";
+    else if (stat === 'late') cellValue = "متأخر";
+    else if (typeof stat === 'object' && stat.status === 'makeup') cellValue = "تعويض (سنتر)";
+    else if (typeof stat === 'object' && stat.status === 'platform_makeup') cellValue = "تعويض (منصة)";
+}
             else if (type === 'exams' || type === 'homework') {
                 let g = item.grades[st.code] !== undefined ? item.grades[st.code] : item.grades[st.phone];
                 if (g !== undefined) {
@@ -8056,6 +8072,9 @@ window.renderAttendanceTable = function(session) {
         }
         else if (typeof stat === 'object' && stat.status === 'makeup') {
             statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
+        }
+        else if (typeof stat === 'object' && stat.status === 'platform_makeup') {
+            statHtml = `<span style="color:#a855f7; font-weight:900; background:rgba(168, 85, 247, 0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(168, 85, 247, 0.2);">💻 تعويض منصة</span>${timeStr}`;
         }
         
         let pHT = '--'; 
