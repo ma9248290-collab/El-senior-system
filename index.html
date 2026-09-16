@@ -2884,6 +2884,7 @@ window.updateFileName = function(input) {
 
 
 
+// 🚀 تحديث دالة تعويض المنصة لتشغيل المزامنة اللحظية مع لوحة الإدارة 🚀
 window.recordPlatformMakeup = async function(courseId) {
     let course = window.allLectures.find(l => l.id === courseId);
     if (!course) return;
@@ -2929,11 +2930,18 @@ window.recordPlatformMakeup = async function(courseId) {
                 currentStudent.behaviorPoints = currentPts + 5; // تحديث الواجهة عنده
             }
 
-            // إرسال التحديثات للسيرفر
+            // 1️⃣ إرسال التحديثات للسيرفر
             await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}.json`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
+            });
+
+            // 2️⃣ 🚀 السطر السحري: إرسال إشارة للوحة الإدارة لتحديث بياناتها فوراً وتجنب التضارب 🚀
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/syncSignal.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(Date.now())
             });
             
             showToast("💻 تم تسجيل الحصة كـ (تعويض منصة) بنجاح وإضافة 5 نقاط لتميزك!");
@@ -2945,6 +2953,7 @@ window.recordPlatformMakeup = async function(courseId) {
         }
     }
 };
+
 
 window.showToast = function(message, type = 'success') {
     if (!document.getElementById("premium-toast-styles")) {
