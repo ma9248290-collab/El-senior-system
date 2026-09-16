@@ -2346,7 +2346,21 @@ window.renderStudentLectures = function() {
     });
 };
 
-// دالة شراء الكورس بالكامل (المحدثة والآمنة)
+// ==========================================
+// 🚀 القضاء على مشكلة الكاش وتسريع الشراء 🚀
+// ==========================================
+
+// 1. إجبار المتصفح على جلب البيانات الحية دائماً (منع الكاش) عند الريفريش
+const originalFetch = window.fetch;
+window.fetch = async function(resource, config) {
+    if (typeof resource === 'string' && resource.includes('firebasedatabase.app')) {
+        config = config || {};
+        config.cache = 'no-store'; // السطر ده بيقضي على مشكلة الريفريش تماماً
+    }
+    return originalFetch(resource, config);
+};
+
+// 2. دوال الشراء المحمية والآمنة
 window.purchaseWholeCourse = async function(courseId, price, courseTitle) {
     if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء كورس (${courseTitle}) وفتح جميع أجزائه؟`)) return;
     if((currentStudent.walletBalance || 0) < price) { 
@@ -2357,20 +2371,20 @@ window.purchaseWholeCourse = async function(courseId, price, courseTitle) {
     
     let btn = event.currentTarget;
     let origText = btn.innerText;
-    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
+    btn.innerText = "جاري الشراء... ⏳"; 
+    btn.disabled = true;
 
     try {
-        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
-        let data = await dataRes.json();
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, { cache: 'no-store' });
+        let studentsData = await dataRes.json();
         
-        // حماية عشان لو فايربيز رجع الطلاب كـ Object بدل Array
         let studentIndex = -1;
-        if (Array.isArray(data.students)) {
-            studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
-        } else if (typeof data.students === 'object') {
-            let keys = Object.keys(data.students);
+        if (Array.isArray(studentsData)) {
+            studentIndex = studentsData.findIndex(s => s && s.code === currentStudent.code);
+        } else if (typeof studentsData === 'object') {
+            let keys = Object.keys(studentsData);
             for(let k of keys) {
-                if(data.students[k] && data.students[k].code === currentStudent.code) {
+                if(studentsData[k] && studentsData[k].code === currentStudent.code) {
                     studentIndex = k; break;
                 }
             }
@@ -2378,40 +2392,49 @@ window.purchaseWholeCourse = async function(courseId, price, courseTitle) {
         
         if(studentIndex !== -1) {
             currentStudent.walletBalance -= price;
-            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
             
-            // حفظ ID الكورس بالكامل
+            if (!currentStudent.purchasedCourses) currentStudent.purchasedCourses = [];
+            if (!Array.isArray(currentStudent.purchasedCourses)) {
+                currentStudent.purchasedCourses = Object.values(currentStudent.purchasedCourses);
+            }
+            currentStudent.purchasedCourses = currentStudent.purchasedCourses.filter(Boolean);
+            
             if(!currentStudent.purchasedCourses.includes(courseId)) {
                 currentStudent.purchasedCourses.push(courseId);
             }
 
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
+            // التحديث بنظام الـ PUT المباشر لضمان عدم تداخل البيانات في الفايربيز
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}/walletBalance.json`, { 
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentStudent.walletBalance) 
             });
-            
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}/purchasedCourses.json`, { 
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentStudent.purchasedCourses) 
+            });
+
             if (typeof showToast === 'function') showToast("تم شراء الكورس بنجاح! جميع الأجزاء مفتوحة الآن 🎉", "success");
             else alert("تم شراء الكورس بنجاح! جميع الأجزاء مفتوحة الآن 🎉");
             
-            // تحديث رصيد المحفظة في الشاشة
+            // التحديث الفوري للشاشة
             document.getElementById("top-balance").innerText = currentStudent.walletBalance;
-            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
-            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
+            let balanceDisplay = document.getElementById("walletBalanceDisplay");
+            if(balanceDisplay) balanceDisplay.innerText = currentStudent.walletBalance;
+            let pageBalance = document.getElementById("wallet-page-balance");
+            if(pageBalance) pageBalance.innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
 
-            // تحديث النافذة عشان الفيديوهات تتفتح
             openStudentCourseDetails(courseId);
         } else {
-            throw new Error("لم يتم العثور على الطالب في قاعدة البيانات");
+            throw new Error("لم يتم العثور على الطالب");
         }
     } catch(e) { 
-        console.error(e);
+        console.error("Purchase Error:", e);
         if (typeof showToast === 'function') showToast("حدث خطأ أثناء الشراء! تأكد من الإنترنت.", "error"); 
         else alert("حدث خطأ أثناء الشراء! تأكد من الإنترنت.");
-        btn.innerText = origText; btn.disabled = false;
+    } finally {
+        btn.innerText = origText; 
+        btn.disabled = false;
     }
 };
 
-// دالة شراء باقة المجلد (ترم أو شهر)
 window.purchaseFolder = async function(folderId, folderName, price, typeName) {
     if(!confirm(`تأكيد خصم ${price} ج.م من محفظتك لشراء باقة (${folderName}) وفتح كل محاضراتها؟`)) return;
     if((currentStudent.walletBalance || 0) < price) { 
@@ -2422,20 +2445,20 @@ window.purchaseFolder = async function(folderId, folderName, price, typeName) {
     
     let btn = event.currentTarget;
     let origText = btn.innerText;
-    btn.innerText = "جاري الشراء... ⏳"; btn.disabled = true;
+    btn.innerText = "جاري الشراء... ⏳"; 
+    btn.disabled = true;
 
     try {
-        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
-        let data = await dataRes.json();
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students.json`, { cache: 'no-store' });
+        let studentsData = await dataRes.json();
         
-        // حماية عشان لو فايربيز رجع الطلاب كـ Object بدل Array
         let studentIndex = -1;
-        if (Array.isArray(data.students)) {
-            studentIndex = data.students.findIndex(s => s && s.code === currentStudent.code);
-        } else if (typeof data.students === 'object') {
-            let keys = Object.keys(data.students);
+        if (Array.isArray(studentsData)) {
+            studentIndex = studentsData.findIndex(s => s && s.code === currentStudent.code);
+        } else if (typeof studentsData === 'object') {
+            let keys = Object.keys(studentsData);
             for(let k of keys) {
-                if(data.students[k] && data.students[k].code === currentStudent.code) {
+                if(studentsData[k] && studentsData[k].code === currentStudent.code) {
                     studentIndex = k; break;
                 }
             }
@@ -2443,35 +2466,48 @@ window.purchaseFolder = async function(folderId, folderName, price, typeName) {
         
         if(studentIndex !== -1) {
             currentStudent.walletBalance -= price;
-            currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : [];
+            
+            if (!currentStudent.purchasedCourses) currentStudent.purchasedCourses = [];
+            if (!Array.isArray(currentStudent.purchasedCourses)) {
+                currentStudent.purchasedCourses = Object.values(currentStudent.purchasedCourses);
+            }
+            currentStudent.purchasedCourses = currentStudent.purchasedCourses.filter(Boolean);
             
             if(!currentStudent.purchasedCourses.includes(folderId)) {
                 currentStudent.purchasedCourses.push(folderId);
             }
 
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}.json`, { 
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ walletBalance: currentStudent.walletBalance, purchasedCourses: currentStudent.purchasedCourses }) 
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}/walletBalance.json`, { 
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentStudent.walletBalance) 
+            });
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${studentIndex}/purchasedCourses.json`, { 
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(currentStudent.purchasedCourses) 
             });
             
             if (typeof showToast === 'function') showToast(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح!`, "success");
             else alert(`🎉 مبروك! تم شراء باقة (${folderName}) بنجاح وفُتحت لك كل المحاضرات!`);
             
             document.getElementById("top-balance").innerText = currentStudent.walletBalance;
-            if(document.getElementById("walletBalanceDisplay")) document.getElementById("walletBalanceDisplay").innerText = currentStudent.walletBalance;
-            if(document.getElementById("wallet-page-balance")) document.getElementById("wallet-page-balance").innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
+            let balanceDisplay = document.getElementById("walletBalanceDisplay");
+            if(balanceDisplay) balanceDisplay.innerText = currentStudent.walletBalance;
+            let pageBalance = document.getElementById("wallet-page-balance");
+            if(pageBalance) pageBalance.innerHTML = `${currentStudent.walletBalance} <span style="font-size: 24px; color: rgba(255,255,255,0.7);">ج.م</span>`;
 
             renderStudentLectures();
         } else {
-            throw new Error("لم يتم العثور على الطالب في قاعدة البيانات");
+            throw new Error("لم يتم العثور على الطالب");
         }
     } catch(e) { 
-        console.error(e);
+        console.error("Purchase Folder Error:", e);
         if (typeof showToast === 'function') showToast("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت.", "error"); 
         else alert("حدث خطأ أثناء الشراء! تأكد من اتصال الإنترنت.");
-        btn.innerText = origText; btn.disabled = false;
+    } finally {
+        btn.innerText = origText; 
+        btn.disabled = false;
     }
 };
+
+
 window.openStudentCourseDetails = async function(courseId) {
     let course = window.allLectures.find(l => l.id === courseId);
     if(!course) return;
