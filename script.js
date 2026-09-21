@@ -8320,3 +8320,160 @@ window.importData = function(event) {
     reader.readAsText(file); 
     event.target.value = ""; 
 };
+
+
+
+// ==========================================
+// 🚀 نظام الحضور والانصراف المطور (عداد لايف + حماية التكرار + دعم الأجهزة المتعددة)
+// ==========================================
+
+// 1. دالة العداد اللحظي للطلاب
+window.updateLiveAttendanceCounter = function(sessionObj) {
+    let counterEl = document.getElementById("liveAttendanceCounter");
+    let countNumEl = document.getElementById("liveCountNumber");
+    if (!counterEl || !countNumEl || !sessionObj) return;
+
+    counterEl.style.display = "flex";
+    let count = 0;
+    
+    // حساب الطلاب الحاضرين أو المتأخرين أو التعويض
+    Object.values(sessionObj.attendance).forEach(val => {
+        if (val === 'present' || val === 'late' || (typeof val === 'object')) count++;
+    });
+    
+    countNumEl.innerText = count;
+
+    // أنيميشن لذيذ لما العدد يزيد
+    countNumEl.style.transform = "scale(1.5)";
+    countNumEl.style.color = "#fcd34d";
+    setTimeout(() => {
+        countNumEl.style.transform = "scale(1)";
+        countNumEl.style.color = "white";
+    }, 300);
+};
+
+// 2. تحديث دالة فتح الحصة عشان تشغل العداد معاها
+const originalOpenSessionDetails = window.openSessionDetails;
+window.openSessionDetails = function(id) {
+    if(originalOpenSessionDetails) originalOpenSessionDetails(id);
+    const session = classSessions.find(s => s.id === id); 
+    if(session) updateLiveAttendanceCounter(session);
+};
+
+// 3. دالة الرصد الخارقة (باتش + حماية تكرار + تحديث عداد)
+window.markAttendance = function(codeOrPhone, status) {
+    const s = classSessions.find(s => s.id === currentActiveSessionId);
+    if(s && s.status === 'open') {
+        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
+        if(!student) return;
+        
+        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
+        
+        // 🛑 الحماية ضد التكرار: لو الطالب متحضر قبل كده، نوقف التسجيل ونطلع إنذار
+        if (oldStatus && (oldStatus === 'present' || oldStatus === 'late' || typeof oldStatus === 'object')) {
+            showToast(`⚠️ الطالب (${student.name}) تم تحضيره بالفعل!`, "warning");
+            try { if(typeof errorSound !== 'undefined') { errorSound.currentTime = 0; errorSound.play(); } } catch(e){}
+            return; // بنوقف الدالة هنا عشان ميتحسبش في العدد ولا يرفع داتا للسيرفر عالفاضي
+        }
+
+        if (oldStatus) {
+            if (oldStatus === 'absent') { /* لو غايب نشيله ونكمل عادي */ }
+        }
+        
+        if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
+        if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
+
+        s.attendance[student.code] = status; 
+
+        if (!s.arrivalTimes) s.arrivalTimes = {};
+        let now = new Date();
+        let h = now.getHours().toString().padStart(2, '0');
+        let m = now.getMinutes().toString().padStart(2, '0');
+        let arrivalStr = formatTime12(`${h}:${m}`);
+        s.arrivalTimes[student.code] = arrivalStr;
+
+        // 🛑 إيقاف المزامنة الكلية لتجنب تساقط الطلاب
+        window.isIncomingSync = true; 
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        localStorage.setItem("students", JSON.stringify(students));
+        window.isIncomingSync = false;
+
+        // 🚀 الرفع المباشر (PATCH) لجعل العمل على أكثر من جهاز آمن 100%
+        let sIdx = classSessions.findIndex(session => session.id === currentActiveSessionId);
+        let stIdx = students.findIndex(st => st.code === student.code);
+        let uid = typeof window.getSafeUid === 'function' ? window.getSafeUid() : "ElSenior_System_Master";
+
+        if (sIdx > -1 && stIdx > -1) {
+            let updates = {};
+            updates[`data/classSessions/${sIdx}/attendance/${student.code}`] = status;
+            updates[`data/classSessions/${sIdx}/arrivalTimes/${student.code}`] = arrivalStr;
+            updates[`data/students/${stIdx}/behaviorPoints`] = student.behaviorPoints;
+
+            // بنبعت الداتا للسيرفر (بدون أمر ريفريش شامل عشان مفيش جهاز يعطل التاني)
+            fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+        }
+
+        if (typeof renderAttendanceTable === 'function') renderAttendanceTable(s);
+        updateLiveAttendanceCounter(s); // 👥 تحديث العداد
+
+        let title = "تحديث حضور وانصراف 🏫";
+        let msg = "";
+        if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${s.topic || 'اليوم'}).`;
+        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن موعد بداية حصة (${s.topic || 'اليوم'}).`;
+        
+        if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
+    }
+};
+
+// 4. تحديث إلغاء الحضور عشان يحدث العداد والفايربيز صح
+window.cancelAttendance = function(studentCode) {
+    if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if(session) {
+        const student = students.find(s => s.code === studentCode);
+        let stIdx = students.findIndex(st => st.code === studentCode);
+        
+        if(student) {
+            let oldStatus = session.attendance[studentCode] || session.attendance[student.phone];
+            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
+            if (typeof oldStatus === 'object' && oldStatus.status === 'platform_makeup') {
+                student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            }
+        }
+        
+        delete session.attendance[studentCode];
+        if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
+        
+        window.isIncomingSync = true;
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        localStorage.setItem("students", JSON.stringify(students));
+        window.isIncomingSync = false;
+        
+        let sIdx = classSessions.findIndex(s => s.id === currentActiveSessionId);
+        let uid = typeof window.getSafeUid === 'function' ? window.getSafeUid() : "ElSenior_System_Master";
+
+        if (sIdx > -1) {
+            let updates = {};
+            updates[`data/classSessions/${sIdx}/attendance/${studentCode}`] = null;
+            updates[`data/classSessions/${sIdx}/arrivalTimes/${studentCode}`] = null;
+            if (stIdx > -1) updates[`data/students/${stIdx}/behaviorPoints`] = student.behaviorPoints;
+
+            fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+        }
+
+        if (typeof renderAttendanceTable === 'function') renderAttendanceTable(session);
+        updateLiveAttendanceCounter(session); // تحديث العداد بالنقصان
+        
+        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
+        setTimeout(() => document.getElementById('attendanceBarcode').focus(), 100);
+    }
+};

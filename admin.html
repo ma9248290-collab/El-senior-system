@@ -524,7 +524,15 @@
             <div id="attendance-view" class="view-section" style="display: none;">
                 <section id="sessions-overview" class="students-section"><div class="section-header"><h2>إدارة الحصص</h2><button class="add-btn" onclick="openModal('addSessionModal')">+ فتح حصة</button></div><div class="stats-grid" id="sessions-grid"></div></section>
                 <section id="session-details-view" class="students-section" style="display: none;">
-                    <div class="section-header"><div><button class="theme-btn" onclick="backToSessions()">🔙 عودة</button><h2 id="current-session-title"></h2></div><div id="session-status-badge"></div></div>
+                    <div class="section-header">
+    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button class="theme-btn" onclick="backToSessions()" style="margin:0;">🔙 عودة</button>
+        <h2 id="current-session-title" style="margin:0;"></h2>
+        <!-- العداد الجديد 👇 -->
+        <span id="liveAttendanceCounter" style="background: linear-gradient(45deg, #10b981, #059669); color: white; padding: 5px 20px; border-radius: 30px; font-size: 16px; font-weight: 900; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); display: none; align-items: center; gap: 8px; transition: 0.3s;">👥 الحاضرين الآن: <span id="liveCountNumber" style="font-size: 20px; transition: 0.3s;">0</span></span>
+    </div>
+    <div id="session-status-badge"></div>
+</div>
                     <div class="barcode-scanner-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
         <h4 style="color: var(--success-color); margin: 0;">📠 رصد سريع (بالكود أو الاسم)</h4>
