@@ -39,6 +39,34 @@ let currentActiveGroup = null, currentStudentProfileCode = null;
 let attendanceChartInstance = null, groupsChartInstance = null, financeChartInstance = null;
 let html5QrcodeScanner = null, currentScannerTarget = '';
 
+// ==========================================
+// 🛡️ درع الحماية الصارم لمنع تداخل ومسح البيانات (Multi-Tab Sync)
+// ==========================================
+window.addEventListener('storage', function(e) {
+    try {
+        // لو حصل أي تعديل أو إضافة داتا في "تاب" تانية، التاب الحالية هتحدث الرامات بتاعتها فوراً
+        if (e.key === "students") students = JSON.parse(e.newValue) || [];
+        if (e.key === "classSessions") classSessions = JSON.parse(e.newValue) || [];
+        if (e.key === "exams") exams = JSON.parse(e.newValue) || [];
+        if (e.key === "homeworks") homeworks = JSON.parse(e.newValue) || [];
+        if (e.key === "groups") groups = JSON.parse(e.newValue) || [];
+        if (e.key === "schedule") schedule = JSON.parse(e.newValue) || [];
+        if (e.key === "financeRecords") financeRecords = JSON.parse(e.newValue) || {};
+        if (e.key === "expenses") expenses = JSON.parse(e.newValue) || [];
+        if (e.key === "books") books = JSON.parse(e.newValue) || [];
+        if (e.key === "monthlyPayments") monthlyPayments = JSON.parse(e.newValue) || {};
+        if (e.key === "centers") centers = JSON.parse(e.newValue) || ["السنتر الرئيسي"];
+        if (e.key === "onlineExams") window.fetchedOnlineExams = JSON.parse(e.newValue) || [];
+        
+        // تحديث الشاشات المرئية فوراً عشان المدرس يشوف الداتا الجديدة من غير ما يعمل ريفريش
+        if (typeof refreshCurrentVisibleScreens === "function") {
+            refreshCurrentVisibleScreens();
+        }
+    } catch(error) {
+        console.error("Storage Sync Error: ", error);
+    }
+});
+
 
 // ==========================================
 // 1. قواعد البيانات والتهيئة الأساسية
@@ -1840,56 +1868,6 @@ function backToSessions() { document.getElementById("sessions-overview").style.d
 
 
 
-// ==========================================
-// 🚀 رصد الباركود المطور (حضور/تأخير/طالب من مجموعة أخرى)
-// ==========================================
-document.getElementById('attendanceBarcode')?.addEventListener('keypress', function(e) { 
-    if(e.key === 'Enter') { 
-        e.preventDefault(); 
-        let val = this.value.trim(); 
-        if (!val) return; // 🛡️ حماية ضد الفراغات أو الضرب الخطأ
-
-        let student = findStudentByCodeOrName(val); 
-        const session = classSessions.find(s => s.id === currentActiveSessionId); 
-        
-        if(!student) {
-            showToast(`طالب غير موجود! تأكد من الكود.`, 'error');
-        } else if(!session) {
-            showToast(`يرجى فتح الحصة أولاً!`, 'error');
-        } else if(student.group !== session.group) {
-            // 🔥 هنا السحر: فتح بوكس الإجراءات السريعة بدل الإيرور
-            openWrongGroupModal(student, session);
-        } else if(session.status === 'closed') {
-            showToast(`الحصة مغلقة!`, 'error');
-        } else { 
-            // 1. تحديد الحالة (حاضر/متأخر)
-            let isLate = document.getElementById('markAsLateCheckbox')?.checked;
-            let attStatus = isLate ? 'late' : 'present';
-            
-            // 2. التحضير الفعلي بالكود
-            markAttendance(student.code, attStatus); 
-            showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`); 
-            
-            // 🔔 تنبيه صامت ومرئي فقط للحالات الخاصة
-            if (student.isSpecialCase) {
-                let alertBox = document.createElement('div');
-                alertBox.innerHTML = `⭐ <b>حالة خاصة:</b> ${student.name} يدفع <b>(${student.specialAmount} ج.م)</b>`;
-                alertBox.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#f59e0b; color:white; padding:12px 30px; border-radius:30px; font-weight:900; font-size:16px; z-index:9999999; box-shadow:0 10px 25px rgba(245, 158, 11, 0.4); text-align:center; animation: slideInLeftToast 0.4s ease-out forwards;";
-                document.body.appendChild(alertBox);
-                setTimeout(() => { alertBox.style.opacity = '0'; setTimeout(()=>alertBox.remove(), 400); }, 4000);
-            }
-            
-            // 3. التحقق من تفعيل الدفع السريع
-            let autoPaymentEnabled = document.getElementById('autoPaymentCheckbox')?.checked;
-            if (autoPaymentEnabled) {
-                setTimeout(() => openQuickPaymentModal(student), 500);
-            }
-        }
-        
-        this.value = ''; 
-        this.focus();
-    } 
-});
 
 
 
@@ -5919,7 +5897,8 @@ window.openStudentProfile = function(code) {
     }
 
    // جداول الإحصائيات (حضور، امتحانات، واجبات)
-const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
+   // جداول الإحصائيات (حضور، امتحانات، واجبات)
+    const groupSessions = classSessions.filter(s => s.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let attended = 0; const attTbody = document.getElementById("profile-attendance-list"); if(attTbody) attTbody.innerHTML = "";
     
     groupSessions.forEach(s => { 
@@ -5944,10 +5923,17 @@ const groupSessions = classSessions.filter(s => s.group === student.group).sort(
             }
         }
 
-        if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td>${badge}</td></tr>`; 
+        // 🔥 التعديل: زرار قلم شيك بيفتح النافذة
+        let editBtn = `
+            <button onclick="openEditAttendanceModal('${s.id}', '${student.code}')" style="background: var(--bg-color); border: 1px solid var(--border-color); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 14px; transition: 0.2s; color: var(--text-main);" title="تعديل الحالة" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.borderColor='var(--primary-color)';" onmouseout="this.style.background='var(--bg-color)'; this.style.borderColor='var(--border-color)';">
+                ✏️
+            </button>
+        `;
+
+        if(attTbody) attTbody.innerHTML += `<tr><td>${s.date}</td><td style="display: flex; align-items: center; justify-content: center; gap: 10px;">${badge} ${editBtn}</td></tr>`; 
     });
     document.getElementById("profile-attendance").innerText = `${groupSessions.length > 0 ? Math.round((attended / groupSessions.length) * 100) : 0}%`;
-    
+
     const groupExams = exams.filter(e => e.group === student.group).sort((a,b) => new Date(b.date) - new Date(a.date));
     let tExam = 0, sExam = 0; const exTbody = document.getElementById("profile-exams-list"); if(exTbody) exTbody.innerHTML = "";
     groupExams.forEach(e => { let g = e.grades[student.code] !== undefined ? e.grades[student.code] : e.grades[student.phone]; if(g !== undefined) { tExam += parseFloat(e.maxScore); sExam += parseFloat(g); } if(exTbody) exTbody.innerHTML += `<tr><td>${e.name}</td><td>${e.date}</td><td><strong>${g !== undefined ? g : '--'}</strong> / ${e.maxScore}</td></tr>`; });
@@ -6100,70 +6086,9 @@ window.switchPage = function(pageId) {
 };
 
 
-// ==========================================
-// 🚀 دوال الحضور والانصراف (النسخة النهائية النظيفة)
-// ==========================================
-
-window.markAttendance = function(codeOrPhone, status) {
-    const s = classSessions.find(s => s.id === currentActiveSessionId);
-    if(s && s.status === 'open') {
-        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
-        if(!student) return;
-        
-        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
-        if (oldStatus) {
-            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
-            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-        }
-        if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
-        if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
-
-        s.attendance[student.code] = status; // الحفظ بالكود دايماً
-
-        // ⏱️ حفظ وقت الحضور بالساعة والدقيقة
-        if (!s.arrivalTimes) s.arrivalTimes = {};
-        let now = new Date();
-        let h = now.getHours().toString().padStart(2, '0');
-        let m = now.getMinutes().toString().padStart(2, '0');
-        s.arrivalTimes[student.code] = formatTime12(`${h}:${m}`);
-
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        renderAttendanceTable(s);
-
-        // الإشعار اللحظي לתطبيق ولي الأمر
-        let title = "تحديث حضور وانصراف 🏫";
-        let msg = "";
-        if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${s.topic || 'اليوم'}).`;
-        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن موعد بداية حصة (${s.topic || 'اليوم'}).`;
-        else if(status === 'absent') msg = `❌ تنبيه: ${student.name} غائب عن حصة (${s.topic || 'اليوم'}).`;
-        
-        if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
-    }
-};
 
 
 
-window.cancelAttendance = function(studentCode) {
-    if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
-    const session = classSessions.find(s => s.id === currentActiveSessionId);
-    if(session) {
-        const student = students.find(s => s.code === studentCode);
-        if(student) {
-            let oldStatus = session.attendance[studentCode];
-            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
-            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-        }
-        delete session.attendance[studentCode];
-        if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
-        
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        renderAttendanceTable(session);
-        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
-        setTimeout(() => document.getElementById('attendanceBarcode').focus(), 100);
-    }
-};
 
 
 // ==========================================
@@ -8120,147 +8045,10 @@ window.checkWhatsappServer = async function() {
 
 
 
-// ==========================================
-// 🚀 الإصلاح النهائي لشاشة الحضور والباركود 
-// ==========================================
 
-window.renderAttendanceTable = function(session) { 
-    const tbody = document.getElementById("attendance-list"); 
-    if(!tbody) return;
 
-    const gStudents = students.filter(s => s.group === session.group); 
-    
-    if(gStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب في هذه المجموعة</td></tr>`; 
-        return;
-    }
-    
-    // 💡 التصفية: هنجيب الطلاب اللي اتسجلهم أي حالة حضور أو تعويض بس
-    let recordedStudents = gStudents.filter(st => session.attendance[st.code] || session.attendance[st.phone]);
 
-    if(recordedStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 40px; font-weight: bold; color: var(--text-muted);">لم يتم تحضير أي طالب حتى الآن.<br><span style="font-size: 13px;">(امسح باركود الطالب ليظهر هنا)</span></td></tr>`;
-        return;
-    }
 
-    tbody.innerHTML = ""; 
-    const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
-    const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
-    
-    // 🔥 التعديل السحري هنا: ترتيب الطلاب بناءً على ترتيب الرصد الفعلي (الأحدث يظهر فوق)
-    const scanOrder = Object.keys(session.attendance);
-    recordedStudents.sort((a, b) => {
-        let keyA = session.attendance[a.code] ? a.code : String(a.phone);
-        let keyB = session.attendance[b.code] ? b.code : String(b.phone);
-        // الترتيب التنازلي: الأحدث (اللي ليه اندكس أكبر) ييجي في الأول
-        return scanOrder.indexOf(keyB) - scanOrder.indexOf(keyA);
-    });
-
-    // رسم الجدول بعد الترتيب الصحيح
-    recordedStudents.forEach(st => { 
-        const stat = session.attendance[st.code] || session.attendance[st.phone]; 
-        
-        // 🕒 سحب الوقت لو موجود
-        let timeStr = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
-
-        let statHtml = '<span style="color:#64748b;">لم يسجل</span>';
-        let actionBtns = `<button class="icon-btn danger" style="padding:6px 12px; font-size:12px; font-weight:bold; border-radius:6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
-
-        // 🔥 إضافة زراير التحويل السريعة
-        if (stat === 'present') {
-            statHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${timeStr}`;
-            actionBtns = `<button style="background:#f59e0b; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','late')">تحويل لمتأخر ⏳</button>` + actionBtns;
-        }
-        else if (stat === 'late') {
-            statHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${timeStr}`;
-            actionBtns = `<button style="background:#10b981; color:white; border:none; padding:6px 10px; font-size:12px; font-weight:bold; border-radius:6px; cursor:pointer;" onclick="markAttendance('${st.code}','present')">تحويل لحاضر ✅</button>` + actionBtns;
-        }
-        else if (stat === 'absent') {
-            statHtml = `<span style="color:#ef4444; font-weight:bold;">غائب ❌</span>`;
-        }
-        else if (typeof stat === 'object' && stat.status === 'makeup') {
-            statHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (${stat.makeupGroup || 'أخرى'})</span>${timeStr}`;
-        }
-        else if (typeof stat === 'object' && stat.status === 'platform_makeup') {
-            statHtml = `<span style="color:#a855f7; font-weight:900; background:rgba(168, 85, 247, 0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(168, 85, 247, 0.2);">💻 تعويض منصة</span>${timeStr}`;
-        }
-        
-        let pHT = '--'; 
-        if(prevSession) { 
-            const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
-            pHT = p==='present' ? 'حاضر' : p==='late' ? 'متأخر' : p==='absent' ? 'غائب' : '--'; 
-        } 
-        
-        tbody.innerHTML += `<tr>
-            <td><strong>${st.code}</strong></td>
-            <td>${window.getStudentNameHtml ? window.getStudentNameHtml(st) : st.name}</td>
-            <td style="direction: ltr;">${st.phone}</td>
-            <td>${pHT}</td>
-            <td>${statHtml}</td>
-            <td style="display: flex; gap: 5px; justify-content: center; align-items: center;">
-                ${actionBtns}
-            </td>
-        </tr>`; 
-    }); 
-};
-
-window.markAttendance = function(codeOrPhone, status) {
-    const s = classSessions.find(s => s.id === currentActiveSessionId);
-    if(s && s.status === 'open') {
-        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
-        if(!student) return;
-
-        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
-        if (oldStatus) {
-            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
-            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-        }
-        if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
-        if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
-
-        s.attendance[student.code] = status;
-
-        if (!s.arrivalTimes) s.arrivalTimes = {};
-        let now = new Date();
-        let h = now.getHours().toString().padStart(2, '0');
-        let m = now.getMinutes().toString().padStart(2, '0');
-        s.arrivalTimes[student.code] = formatTime12(`${h}:${m}`);
-
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        renderAttendanceTable(s);
-
-        let title = "تحديث حضور وانصراف 🏫";
-        let msg = "";
-        if(status === 'present') msg = `✅ وصل ${student.name} لحضور الحصة.`;
-        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن الحصة.`;
-        
-        if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
-    }
-};
-
-window.cancelAttendance = function(studentCode) {
-    if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
-    const session = classSessions.find(s => s.id === currentActiveSessionId);
-    if(session) {
-        const student = students.find(s => s.code === studentCode);
-        if(student) {
-            let oldStatus = session.attendance[studentCode];
-            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
-            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-        }
-        delete session.attendance[studentCode];
-        if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
-
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        renderAttendanceTable(session);
-        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
-
-        let barcodeInputs = document.querySelectorAll('input[id="attendanceBarcode"]');
-        barcodeInputs.forEach(inp => { if(inp.offsetParent !== null) inp.focus(); });
-    }
-};
 
 // 🎯 إعادة تفعيل صندوق الباركود بطريقة احترافية
 function attachBarcodeListeners() {
@@ -8431,157 +8219,322 @@ window.importData = function(event) {
 
 
 
+
+
+
 // ==========================================
-// 🚀 نظام الحضور والانصراف المطور (عداد لايف + حماية التكرار + دعم الأجهزة المتعددة)
+// 📋 قسم إدارة حضور وانصراف الطلاب (النسخة المجمعة والاحترافية)
 // ==========================================
 
-// 1. دالة العداد اللحظي للطلاب
-window.updateLiveAttendanceCounter = function(sessionObj) {
-    let counterEl = document.getElementById("liveAttendanceCounter");
-    let countNumEl = document.getElementById("liveCountNumber");
-    if (!counterEl || !countNumEl || !sessionObj) return;
-
-    counterEl.style.display = "flex";
-    let count = 0;
-    
-    // حساب الطلاب الحاضرين أو المتأخرين أو التعويض
-    Object.values(sessionObj.attendance).forEach(val => {
-        if (val === 'present' || val === 'late' || (typeof val === 'object')) count++;
-    });
-    
-    countNumEl.innerText = count;
-
-    // أنيميشن لذيذ لما العدد يزيد
-    countNumEl.style.transform = "scale(1.5)";
-    countNumEl.style.color = "#fcd34d";
-    setTimeout(() => {
-        countNumEl.style.transform = "scale(1)";
-        countNumEl.style.color = "white";
-    }, 300);
-};
-
-// 2. تحديث دالة فتح الحصة عشان تشغل العداد معاها
-const originalOpenSessionDetails = window.openSessionDetails;
-window.openSessionDetails = function(id) {
-    if(originalOpenSessionDetails) originalOpenSessionDetails(id);
-    const session = classSessions.find(s => s.id === id); 
-    if(session) updateLiveAttendanceCounter(session);
-};
-
-// 3. دالة الرصد الخارقة (باتش + حماية تكرار + تحديث عداد)
+// 1. دالة تسجيل الحضور (عبر الباركود أو البحث السريع أو اليدوي)
 window.markAttendance = function(codeOrPhone, status) {
-    const s = classSessions.find(s => s.id === currentActiveSessionId);
-    if(s && s.status === 'open') {
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if(session && session.status === 'open') {
         const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
         if(!student) return;
         
-        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
+        let oldStatus = session.attendance[student.code] || session.attendance[student.phone];
         
-        // 🛑 الحماية ضد التكرار: لو الطالب متحضر قبل كده، نوقف التسجيل ونطلع إنذار
-        if (oldStatus && (oldStatus === 'present' || oldStatus === 'late' || typeof oldStatus === 'object')) {
-            showToast(`⚠️ الطالب (${student.name}) تم تحضيره بالفعل!`, "warning");
-            try { if(typeof errorSound !== 'undefined') { errorSound.currentTime = 0; errorSound.play(); } } catch(e){}
-            return; // بنوقف الدالة هنا عشان ميتحسبش في العدد ولا يرفع داتا للسيرفر عالفاضي
-        }
-
+        // خصم النقاط القديمة لو كان متسجل قبل كده
         if (oldStatus) {
-            if (oldStatus === 'absent') { /* لو غايب نشيله ونكمل عادي */ }
+            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
         }
         
+        // إضافة النقاط الجديدة
         if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
         if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
 
-        s.attendance[student.code] = status; 
+        // تنظيف الداتا القديمة لو متسجلة برقم الموبايل بالغلط لمنع التداخل
+        if (session.attendance[student.phone] && student.phone !== student.code) {
+            delete session.attendance[student.phone];
+        }
 
-        if (!s.arrivalTimes) s.arrivalTimes = {};
+        // الحفظ دايماً بكود الطالب لضمان عدم التداخل
+        session.attendance[student.code] = status;
+
+        // ⏱️ حفظ وقت التحضير (ساعة ودقيقة)
+        if (!session.arrivalTimes) session.arrivalTimes = {};
         let now = new Date();
         let h = now.getHours().toString().padStart(2, '0');
         let m = now.getMinutes().toString().padStart(2, '0');
-        let arrivalStr = formatTime12(`${h}:${m}`);
-        s.arrivalTimes[student.code] = arrivalStr;
+        session.arrivalTimes[student.code] = formatTime12(`${h}:${m}`);
 
-        // 🛑 إيقاف المزامنة الكلية لتجنب تساقط الطلاب
-        window.isIncomingSync = true; 
         localStorage.setItem("classSessions", JSON.stringify(classSessions));
         localStorage.setItem("students", JSON.stringify(students));
-        window.isIncomingSync = false;
+        
+        // إعادة رسم الجدول فوراً وتحديث العداد
+        renderAttendanceTable(session);
+        updateLiveAttendanceCounter(session);
 
-        // 🚀 الرفع المباشر (PATCH) لجعل العمل على أكثر من جهاز آمن 100%
-        let sIdx = classSessions.findIndex(session => session.id === currentActiveSessionId);
-        let stIdx = students.findIndex(st => st.code === student.code);
-        let uid = typeof window.getSafeUid === 'function' ? window.getSafeUid() : "ElSenior_System_Master";
-
-        if (sIdx > -1 && stIdx > -1) {
-            let updates = {};
-            updates[`data/classSessions/${sIdx}/attendance/${student.code}`] = status;
-            updates[`data/classSessions/${sIdx}/arrivalTimes/${student.code}`] = arrivalStr;
-            updates[`data/students/${stIdx}/behaviorPoints`] = student.behaviorPoints;
-
-            // بنبعت الداتا للسيرفر (بدون أمر ريفريش شامل عشان مفيش جهاز يعطل التاني)
-            fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}.json`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates)
-            });
-        }
-
-        if (typeof renderAttendanceTable === 'function') renderAttendanceTable(s);
-        updateLiveAttendanceCounter(s); // 👥 تحديث العداد
-
+        // الإشعار اللحظي لتطبيق ولي الأمر
         let title = "تحديث حضور وانصراف 🏫";
         let msg = "";
-        if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${s.topic || 'اليوم'}).`;
-        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن موعد بداية حصة (${s.topic || 'اليوم'}).`;
+        if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${session.topic || 'اليوم'}).`;
+        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن موعد بداية حصة (${session.topic || 'اليوم'}).`;
+        else if(status === 'absent') msg = `❌ تنبيه: ${student.name} غائب عن حصة (${session.topic || 'اليوم'}).`;
         
         if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
     }
 };
 
-// 4. تحديث إلغاء الحضور عشان يحدث العداد والفايربيز صح
+// 2. دالة رسم جدول الحضور (رفع الأحدث لأعلى + أزرار التبديل السريعة)
+window.renderAttendanceTable = function(session) {
+    const tbody = document.getElementById("attendance-list");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const groupStudents = students.filter(s => s.group === session.group);
+    
+    if (groupStudents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-weight: bold; padding: 20px;">لا يوجد طلاب في هذه المجموعة</td></tr>`;
+        return;
+    }
+
+    const previousSession = classSessions.filter(s => s.group === session.group && new Date(s.date) < new Date(session.date))
+                                         .sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+
+    // استخراج ترتيب التحضير لرفع الأحدث لأعلى
+    let attendanceOrder = Object.keys(session.attendance || {});
+
+    // ترتيب الطلاب: أحدث حاضر فوق
+    groupStudents.sort((a, b) => {
+        let statA = session.attendance[a.code] || session.attendance[a.phone];
+        let statB = session.attendance[b.code] || session.attendance[b.phone];
+        
+        if (statA && !statB) return -1; 
+        if (!statA && statB) return 1;  
+        
+        if (statA && statB) {
+            let indexA = attendanceOrder.indexOf(String(a.code)) > -1 ? attendanceOrder.indexOf(String(a.code)) : attendanceOrder.indexOf(String(a.phone));
+            let indexB = attendanceOrder.indexOf(String(b.code)) > -1 ? attendanceOrder.indexOf(String(b.code)) : attendanceOrder.indexOf(String(b.phone));
+            return indexB - indexA;
+        }
+        return 0; 
+    });
+
+    groupStudents.forEach(st => {
+        let stat = session.attendance[st.code] || session.attendance[st.phone];
+        let arrivalTime = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
+        
+        let statusHtml = `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`;
+        let actionsHtml = `<button class="save-btn" style="background:#10b981; padding: 6px 12px; margin: 0; width: auto; font-size: 13px;" onclick="markAttendance('${st.code}', 'present')">تحضير يدوي</button>`;
+
+        // 🔥 التعديل هنا: أزرار التبديل السريعة (بدون نوافذ)
+        if (stat === 'present') {
+            statusHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${arrivalTime}`;
+            actionsHtml = `
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="theme-btn" style="border-color: #f59e0b; color: #f59e0b; padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'late')">تحويل لمتأخر ⏳</button>
+                    <button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
+                </div>`;
+        } else if (stat === 'late') {
+            statusHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${arrivalTime}`;
+            actionsHtml = `
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="theme-btn" style="border-color: #10b981; color: #10b981; padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'present')">تحويل لحاضر ✓</button>
+                    <button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
+                </div>`;
+        } else if (stat === 'absent') {
+            statusHtml = `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>`;
+        } else if (typeof stat === 'object') {
+            if (stat.status === 'makeup') {
+                statusHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (سنتر)</span>${arrivalTime}`;
+                actionsHtml = `<button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
+            } else if (stat.status === 'platform_makeup') {
+                statusHtml = `<span style="color:#a855f7; font-weight:900; background:rgba(168, 85, 247, 0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(168, 85, 247, 0.2);">💻 تعويض (منصة)</span>`;
+            }
+        }
+
+        // حالة الحصة السابقة
+        let prevStatText = "---";
+        if (previousSession) {
+            let prevStat = previousSession.attendance[st.code] || previousSession.attendance[st.phone];
+            if (prevStat === 'present') {
+                prevStatText = `<span style="color:#10b981; font-weight:bold;">حاضر</span>`;
+            } else if (prevStat === 'late') {
+                prevStatText = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>`;
+            } else if (prevStat === 'absent') {
+                prevStatText = `<span style="color:var(--danger-color); font-weight:bold;">غائب</span>`;
+            } else if (typeof prevStat === 'object') {
+                if (prevStat.status === 'makeup') {
+                    prevStatText = `<span style="color:#2563eb; font-weight:bold;">تعويض (سنتر)</span>`;
+                } else if (prevStat.status === 'platform_makeup') {
+                    prevStatText = `<span style="color:#a855f7; font-weight:bold;">تعويض (منصة)</span>`;
+                }
+            }
+        }
+
+        tbody.innerHTML += `
+            <tr style="${stat ? 'background: rgba(16, 185, 129, 0.02);' : ''}">
+                <td style="font-weight: bold; color: var(--primary-color);">${st.code}</td>
+                <td>${st.name} ${st.isSpecialCase ? '<span title="حالة خاصة" style="cursor:help;">⭐</span>' : ''}</td>
+                <td style="direction: ltr;">${st.parentPhone}</td>
+                <td>${prevStatText}</td>
+                <td>${statusHtml}</td>
+                <td>${actionsHtml}</td>
+            </tr>`;
+    });
+};
+
+// 3. دالة إلغاء التحضير
 window.cancelAttendance = function(studentCode) {
     if(!confirm("هل أنت متأكد من إلغاء تحضير هذا الطالب وإزالته من القائمة؟")) return;
     const session = classSessions.find(s => s.id === currentActiveSessionId);
     if(session) {
         const student = students.find(s => s.code === studentCode);
-        let stIdx = students.findIndex(st => st.code === studentCode);
-        
         if(student) {
             let oldStatus = session.attendance[studentCode] || session.attendance[student.phone];
             if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
             if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-            if (typeof oldStatus === 'object' && oldStatus.status === 'platform_makeup') {
-                student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+        }
+        delete session.attendance[studentCode];
+        if (student && student.phone) delete session.attendance[student.phone]; // أمان للنسخ القديمة
+        if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
+        
+        localStorage.setItem("classSessions", JSON.stringify(classSessions));
+        localStorage.setItem("students", JSON.stringify(students));
+        
+        renderAttendanceTable(session);
+        updateLiveAttendanceCounter(session);
+        
+        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
+        setTimeout(() => document.getElementById('attendanceBarcode')?.focus(), 100);
+    }
+};
+
+// 4. تحديث العداد الحي للطلاب الحاضرين في الشاشة
+window.updateLiveAttendanceCounter = function(session) {
+    let counterBadge = document.getElementById("liveAttendanceCounter");
+    let counterNum = document.getElementById("liveCountNumber");
+    if (counterBadge && counterNum && session) {
+        let presentCount = Object.values(session.attendance).filter(v => v === 'present' || v === 'late' || (typeof v === 'object' && v.status === 'makeup')).length;
+        counterNum.innerText = presentCount;
+        counterBadge.style.display = presentCount > 0 ? "flex" : "none";
+    }
+};
+
+// 5. تعديل فتح الحصة عشان يحدث العداد فوراً
+const originalOpenSessionDetails = window.openSessionDetails;
+window.openSessionDetails = function(id) {
+    currentActiveSessionId = id; 
+    const session = classSessions.find(s => s.id === id); 
+    document.getElementById("sessions-overview").style.display = "none"; 
+    document.getElementById("session-details-view").style.display = "block"; 
+    document.getElementById("current-session-title").innerText = session.group; 
+    renderAttendanceTable(session); 
+    updateLiveAttendanceCounter(session);
+};
+
+// 6. حدث إدخال الباركود السريع
+document.getElementById('attendanceBarcode')?.addEventListener('keypress', function(e) { 
+    if(e.key === 'Enter') { 
+        e.preventDefault(); 
+        let val = this.value.trim(); 
+        if (!val) return; 
+
+        let student = findStudentByCodeOrName(val); 
+        const session = classSessions.find(s => s.id === currentActiveSessionId); 
+        
+        if(!student) {
+            showToast(`طالب غير موجود! تأكد من الكود.`, 'error');
+        } else if(!session) {
+            showToast(`يرجى فتح الحصة أولاً!`, 'error');
+        } else if(student.group !== session.group) {
+            openWrongGroupModal(student, session);
+        } else if(session.status === 'closed') {
+            showToast(`الحصة مغلقة!`, 'error');
+        } else { 
+            let isLate = document.getElementById('markAsLateCheckbox')?.checked;
+            let attStatus = isLate ? 'late' : 'present';
+            
+            let oldAtt = session.attendance[student.code] || session.attendance[student.phone];
+
+            if (oldAtt === attStatus) {
+                showToast(`⚠️ الطالب (${student.name}) تم تحضيره بالفعل!`, "warning");
+            } else {
+                markAttendance(student.code, attStatus); 
+                showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`); 
+            }
+            
+            let autoPaymentEnabled = document.getElementById('autoPaymentCheckbox')?.checked;
+            if (autoPaymentEnabled) {
+                setTimeout(() => openQuickPaymentModal(student), 500);
             }
         }
         
+        this.value = ''; 
+        this.focus();
+    } 
+});
+
+
+// ==========================================
+// ✏️ فتح نافذة تعديل الحضور من ملف الطالب
+// ==========================================
+window.openEditAttendanceModal = function(sessionId, studentCode) {
+    document.getElementById('editAttSessionId').value = sessionId;
+    document.getElementById('editAttStudentCode').value = studentCode;
+    openModal('editAttendanceModal');
+};
+
+// ==========================================
+// 💾 تأكيد حفظ حالة الحضور الجديدة
+// ==========================================
+window.confirmEditAttendance = function(newStatus) {
+    let sessionId = document.getElementById('editAttSessionId').value;
+    let studentCode = document.getElementById('editAttStudentCode').value;
+
+    let session = classSessions.find(s => s.id === sessionId);
+    let student = students.find(st => st.code === studentCode);
+
+    if(!session || !student) return showToast("حدث خطأ، لا يمكن العثور على الحصة أو الطالب", "error");
+
+    // جلب الحالة القديمة لضبط نقاط السلوك
+    let oldStatus = session.attendance[studentCode] || session.attendance[student.phone];
+
+    // 1. خصم النقاط القديمة
+    if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+    if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
+
+    // 2. تطبيق الحالة الجديدة
+    if (newStatus === 'absent') {
+        // لو اخترنا غائب، نمسحه من سجل الحضور تماماً
         delete session.attendance[studentCode];
+        if (student.phone) delete session.attendance[student.phone]; 
         if (session.arrivalTimes) delete session.arrivalTimes[studentCode];
+    } else {
+        // لو حاضر أو متأخر، نسجله ونضيف النقاط
+        session.attendance[studentCode] = newStatus;
+        if (student.phone && student.phone !== studentCode) delete session.attendance[student.phone]; // تنظيف النسخ القديمة
         
-        window.isIncomingSync = true;
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        window.isIncomingSync = false;
-        
-        let sIdx = classSessions.findIndex(s => s.id === currentActiveSessionId);
-        let uid = typeof window.getSafeUid === 'function' ? window.getSafeUid() : "ElSenior_System_Master";
+        if (newStatus === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
+        if (newStatus === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
 
-        if (sIdx > -1) {
-            let updates = {};
-            updates[`data/classSessions/${sIdx}/attendance/${studentCode}`] = null;
-            updates[`data/classSessions/${sIdx}/arrivalTimes/${studentCode}`] = null;
-            if (stIdx > -1) updates[`data/students/${stIdx}/behaviorPoints`] = student.behaviorPoints;
-
-            fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}.json`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updates)
-            });
+        // تسجيل وقت التعديل لو مكنش ليه وقت حضور
+        if (!session.arrivalTimes) session.arrivalTimes = {};
+        if (!session.arrivalTimes[studentCode]) {
+            let now = new Date();
+            let h = now.getHours().toString().padStart(2, '0');
+            let m = now.getMinutes().toString().padStart(2, '0');
+            session.arrivalTimes[studentCode] = formatTime12(`${h}:${m}`) + ' (تعديل)';
         }
-
-        if (typeof renderAttendanceTable === 'function') renderAttendanceTable(session);
-        updateLiveAttendanceCounter(session); // تحديث العداد بالنقصان
-        
-        showToast("تم إلغاء تحضير الطالب بنجاح", "warning");
-        setTimeout(() => document.getElementById('attendanceBarcode').focus(), 100);
     }
+
+    // 3. الحفظ والمزامنة
+    localStorage.setItem("classSessions", JSON.stringify(classSessions));
+    localStorage.setItem("students", JSON.stringify(students));
+
+    if(typeof syncDataToBot === "function") syncDataToBot();
+    if(typeof addSystemLog === "function") {
+        let statusName = newStatus === 'present' ? 'حاضر' : (newStatus === 'late' ? 'متأخر' : 'غائب');
+        addSystemLog("تعديل حضور ✏️", `تم تعديل حالة حضور ${student.name} لحصة (${session.date}) إلى: ${statusName}`);
+    }
+
+    // قفل النافذة وإظهار رسالة
+    closeModal('editAttendanceModal');
+    showToast("تم تعديل الحالة بنجاح ✅");
+    
+    // ريفريش لملف الطالب
+    openStudentProfile(studentCode);
 };

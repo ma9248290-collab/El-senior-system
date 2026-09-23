@@ -2826,6 +2826,30 @@
 
 
 
+    <!-- نافذة تعديل الحضور من داخل ملف الطالب -->
+<div id="editAttendanceModal" class="modal" style="z-index: 1000000;">
+    <div class="modal-content" style="width: 400px; text-align: center; border-top: 5px solid var(--primary-color);">
+        <span class="close-btn" onclick="closeModal('editAttendanceModal')">&times;</span>
+        <h2 style="color: var(--primary-color); margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <span style="font-size: 24px;">✏️</span> تعديل حالة الحضور
+        </h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-weight: bold;">اختر الحالة الجديدة للطالب في هذه الحصة:</p>
+
+        <input type="hidden" id="editAttSessionId">
+        <input type="hidden" id="editAttStudentCode">
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <button class="save-btn" style="background-color: #10b981; margin: 0; padding: 15px; font-size: 16px; border-radius: 10px;" onclick="confirmEditAttendance('present')">✅ تحويل إلى حاضر (إضافة 5 نقاط)</button>
+            
+            <button class="theme-btn" style="border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.05); margin: 0; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 10px;" onclick="confirmEditAttendance('late')">⏳ تحويل إلى متأخر (إضافة نقطتين)</button>
+            
+            <button class="icon-btn danger" style="margin: 0; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 10px; width: 100%;" onclick="confirmEditAttendance('absent')">❌ إلغاء التحضير تماماً (غائب)</button>
+        </div>
+    </div>
+</div>
+
+
+
 
     <!-- نافذة عرض الإيصال المكبر (الجديدة) -->
 <div id="receiptImageModal" class="modal" style="z-index: 10000000; display: none; background: rgba(15, 23, 42, 0.9); justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; backdrop-filter: blur(5px);">
