@@ -4129,7 +4129,12 @@ window.exportAllCodesToExcel = async function() {
     } catch(e) { showToast("خطأ في الاتصال أثناء التحميل!", "error"); }
 };
 
-// 📋 عرض الأكواد في الجدول بتصميم فخم
+// متغيرات صفحات الأكواد
+window.currentCodesPage = 1;
+const CODES_PER_PAGE = 100;
+window.allFetchedCodes = []; 
+
+// 1. دالة جلب الأكواد من السيرفر
 window.renderChargeCodes = async function() {
     let table = document.getElementById("codes-table");
     if(!table) return;
@@ -4151,44 +4156,103 @@ window.renderChargeCodes = async function() {
     try {
         let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
         let codes = await res.json() || {};
-        let tbody = document.getElementById("codes-tbody");
-        tbody.innerHTML = "";
-        let keys = Object.keys(codes).reverse(); // الأحدث فوق
         
-        if(keys.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); font-weight: bold; padding: 30px;">لم تقم بإنشاء أي أكواد شحن حتى الآن. 💳</td></tr>`;
-            return;
-        }
+        // تحويل الأوبجكت لمصفوفة عشان نقدر نقسمها لصفحات (ونرتبها من الأحدث للأقدم)
+        window.allFetchedCodes = Object.keys(codes).map(key => ({
+            codeStr: key,
+            ...codes[key]
+        })).reverse();
 
-        keys.forEach(codeStr => {
-            let data = codes[codeStr];
-            let isUsed = data.status === 'used';
-            let statusBadge = !isUsed 
-                ? '<span class="status-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 5px 12px;">متاح ✅</span>' 
-                : '<span class="status-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 5px 12px;">مستخدم ❌</span>';
-            
-            tbody.innerHTML += `
-            <tr style="${isUsed ? 'opacity: 0.6;' : ''}">
-                <td style="direction: ltr; text-align: right;">
-                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                        <span style="color: var(--primary-color); font-family: monospace; font-size: 16px; font-weight: 900; letter-spacing: 2px;">${codeStr}</span>
-                        <button onclick="navigator.clipboard.writeText('${codeStr}'); showToast('تم نسخ الكود! 📋');" style="background:var(--hover-bg); border:1px solid var(--border-color); border-radius:6px; cursor:pointer; font-size:14px; padding:4px 8px; transition:0.2s;" title="نسخ الكود" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='var(--hover-bg)'">📋</button>
-                    </div>
-                </td>
-                <td><strong style="color: #f59e0b; font-size: 17px;">${data.amount} ج.م</strong></td>
-                <td>${statusBadge}</td>
-                <td style="font-size:13px; color:var(--text-muted); font-weight: bold;">${data.createdAt}</td>
-                <td>
-                    <button class="icon-btn danger" style="margin: 0 auto; display: block;" onclick="deleteChargeCode('${codeStr}')" title="حذف">🗑️</button>
-                </td>
-            </tr>`;
-        });
+        // رسم الصفحة الحالية
+        renderCodesPage();
+
     } catch(e) { 
          let tbody = document.getElementById("codes-tbody");
          if(tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: red; font-weight: bold;">حدث خطأ في تحميل الأكواد. أعد المحاولة!</td></tr>`;
     }
 };
 
+// 2. دالة رسم 100 كود فقط في الصفحة
+window.renderCodesPage = function() {
+    let tbody = document.getElementById("codes-tbody");
+    if(!tbody) return;
+
+    let totalCodes = window.allFetchedCodes.length;
+    
+    if(totalCodes === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); font-weight: bold; padding: 30px;">لم تقم بإنشاء أي أكواد شحن حتى الآن. 💳</td></tr>`;
+        return;
+    }
+
+    // حساب عدد الصفحات
+    let totalPages = Math.ceil(totalCodes / CODES_PER_PAGE) || 1;
+    if (window.currentCodesPage > totalPages) window.currentCodesPage = totalPages;
+    if (window.currentCodesPage < 1) window.currentCodesPage = 1;
+
+    let startIndex = (window.currentCodesPage - 1) * CODES_PER_PAGE;
+    let endIndex = startIndex + CODES_PER_PAGE;
+    let currentViewCodes = window.allFetchedCodes.slice(startIndex, endIndex);
+
+    tbody.innerHTML = "";
+
+    currentViewCodes.forEach(data => {
+        let codeStr = data.codeStr;
+        let isUsed = data.status === 'used';
+        let statusBadge = !isUsed 
+            ? '<span class="status-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 5px 12px;">متاح ✅</span>' 
+            : '<span class="status-badge" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 5px 12px;">مستخدم ❌</span>';
+        
+        tbody.innerHTML += `
+        <tr style="${isUsed ? 'opacity: 0.6;' : ''}">
+            <td style="direction: ltr; text-align: right;">
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
+                    <span style="color: var(--primary-color); font-family: monospace; font-size: 16px; font-weight: 900; letter-spacing: 2px;">${codeStr}</span>
+                    <button onclick="navigator.clipboard.writeText('${codeStr}'); showToast('تم نسخ الكود! 📋');" style="background:var(--hover-bg); border:1px solid var(--border-color); border-radius:6px; cursor:pointer; font-size:14px; padding:4px 8px; transition:0.2s;" title="نسخ الكود" onmouseover="this.style.background='rgba(59, 130, 246, 0.1)'" onmouseout="this.style.background='var(--hover-bg)'">📋</button>
+                </div>
+            </td>
+            <td><strong style="color: #f59e0b; font-size: 17px;">${data.amount} ج.م</strong></td>
+            <td>${statusBadge}</td>
+            <td style="font-size:13px; color:var(--text-muted); font-weight: bold;">${data.createdAt}</td>
+            <td>
+                <button class="icon-btn danger" style="margin: 0 auto; display: block;" onclick="deleteChargeCode('${codeStr}')" title="حذف">🗑️</button>
+            </td>
+        </tr>`;
+    });
+
+    // رسم زراير الصفحات لو فيه أكتر من صفحة
+    if (totalPages > 1) {
+        tbody.innerHTML += `
+        <tr>
+            <td colspan="5" style="text-align:center; padding: 15px; background: var(--card-bg); border-top: 2px solid var(--border-color);">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <button class="theme-btn" style="padding: 8px 25px; font-weight: bold; border: 1px solid var(--primary-color); ${window.currentCodesPage === totalPages ? 'opacity:0.4; cursor:not-allowed;' : ''}" onclick="changeCodesPage(1)" ${window.currentCodesPage === totalPages ? 'disabled' : ''}>التالي ▶</button>
+                    <span style="font-weight: 900; color: var(--primary-color); font-size: 15px;">صفحة ${window.currentCodesPage} من ${totalPages}</span>
+                    <button class="theme-btn" style="padding: 8px 25px; font-weight: bold; border: 1px solid var(--primary-color); ${window.currentCodesPage === 1 ? 'opacity:0.4; cursor:not-allowed;' : ''}" onclick="changeCodesPage(-1)" ${window.currentCodesPage === 1 ? 'disabled' : ''}>◀ السابق</button>
+                </div>
+            </td>
+        </tr>`;
+    }
+};
+
+// 3. دالة التقليب بين الصفحات
+window.changeCodesPage = function(direction) {
+    window.currentCodesPage += direction;
+    renderCodesPage();
+};
+
+// 4. دالة حذف الكود
+window.deleteChargeCode = async function(codeStr) {
+    if(!confirm("⚠️ هل أنت متأكد من حذف هذا الكود نهائياً؟")) return;
+    try {
+        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
+        
+        // حذف الكود من المصفوفة المحلية وإعادة الرسم بدون ريفريش للسيرفر
+        window.allFetchedCodes = window.allFetchedCodes.filter(c => c.codeStr !== codeStr);
+        renderCodesPage(); 
+        
+        showToast("تم حذف الكود بنجاح 🗑️");
+    } catch(e) { alert("حدث خطأ"); }
+};
 window.deleteChargeCode = async function(codeStr) {
     if(!confirm("⚠️ هل أنت متأكد من حذف هذا الكود نهائياً؟")) return;
     try {
