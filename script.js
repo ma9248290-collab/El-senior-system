@@ -12,7 +12,8 @@ let schedule = JSON.parse(localStorage.getItem("schedule")) || [];
 let isAssistantMode = localStorage.getItem("isAssistantMode") === "true";
 let adminPin = localStorage.getItem("adminPin") || "1234";
 let books = JSON.parse(localStorage.getItem("books")) || [];
-
+window.currentStudentsPage = 1;
+const STUDENTS_PER_PAGE = 100;
 
 // تحديث السناتر والمجموعات
 let centers = JSON.parse(localStorage.getItem("centers")) || ["السنتر الرئيسي"]; // سنتر افتراضي لحماية الداتا القديمة
@@ -815,15 +816,7 @@ async function activateSoftware() {
 
 
 
-window.isIncomingSync = false; // فلاج عشان نمنع الـ Loop
-["students", "classSessions", "exams", "homeworks", "schedule", "groups", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(k, v) {
-        originalSetItem.apply(this, arguments);
-        // لو التحديث ده إحنا اللي عاملينه (مش جي من جهاز تاني)، ارفعه للسيرفر
-        if(key === k && !window.isIncomingSync) syncDataToBot();
-    };
-});
+
 
 // ==========================================
 // 5. إدارة الجدول الأسبوعي (النسخة المرنة الديناميكية)
@@ -1116,22 +1109,114 @@ window.saveAndAddAnotherStudent = async function() {
     }
 };
 
+window.renderTable = function(dataToRender = null) { 
+    const tbody = document.getElementById("students-list"); 
+    if(!tbody) return;
+
+    // تحديث أيقونات الترتيب
+    ['code', 'name', 'level', 'group'].forEach(col => {
+        let el = document.getElementById(`sort-st-${col}`);
+        if(el) {
+            if(window.studentsSortState.column === col) {
+                el.innerHTML = window.studentsSortState.direction === 'asc' ? '▲' : '▼';
+                el.style.color = 'var(--primary-color)';
+                el.style.fontWeight = '900';
+            } else {
+                el.innerHTML = '⇅';
+                el.style.color = 'var(--text-muted)';
+                el.style.fontWeight = 'normal';
+            }
+        }
+    });
+    
+    // تحديد الداتا (كل الطلاب أو نتيجة البحث)
+    let listToUse = dataToRender ? dataToRender : [...students];
+    let sortedList = listToUse.sort((a, b) => smartCompare(a, b, window.studentsSortState.column, window.studentsSortState.direction));
+
+    // حسابات تقسيم الصفحات
+    const totalStudents = sortedList.length;
+    const totalPages = Math.ceil(totalStudents / STUDENTS_PER_PAGE) || 1;
+    
+    // ضبط الصفحة الحالية عشان متعديش الحدود
+    if (window.currentStudentsPage > totalPages) window.currentStudentsPage = totalPages;
+    if (window.currentStudentsPage < 1) window.currentStudentsPage = 1;
+
+    // قص الداتا عشان نعرض 100 بس
+    const startIndex = (window.currentStudentsPage - 1) * STUDENTS_PER_PAGE;
+    const endIndex = startIndex + STUDENTS_PER_PAGE;
+    const currentViewList = sortedList.slice(startIndex, endIndex);
+
+    let html = ""; 
+    currentViewList.forEach((student) => { 
+        let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
+        let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
+        
+        html += `<tr>
+            <td><strong style="color:var(--primary-color);">${student.code}</strong></td>
+            <td>${student.name} ${specialBadge}</td>
+            <td>${student.level} ${trackBadge}</td>
+            <td>${student.group}</td>
+            <td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td>
+        </tr>`; 
+    }); 
+    
+    tbody.innerHTML = html; 
+
+    // رسم زراير التنقل بين الصفحات أسفل الجدول
+    if (totalPages > 1) {
+        let paginationHtml = `
+        <tr>
+            <td colspan="5" style="text-align:center; padding: 15px; background: var(--card-bg); border-top: 2px solid var(--border-color);">
+                <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <button class="theme-btn" style="padding: 8px 25px; font-weight: bold; border: 1px solid var(--primary-color);" onclick="changeStudentsPage(1)" ${window.currentStudentsPage === totalPages ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>التالي ▶</button>
+                    <span style="font-weight: 900; color: var(--primary-color); font-size: 15px;">صفحة ${window.currentStudentsPage} من ${totalPages}</span>
+                    <button class="theme-btn" style="padding: 8px 25px; font-weight: bold; border: 1px solid var(--primary-color);" onclick="changeStudentsPage(-1)" ${window.currentStudentsPage === 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>◀ السابق</button>
+                </div>
+            </td>
+        </tr>`;
+        tbody.innerHTML += paginationHtml;
+    }
+
+    // رسالة لو البحث ملقاش حاجة
+    if (totalStudents === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; font-weight: bold; color:var(--danger-color);">لا توجد نتائج مطابقة للبحث</td></tr>`;
+    }
+
+    if(document.getElementById("total-students")) {
+        document.getElementById("total-students").innerText = students.length; 
+    }
+};
 
 
-function searchStudent() { 
-    const filter = document.getElementById("searchInput").value.toLowerCase(); 
-    const rows = document.getElementById("students-list").getElementsByTagName("tr"); 
-    for (let i = 0; i < rows.length; i++) { 
-        const codeCol = rows[i].getElementsByTagName("td")[0]; 
-        const nameCol = rows[i].getElementsByTagName("td")[1]; 
-        if (codeCol && nameCol) { 
-            const txt = codeCol.innerText.toLowerCase() + " " + nameCol.innerText.toLowerCase(); 
-            rows[i].style.display = (txt.indexOf(filter) > -1) ? "" : "none"; 
-        } 
-    } 
-}
+window.changeStudentsPage = function(direction) {
+    window.currentStudentsPage += direction;
+    // لو إنت بتبحث، هيفضل محتفظ بنتيجة البحث وهو بيقلب في صفحاتها
+    searchStudent(true);
+};
 
+window.searchStudent = function(isPageChange = false) { 
+    // لو بنكتب بحث جديد (مش بنقلب الصفحات)، نرجع للصفحة الأولى أوتوماتيك
+    if (isPageChange !== true) {
+        window.currentStudentsPage = 1;
+    }
 
+    const filter = document.getElementById("searchInput").value.trim().toLowerCase(); 
+    
+    if (filter === "") {
+        renderTable();
+        return;
+    }
+
+    // البحث في كل الـ 2000 طالب
+    const filteredStudents = students.filter(s => 
+        (s.code && String(s.code).toLowerCase().includes(filter)) || 
+        (s.name && String(s.name).toLowerCase().includes(filter)) || 
+        (s.phone && String(s.phone).includes(filter)) || 
+        (s.parentPhone && String(s.parentPhone).includes(filter))
+    );
+
+    renderTable(filteredStudents);
+};
 
 
 
@@ -1531,7 +1616,6 @@ function smartCompare(a, b, column, direction) {
     return direction === 'asc' ? result : -result;
 }
 
-// 1. تبديل ترتيب جدول الطلاب الشامل
 window.sortStudentsTable = function(column) {
     if (window.studentsSortState.column === column) {
         window.studentsSortState.direction = window.studentsSortState.direction === 'asc' ? 'desc' : 'asc';
@@ -1539,9 +1623,12 @@ window.sortStudentsTable = function(column) {
         window.studentsSortState.column = column;
         window.studentsSortState.direction = 'asc';
     }
-    renderTable();
+    
+    window.currentStudentsPage = 1; // تصفير الصفحة للرقم 1 عند تغيير الترتيب
+    
+    const filter = document.getElementById("searchInput")?.value.trim();
+    if (filter) searchStudent(true); else renderTable();
 };
-
 // 2. تبديل ترتيب جدول المجموعة
 window.sortGroupStudentsTable = function(column) {
     if (window.groupStudentsSortState.column === column) {
@@ -1553,49 +1640,6 @@ window.sortGroupStudentsTable = function(column) {
     renderGroupStudentsTable();
 };
 
-// 3. رسم جدول سجل الطلاب الشامل مع الترتيب والأسهم
-window.renderTable = function() { 
-    const tbody = document.getElementById("students-list"); 
-    if(!tbody) return;
-
-    // تحديث أيقونات الترتيب في الهيدر
-    ['code', 'name', 'level', 'group'].forEach(col => {
-        let el = document.getElementById(`sort-st-${col}`);
-        if(el) {
-            if(window.studentsSortState.column === col) {
-                el.innerHTML = window.studentsSortState.direction === 'asc' ? '▲' : '▼';
-                el.style.color = 'var(--primary-color)';
-                el.style.fontWeight = '900';
-            } else {
-                el.innerHTML = '⇅';
-                el.style.color = 'var(--text-muted)';
-                el.style.fontWeight = 'normal';
-            }
-        }
-    });
-    
-    // عمل نسخة وترتيبها
-    let sortedList = [...students].sort((a, b) => smartCompare(a, b, window.studentsSortState.column, window.studentsSortState.direction));
-
-    let html = ""; 
-    sortedList.forEach((student) => { 
-        let trackBadge = student.level.includes('ثانوي') || student.level.includes('بكالوريا') ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">مسار: ${student.track || 'عام'}</span>` : '';
-        let specialBadge = student.isSpecialCase ? `<span style="cursor: help; margin-right: 5px; font-size: 14px;" title="حالة خاصة: ${student.specialAmount > 0 ? 'يدفع ' + student.specialAmount + ' ج.م' : 'إعفاء تام'}">⭐</span>` : '';
-        
-        html += `<tr>
-            <td><strong style="color:var(--primary-color);">${student.code}</strong></td>
-            <td>${student.name} ${specialBadge}</td>
-            <td>${student.level} ${trackBadge}</td>
-            <td>${student.group}</td>
-            <td><button class="profile-btn" onclick="openStudentProfile('${student.code}')">👤 الملف</button></td>
-        </tr>`; 
-    }); 
-    
-    tbody.innerHTML = html; 
-    if(document.getElementById("total-students")) {
-        document.getElementById("total-students").innerText = students.length; 
-    }
-};
 
 window.renderGroupStudentsTable = function() { 
     const tbody = document.getElementById("group-students-list"); 
@@ -6757,24 +6801,37 @@ window.triggerGlobalSyncSignal = async function() {
 
 
 
-// استماع أوتوماتيكي لكل المتغيرات
+// ==========================================
+// 🚀 محرك المزامنة اللحظية الشامل والذكي (Zero-Bug Sync) 🚀
+// ==========================================
 window.isIncomingSync = false;
-["students", "classSessions", "exams", "homeworks", "schedule", "groups", "centers", "financeRecords", "expenses", "books", "monthlyPayments", "onlineExams"].forEach(key => {
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(k, v) {
-        originalSetItem.apply(this, arguments);
-        if(key === k && !window.isIncomingSync) syncDataToBot();
-    };
-});
+let syncTimeout = null;
 
-window.isIncomingSync = false; 
-["students", "classSessions", "exams", "homeworks", "schedule", "groups", "centers", "financeRecords", "expenses", "books", "monthlyPayments"].forEach(key => {
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(k, v) {
-        originalSetItem.apply(this, arguments);
-        if(key === k && !window.isIncomingSync) syncDataToBot();
-    };
-});
+// بنحفظ الدالة الأصلية مرة واحدة بس بره اللوب عشان منعملش تكرار لا نهائي
+const originalSetItem = localStorage.setItem;
+const keysToSync = [
+    "students", "classSessions", "exams", "homeworks", "schedule", "groups", 
+    "centers", "financeRecords", "expenses", "books", "monthlyPayments", "onlineExams"
+];
+
+localStorage.setItem = function(k, v) {
+    // 1. الحفظ المحلي في الجهاز بيتم فوراً في أقل من فيمتو ثانية (عشان العداد والشاشة تتحدث فورا)
+    originalSetItem.apply(this, arguments);
+    
+    // 2. تجميع الطلبات لرفعها للسيرفر بذكاء (لمنع تهنيج المتصفح مع 2000+ طالب)
+    if (keysToSync.includes(k) && !window.isIncomingSync) {
+        // نكنسل أي رفع قديم كان مستني لو المدرس لسه بيرصد
+        if (syncTimeout) clearTimeout(syncTimeout);
+        
+        // نأجل الرفع للسيرفر لمدة 800 مللي ثانية (أقل من ثانية) 
+        // عشان لو بيرصد بالباركود بسرعة، يجمعهم ويرفع الداتا مرة واحدة في الآخر
+        syncTimeout = setTimeout(() => {
+            if (typeof syncDataToBot === "function") {
+                syncDataToBot();
+            }
+        }, 800); 
+    }
+};
 
 // 4. تحديث الشاشة المرئية بذكاء بناءً على مكان تواجد المستخدم حالياً
 window.refreshCurrentVisibleScreens = function() {
@@ -6940,6 +6997,8 @@ window.lastLocalSyncTime = Date.now(); // وقت آخر تحديث محلي
 // 📥 أولاً: دالة السحب من السيرفر (التحميل للأجهزة)
 // ---------------------------------------------------------
 window.loadDataFromFirebase = async function() {
+
+    window.isIncomingSync = true;
     if (localStorage.getItem("is_demo_mode") === "true") {
         isFirebaseLoaded = true; return; 
     }
@@ -7058,6 +7117,7 @@ window.loadDataFromFirebase = async function() {
     }
     isFirebaseLoaded = true; 
     setTimeout(()=> { if(typeof window.checkGlobalAnnouncements === 'function') window.checkGlobalAnnouncements(); }, 1500);
+    window.isIncomingSync = false;
 };
 
 // ---------------------------------------------------------
@@ -7137,23 +7197,7 @@ setInterval(async () => {
     } catch (e) {}
 }, 3000); // الفحص بيتم كل 3 ثواني بملف خفيف جداً عشان ميسحبش نت
 
-// ---------------------------------------------------------
-// 👁️ رابعاً: مراقب التخزين المحلي (لرفع الداتا أوتوماتيك عند أي تعديل)
-// ---------------------------------------------------------
-const syncKeys = [
-    "centers", "groups", "students", "classSessions", "exams", 
-    "homeworks", "schedule", "expenses", "books", 
-    "financeRecords", "monthlyPayments", "onlineExams"
-];
 
-const originalSetItem = localStorage.setItem;
-localStorage.setItem = function(key, value) {
-    originalSetItem.apply(this, arguments);
-    // لو المفتاح اللي اتعدل ده يخص الداتا بتاعتنا، ومكنش السيستم في حالة سحب، ارفع الداتا
-    if(syncKeys.includes(key) && !window.isIncomingSync) {
-        window.syncDataToBot();
-    }
-};
 
 // =====================================================================
 
