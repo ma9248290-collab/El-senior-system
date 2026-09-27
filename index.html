@@ -2641,25 +2641,65 @@ window.openStudentCourseDetails = async function(courseId) {
 
 
         window.redeemCode = async function() {
-            const code = document.getElementById("rechargeCodeInput").value.trim();
-            if(!code) return alert("أدخل الكود!");
-            try {
-                let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}.json`);
-                let codeData = await res.json();
-                if(!codeData || codeData.status === 'used') return alert("الكود غير صحيح أو مستخدم!");
-                let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
-                let data = await dataRes.json();
-                let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
-                if(sIdx !== -1) {
-                    let amount = parseFloat(codeData.amount);
-                    currentStudent.walletBalance = (currentStudent.walletBalance || 0) + amount;
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${sIdx}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) });
-                    await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify("used") });
-                    alert(`تم شحن ${amount} ج.م بنجاح!`); document.getElementById("rechargeCodeInput").value = ""; fetchStudentData(true);
-                }
-            } catch (e) { alert("حدث خطأ!"); }
+    const codeInput = document.getElementById("rechargeCodeInput");
+    const code = codeInput.value.trim();
+    if(!code) return showToast("أدخل الكود أولاً!", "error");
+
+    // 🛡️ التعديل هنا: قفل الزرار فوراً عشان نمنع الطالب من التكرار 🛡️
+    let btn = event.currentTarget;
+    let origText = btn.innerText;
+    btn.innerText = "جاري الشحن... ⏳";
+    btn.disabled = true;
+    btn.style.opacity = "0.7";
+
+    try {
+        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}.json`);
+        let codeData = await res.json();
+        
+        if(!codeData || codeData.status === 'used') {
+            showToast("الكود غير صحيح أو مستخدم مسبقاً!", "error");
+            btn.innerText = origText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
         }
 
+        let dataRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`);
+        let data = await dataRes.json();
+        
+        let sIdx = data.students.findIndex(s => s && s.code === currentStudent.code);
+        if(sIdx !== -1) {
+            let amount = parseFloat(codeData.amount);
+            
+            // 🛡️ التعديل 2: تأمين الحفظ السحابي
+            // نحرق الكود الأول عشان لو حصل أي تهنيج الفلوس متضاعفش
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/chargeCodes/${code}/status.json`, { 
+                method: 'PUT', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify("used") 
+            });
+
+            // بعدين نضيف الفلوس للطالب
+            currentStudent.walletBalance = (currentStudent.walletBalance || 0) + amount;
+            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data/students/${sIdx}.json`, { 
+                method: 'PATCH', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ walletBalance: currentStudent.walletBalance }) 
+            });
+
+            showToast(`تم شحن ${amount} ج.م بنجاح! 🎉`, "success");
+            codeInput.value = ""; 
+            fetchStudentData(true); // تحديث الرصيد في الشاشة
+        }
+    } catch (e) { 
+        showToast("حدث خطأ في الاتصال بالإنترنت!", "error"); 
+    } finally {
+        // نرجع الزرار لأصله بعد ما كل حاجة تخلص (أو تفشل)
+        btn.innerText = origText;
+        btn.disabled = false;
+        btn.style.opacity = "1";
+    }
+}
         // ==========================================
 // 🔙 نظام التنقل الذكي وزر الرجوع (History API) - خاص بمنصة الطالب
 // ==========================================
