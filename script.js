@@ -379,17 +379,29 @@ function isValidEgyptianPhone(phone) {
 const ADMIN_USER = "shefo", ADMIN_PASS = "12345"; 
 
 // ==========================================
-// 3. التحقق من الدخول عند تحميل الصفحة
+// 3. التحقق من الدخول عند تحميل الصفحة (النسخة المضادة للتهنيج)
 // ==========================================
 if (sessionStorage.getItem("isLoggedIn") === "true" || localStorage.getItem("keepLoggedIn") === "true") {
     sessionStorage.setItem("isLoggedIn", "true");
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("main-app").style.display = "flex";
     
-    // 🔥 الحل السحري: لازم نأمر السيستم يسحب الداتا ويتأكد من الباقة أول ما الصفحة تفتح
+    // إظهار إشعار يطمن المستخدم
+    setTimeout(() => {
+        if(typeof showToast === 'function') showToast("جاري تهيئة مساحة العمل... ⏳", "info");
+    }, 500);
+
+    // 🔥 الحل السحري: توزيع الحمل على المتصفح
     setTimeout(() => {
         if (typeof applyAssistantPermissions === "function") applyAssistantPermissions();
-        if (typeof loadDataFromFirebase === "function") loadDataFromFirebase();
+        
+        // نأخر الفايربيز 3 ثواني كاملين عشان الشاشة والرسوم البيانية ترسم براحتها الأول
+        setTimeout(() => {
+            // استخدام requestAnimationFrame عشان المتصفح يسحب الداتا وهو مستريح
+            window.requestAnimationFrame(() => {
+                if (typeof loadDataFromFirebase === "function") loadDataFromFirebase();
+            });
+        }, 3000); 
     }, 100);
 }
 // دوال التنقل بين شاشة الدخول وشاشة التفعيل
@@ -495,7 +507,7 @@ let licenseKey = "ElSenior_System_Master"; // 🔒 تثبيت إجباري لل�
 
 // الدالة دي بتولد مسار الداتابيز المخصوص للمدرس
 function getFirebaseUrl() {
-    return `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/data.json`;
+    return `https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/ElSenior_System_Master/data.json`;
 }
 
 // ==========================================
@@ -533,7 +545,7 @@ let code = "ElSenior_System_Master";
 
         try {
             // 👑 فحص المدير
-            let settingsRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${code}/data/settings.json`);
+            let settingsRes = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${code}/data/settings.json`);
             let settings = await settingsRes.json();
             
             // 🔒 التعديل هنا: لو الداتابيز فاضية، هيدخلك باليوزر الافتراضي (admin) والباسورد (12345)
@@ -549,7 +561,7 @@ let code = "ElSenior_System_Master";
             }
             
             // 👥 فحص المساعد
-            let asstRes = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${code}/assistants/${user}.json`);
+            let asstRes = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${code}/assistants/${user}.json`);
             let asstData = await asstRes.json();
             
             if (asstData && asstData.password === pass) {
@@ -590,7 +602,7 @@ window.createAssistant = async function() {
     let orig = btn.innerText; btn.innerText = "جاري... ⏳";
 
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/assistants/${user}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/assistants/${user}.json`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ password: pass, permissions: selectedPerms, createdAt: new Date().toISOString() })
         });
@@ -616,7 +628,7 @@ window.renderAssistants = async function() {
 
     tbody.innerHTML = `<tr><td colspan="3" style="text-align: center;">جاري التحميل...</td></tr>`;
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants.json`);
         let data = await res.json() || {};
         
         tbody.innerHTML = "";
@@ -647,7 +659,7 @@ window.openEditPermissionsModal = async function(user) {
     
     try {
         // جلب صلاحيات المساعد الحالية من السيرفر
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`);
         let data = await res.json();
         let perms = data.permissions || ['dashboard','schedule','students','groups','attendance','homework','exams','leaderboard']; 
 
@@ -672,7 +684,7 @@ window.saveEditedPermissions = async function() {
     
     try {
         // تحديث الصلاحيات فقط في الفايربيز (بدون مسح الباسورد)
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ permissions: selectedPerms })
@@ -690,7 +702,7 @@ window.saveEditedPermissions = async function() {
 window.deleteAssistant = async function(user) {
     if(!confirm(`هل تريد حذف المساعد: ${user} نهائياً؟`)) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/assistants/${user}.json`, { method: 'DELETE' });
         renderAssistants();
     } catch(e) {}
 };
@@ -1767,7 +1779,423 @@ window.renderGroupStudentsTable = function() {
 
 function removeStudentFromGroup(code) { customConfirm("إزالة هذا الطالب من المجموعة؟", () => { const student = students.find(s => s.code === code); if(student) { student.group = ""; localStorage.setItem("students", JSON.stringify(students)); renderGroupStudentsTable(); renderGroupCards(); showToast("تمت الإزالة"); } }); }
 
+// ==========================================
+// 🚀 محرك المزامنة والحفظ اللحظي (مضاد للتهنيج - Debounced)
+// ==========================================
+window.isIncomingSync = false;
+let syncTimeoutTimer = null;
+const originalSetItem = localStorage.setItem;
+const keysToSync = [
+    "students", "classSessions", "exams", "homeworks", "schedule", "groups", 
+    "centers", "financeRecords", "expenses", "books", "monthlyPayments", "onlineExams"
+];
 
+// دالة الحفظ الآمنة (تم إصلاح المزامنة التلقائية هنا ✅)
+window.safeLocalSave = function(key, valueObj) {
+    originalSetItem.call(localStorage, key, JSON.stringify(valueObj));
+    
+    // تفعيل المزامنة التلقائية مع السيرفر بعد ثانية من الحفظ
+    if (keysToSync.includes(key) && !window.isIncomingSync) {
+        if (syncTimeoutTimer) clearTimeout(syncTimeoutTimer);
+        syncTimeoutTimer = setTimeout(() => {
+            if (typeof syncDataToBot === "function") syncDataToBot();
+        }, 1000); 
+    }
+};
+
+localStorage.setItem = function(k, v) {
+    originalSetItem.apply(this, arguments); 
+    if (keysToSync.includes(k) && !window.isIncomingSync) {
+        if (syncTimeoutTimer) clearTimeout(syncTimeoutTimer);
+        syncTimeoutTimer = setTimeout(() => {
+            if (typeof syncDataToBot === "function") syncDataToBot();
+        }, 1000); 
+    }
+};
+
+// 1️⃣ دالة التحضير (بتسجل وقت الدخول والنقاط)
+window.markAttendance = function(codeOrPhone, status) {
+    const s = classSessions.find(session => session.id === currentActiveSessionId);
+    if(s && s.status === 'open') {
+        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
+        if(!student) return;
+
+        // منع التحضير لو موقوف (إلا لإلغاء الحضور)
+        if(student.isSuspended && status !== 'none') {
+            if(typeof showToast === 'function') showToast(`⛔ الطالب (${student.name}) موقوف، لا يمكن تحضيره!`, 'error');
+            return;
+        }
+
+        // 🌟 خصم/إضافة نقاط السلوك
+        let oldStatus = s.attendance[student.code] || s.attendance[student.phone];
+        if (oldStatus) {
+            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
+            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
+        }
+        
+        if (status !== 'none') {
+            if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
+            if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
+        }
+
+        // ⏰ حفظ الوقت 
+        if (!s.attendanceLog) s.attendanceLog = {};
+        if (status === 'none') {
+            delete s.attendance[student.code];
+            if(s.attendance[student.phone]) delete s.attendance[student.phone];
+            delete s.attendanceLog[student.code];
+        } else {
+            s.attendance[student.code] = status; 
+            let now = new Date();
+            let h = now.getHours().toString().padStart(2, '0');
+            let m = now.getMinutes().toString().padStart(2, '0');
+            let timeStr = typeof formatTime12 === 'function' ? formatTime12(`${h}:${m}`) : `${h}:${m}`;
+            s.attendanceLog[student.code] = { time: timeStr, ts: now.getTime() };
+        }
+
+        // الحفظ
+        window.safeLocalSave("classSessions", classSessions);
+        window.safeLocalSave("students", students);
+        
+        renderAttendanceTable(s);
+    }
+};
+
+// 2️⃣ دالة استدعاء آخر طالب مسجل عشان الشريط الأزرق
+window.getLastStudentInLevel = function(levelName) {
+    let levelStudents = students.filter(s => s.level === levelName);
+    if (levelStudents.length === 0) return null;
+    return levelStudents[levelStudents.length - 1];
+};
+
+// 3️⃣ دالة فتح الإضافة السريعة وتجهيزها للحصة الحالية
+window.openQuickAddFromSession = function() {
+    if(!currentActiveSessionId) return;
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if(!session) return;
+    
+    openModal('addStudentModal');
+    setTimeout(() => {
+        const activeGroupObj = groups.find(g => g.name === session.group);
+        if(activeGroupObj) {
+            let levelSelect = document.getElementById('studentLevel');
+            if(levelSelect) levelSelect.value = activeGroupObj.level;
+            
+            if(typeof filterGroupsByLevel === 'function') filterGroupsByLevel('studentLevel', 'studentGroup');
+            
+            setTimeout(() => {
+                let groupSelect = document.getElementById('studentGroup');
+                if(groupSelect) groupSelect.value = session.group;
+            }, 50);
+        }
+        let nameInput = document.getElementById('studentName');
+        if(nameInput) nameInput.focus();
+    }, 100);
+    window.pendingAttendanceAfterAction = true;
+};
+
+// 4️⃣ دالة استخراج شيت إكسيل لغياب وحضور الحصة دي بس
+window.downloadCurrentSessionReport = function() {
+    if (!currentActiveSessionId) return;
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if (!session) return;
+    
+    let gStudents = students.filter(s => s.group === session.group);
+    let data = gStudents.map(st => {
+        let stat = session.attendance[st.code] || session.attendance[st.phone];
+        let statText = stat === 'present' ? 'حاضر' : stat === 'late' ? 'متأخر' : stat === 'absent' ? 'غائب' : 'لم يسجل';
+        if (typeof stat === 'object') {
+            statText = stat.status === 'makeup' ? 'تعويض (سنتر)' : 'تعويض (منصة)';
+        }
+        let timeText = (session.attendanceLog && session.attendanceLog[st.code]) ? session.attendanceLog[st.code].time : '';
+        return {
+            "الكود": st.code, "اسم الطالب": st.name, "الهاتف": st.phone, 
+            "ولي الأمر": st.parentPhone, "الحالة": statText, "وقت الحضور": timeText
+        };
+    });
+    
+    let ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{wch: 15}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 15}];
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
+    
+    // إصلاح الخطأ البرمجي في اسم الملف
+    let safeTopic = session.topic ? session.topic.replace(/[/\\?%*:|"<>]/g, '-') : session.date;
+    XLSX.writeFile(wb, `تقرير_حصة_${safeTopic}_${session.group}.xlsx`);
+    if(typeof showToast === 'function') showToast("تم تحميل تقرير الحصة 📥");
+};
+
+// 5️⃣ دالة رسم الجدول الاحترافية (شاملة زراير التبديل والتأثيرات)
+window.renderAttendanceTable = function(session) {
+    const tbody = document.getElementById("attendance-list"); 
+    if(!tbody) return;
+    const gStudents = students.filter(s => s.group === session.group); 
+    
+    if(gStudents.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 30px; font-weight: bold; color: var(--text-muted);">لا يوجد طلاب مسجلين في هذه المجموعة</td></tr>`; 
+    
+    const groupS = classSessions.filter(s => s.group === session.group).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
+    const prevSession = groupS[groupS.findIndex(s => s.id === session.id) - 1]; 
+    
+    const groupObj = groups.find(g => g.name === session.group);
+    if(groupObj) {
+        let titleEl = document.getElementById('quick-info-level-name');
+        if(titleEl) titleEl.innerText = `إضافة سريعة لطلاب (${groupObj.level})`;
+        
+        let lastSt = window.getLastStudentInLevel(groupObj.level);
+        let codeEl = document.getElementById('quick-info-last-code');
+        let nameEl = document.getElementById('quick-info-last-name');
+        
+        if (lastSt && codeEl && nameEl) {
+            codeEl.innerText = lastSt.code;
+            nameEl.innerText = `(${lastSt.name})`;
+        } else if (codeEl && nameEl) {
+            codeEl.innerText = "لا يوجد طلاب بعد";
+            nameEl.innerText = "";
+        }
+    }
+    
+    // الترتيب الذكي (الأحدث فوق)
+    let sortedStudents = [...gStudents].sort((a, b) => {
+        let logA = session.attendanceLog ? session.attendanceLog[a.code] : null;
+        let logB = session.attendanceLog ? session.attendanceLog[b.code] : null;
+        let tsA = logA ? logA.ts : 0;
+        let tsB = logB ? logB.ts : 0;
+        
+        if (tsA > 0 && tsB > 0) return tsB - tsA; 
+        if (tsA > 0) return -1;
+        if (tsB > 0) return 1;
+        
+        let statA = session.attendance[a.code];
+        let statB = session.attendance[b.code];
+        if (statA && !statB) return -1;
+        if (!statA && statB) return 1;
+        return 0; 
+    });
+
+    let htmlContent = ""; 
+    let countPresent = 0, countLate = 0, countAbsent = 0;
+
+    sortedStudents.forEach(st => { 
+        const stat = session.attendance[st.code] || session.attendance[st.phone]; 
+        const log = session.attendanceLog ? session.attendanceLog[st.code] : null;
+        
+        if (stat === 'present') countPresent++;
+        if (stat === 'late') countLate++;
+        if (stat === 'absent') countAbsent++;
+
+        let timeDisplay = log ? `<span style="font-size:11px; color:var(--text-muted); font-weight:bold; display:block; margin-top:3px;">🕒 ${log.time}</span>` : '';
+        const statHtml = stat === 'present' ? `<span style="color:#10b981; font-weight:900; font-size:14px;">حاضر ✅</span>${timeDisplay}` : 
+                         stat === 'late' ? `<span style="color:#f59e0b; font-weight:900; font-size:14px;">متأخر ⏳</span>${timeDisplay}` : 
+                         stat === 'absent' ? `<span style="color:#ef4444; font-weight:900; font-size:14px;">غائب ❌</span>${timeDisplay}` : 
+                         typeof stat === 'object' ? (stat.status === 'makeup' ? `<span style="color:#2563eb; font-weight:900; font-size:14px;">تعويض (سنتر)</span>${timeDisplay}` : `<span style="color:#a855f7; font-weight:900; font-size:14px;">تعويض (منصة)</span>${timeDisplay}`) :
+                         `<span style="color:var(--text-muted); font-size:13px; font-weight:bold;">--</span>`; 
+        
+        let pHT = '<span style="color:var(--text-muted); font-size:12px;">--</span>'; 
+        if(prevSession && prevSession.attendance) { 
+            const p = prevSession.attendance[st.code] || prevSession.attendance[st.phone]; 
+            pHT = p==='present'?'<span style="background:rgba(16,185,129,0.1); color:#10b981; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold;">حاضر</span>':
+                  p==='late'?'<span style="background:rgba(245,158,11,0.1); color:#f59e0b; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold;">متأخر</span>':
+                  p==='absent'?'<span style="background:rgba(239,68,68,0.1); color:#ef4444; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold;">غائب</span>':
+                  typeof p==='object' ? '<span style="background:rgba(37,99,235,0.1); color:#2563eb; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:bold;">تعويض</span>' : '--'; 
+        } 
+        
+        let noteIcon = st.note && st.note.trim() !== "" ? `<span style="cursor: pointer; margin-right: 8px; font-size: 15px; filter: drop-shadow(0 2px 4px rgba(139,92,246,0.4));" title="يوجد ملاحظة (اضغط للعرض)" onclick="openStudentNoteModal('${st.code}')">📝</span>` : ``;
+
+        // 🔘 زراير التبديل السريعة
+        let actionButtons = '';
+        if (stat === 'present') {
+            actionButtons = `
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="theme-btn" style="border-color: #f59e0b; color: #f59e0b; padding: 4px 10px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'late')">تحويل لمتأخر ⏳</button>
+                    <button class="icon-btn danger" style="padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="markAttendance('${st.code}', 'none')">إلغاء ❌</button>
+                </div>`;
+        } else if (stat === 'late') {
+            actionButtons = `
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="theme-btn" style="border-color: #10b981; color: #10b981; padding: 4px 10px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'present')">تحويل لحاضر ✓</button>
+                    <button class="icon-btn danger" style="padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="markAttendance('${st.code}', 'none')">إلغاء ❌</button>
+                </div>`;
+        } else if (stat === 'absent' || typeof stat === 'object') {
+            actionButtons = `<button onclick="markAttendance('${st.code}', 'none')" style="background: rgba(239, 68, 68, 0.05); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 6px; font-size:12px; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff';" onmouseout="this.style.background='rgba(239, 68, 68, 0.05)'; this.style.color='#ef4444';">إلغاء ✖</button>`;
+        } else {
+            actionButtons = `
+                <div style="display: flex; gap: 5px; justify-content: center;">
+                    <button class="save-btn" style="background:#10b981; padding: 4px 10px; margin: 0; font-size: 12px; width: auto;" onclick="markAttendance('${st.code}', 'present')">حاضر ✓</button>
+                    <button class="theme-btn" style="border-color:#f59e0b; color:#f59e0b; padding: 4px 10px; margin: 0; font-size: 12px; width: auto; font-weight:bold;" onclick="markAttendance('${st.code}', 'late')">متأخر ⏳</button>
+                </div>`;
+        }
+
+        let rowBg = '';
+        if (log && (Date.now() - log.ts) < 5000) {
+             rowBg = 'animation: flashRow 2s ease-out;'; 
+        } else if (stat) {
+             rowBg = 'background: rgba(248, 250, 252, 0.5);';
+        }
+
+        htmlContent += `<tr style="${rowBg}">
+            <td><strong style="color:var(--primary-color); font-size:14px;">${st.code}</strong></td>
+            <td><div style="font-weight:bold; font-size:14px; display:flex; align-items:center;">${st.name} ${noteIcon} ${st.isSpecialCase ? '<span title="حالة خاصة" style="cursor:help; margin-right:5px;">⭐</span>' : ''}</div></td>
+            <td style="direction: ltr; font-size:13px; color:var(--text-main);">${st.phone && st.phone !== "0" ? st.phone : "--"}</td>
+            <td>${pHT}</td>
+            <td>${statHtml}</td>
+            <td style="text-align: center;">${actionButtons}</td>
+        </tr>`; 
+    }); 
+    
+    if(document.getElementById("att-count-total")) document.getElementById("att-count-total").innerText = gStudents.length;
+    if(document.getElementById("att-count-present")) document.getElementById("att-count-present").innerText = countPresent;
+    if(document.getElementById("att-count-late")) document.getElementById("att-count-late").innerText = countLate;
+    if(document.getElementById("att-count-absent")) document.getElementById("att-count-absent").innerText = countAbsent;
+
+    if (!document.getElementById('flash-row-style')) {
+        let style = document.createElement('style');
+        style.id = 'flash-row-style';
+        style.innerHTML = `@keyframes flashRow { 0% { background-color: rgba(16, 185, 129, 0.15); } 100% { background-color: transparent; } }`;
+        document.head.appendChild(style);
+    }
+
+    tbody.innerHTML = htmlContent; 
+};
+
+// 6️⃣ دوال مساعدة لرفع الإكسيل بذكاء
+window.triggerWrongGroupModal = function(studentCode, sessionId) {
+    let st = students.find(s => s.code === studentCode);
+    let sess = classSessions.find(s => s.id === sessionId);
+    if(st && sess) {
+        let oldModal = document.getElementById('excelReportModal');
+        if (oldModal) oldModal.remove();
+        openWrongGroupModal(st, sess);
+    }
+};
+
+window.copyNotFoundList = function() {
+    let txt = document.getElementById("notFoundTextArea")?.value || "";
+    if (txt) {
+        navigator.clipboard.writeText(txt).then(() => {
+            if(typeof showToast === 'function') showToast('تم النسخ! 📋');
+        });
+    }
+};
+
+window.importAttendanceFromExcel = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const session = classSessions.find(s => s.id === currentActiveSessionId);
+    if (!session || session.status === 'closed') {
+        if(typeof showToast === 'function') showToast("يرجى فتح حصة أولاً لتسجيل الحضور!", "error");
+        event.target.value = ""; return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const excelData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+            let successList = [], notFoundList = [], wrongGroupQueue = [];
+            let isLate = document.getElementById('markAsLateCheckbox')?.checked;
+            let attStatus = isLate ? 'late' : 'present';
+
+            excelData.forEach(row => {
+                let searchValue = row['الكود'] || row['كود'] || row['كود الطالب'] || row['الاسم'] || row['اسم الطالب'] || Object.values(row)[0];
+                if (searchValue) {
+                    searchValue = String(searchValue).trim();
+                    let student = typeof findStudentByCodeOrName === 'function' ? findStudentByCodeOrName(searchValue) : students.find(s => s.code === searchValue);
+                    
+                    if (!student && isNaN(searchValue)) {
+                        let normalizedExcel = typeof window.smartArabicNormalize === 'function' ? window.smartArabicNormalize(searchValue) : searchValue;
+                        student = students.find(s => {
+                            let sysName = typeof window.smartArabicNormalize === 'function' ? window.smartArabicNormalize(s.name) : s.name;
+                            return sysName.includes(normalizedExcel) || normalizedExcel.includes(sysName);
+                        });
+                    }
+
+                    if (!student) {
+                        notFoundList.push(searchValue); 
+                    } else if (student.group !== session.group) {
+                        wrongGroupQueue.push(student); 
+                    } else {
+                        let oldStatus = session.attendance[student.code] || session.attendance[student.phone];
+                        if (!oldStatus) { 
+                            if (attStatus === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
+                            if (attStatus === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
+                            session.attendance[student.code] = attStatus;
+                            successList.push(student.name);
+                        }
+                    }
+                }
+            });
+
+            window.safeLocalSave("classSessions", classSessions);
+            window.safeLocalSave("students", students);
+            
+            renderAttendanceTable(session);
+            showExcelImportReport(successList, wrongGroupQueue, notFoundList, session);
+        } catch (err) { 
+            if(typeof showToast === 'function') showToast("حدث خطأ أثناء قراءة الملف!", "error"); 
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = ""; 
+};
+
+window.showExcelImportReport = function(successList, wrongGroupQueue, notFoundList, session) {
+    let oldModal = document.getElementById('excelReportModal');
+    if (oldModal) oldModal.remove();
+
+    let notFoundHtml = "";
+    if (notFoundList.length > 0) {
+        notFoundHtml = `
+        <div style="background: rgba(239, 68, 68, 0.05); padding: 15px; border-radius: 8px; border: 1px dashed #ef4444; margin-bottom: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <h4 style="color: #ef4444; margin:0;">❌ غير مسجلين بالنظام (${notFoundList.length})</h4>
+                <button onclick="copyNotFoundList()" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">📋 نسخ الأسماء</button>
+            </div>
+            <textarea id="notFoundTextArea" readonly style="width:100%; height:80px; border-radius:5px; border:1px solid #ef4444; padding:10px; font-family:'Cairo'; resize:none; background: #fff;">${notFoundList.join('\n')}</textarea>
+        </div>`;
+    }
+
+    let wrongGroupHtml = "";
+    if (wrongGroupQueue.length > 0) {
+        let rowsHtml = wrongGroupQueue.map(st => `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 10px; font-weight:bold;">${st.name}</td>
+                <td style="padding: 10px; color:var(--text-muted);">${st.group}</td>
+                <td style="padding: 10px; text-align:left;">
+                    <button onclick="triggerWrongGroupModal('${st.code}', '${session.id}')" style="background:#f59e0b; color:white; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">معالجة ⚙️</button>
+                </td>
+            </tr>
+        `).join('');
+
+        wrongGroupHtml = `
+        <div style="background: rgba(245, 158, 11, 0.05); padding: 15px; border-radius: 8px; border: 1px dashed #f59e0b; margin-bottom: 15px;">
+            <h4 style="color: #f59e0b; margin:0 0 10px 0;">⚠️ طلاب في مجموعات أخرى (${wrongGroupQueue.length})</h4>
+            <div style="max-height: 150px; overflow-y: auto; background: #fff; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    ${rowsHtml}
+                </table>
+            </div>
+        </div>`;
+    }
+
+    let modalHtml = `
+        <div id="excelReportModal" class="modal" style="display:flex; z-index: 1000000; align-items:center; justify-content:center;">
+            <div class="modal-content" style="width: 600px; max-width: 95%; max-height: 90vh; overflow-y:auto; border-top: 5px solid var(--primary-color);">
+                <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+                <h2 style="color: var(--primary-color); margin-bottom: 20px;">📊 تقرير رفع شيت الحضور</h2>
+                <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed #10b981; margin-bottom: 15px; text-align:center;">
+                    <h3 style="color: #10b981; margin:0;">✅ تم تحضير ${successList.length} طالب بنجاح</h3>
+                </div>
+                ${wrongGroupHtml}
+                ${notFoundHtml}
+                <button class="save-btn" style="width: 100%; margin-top: 10px;" onclick="this.parentElement.parentElement.remove()">إغلاق التقرير 👍</button>
+            </div>
+        </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
 // ==========================================
 // 🔄 تنفيذ تحضير الطالب كتعويض في مجموعته الأصلية بلون أزرق فخم
 // ==========================================
@@ -2078,75 +2506,157 @@ function renderGradesTable(itemDetails, tbodyId, saveFunction, itemId, itemType)
 }
 
 // ==========================================
-// 14. الرسوم البيانية (Dashboard Full)
+// 14. الرسوم البيانية (Dashboard Full) - (النسخة المحمية من التهنيج)
 // ==========================================
-function renderDashboardCharts() {
-    // 🔴 السطر السحري اللي بيجيب اللينك ويحطه في المربع أوتوماتيك
-    if(typeof updateParentLinkUI === "function") updateParentLinkUI(); 
-    
+let isRenderingCharts = false; // قفل حماية لمنع تكرار الرسم في نفس اللحظة
+
+window.renderDashboardCharts = function() {
     if(sessionStorage.getItem("isLoggedIn") !== "true") return;
-    document.getElementById("total-students").innerText = students.length;
-    document.getElementById("total-groups").innerText = groups.length;
     
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff';
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#3b82f6';
-    
-    // رسم الحضور
-    const ctxAtt = document.getElementById('attendanceChart')?.getContext('2d');
-    if(ctxAtt) {
-        if(attendanceChartInstance) attendanceChartInstance.destroy();
-        const sessionsByDate = {};
-        classSessions.forEach(s => {
-            if(!sessionsByDate[s.date]) { sessionsByDate[s.date] = { expected: 0, attended: 0 }; }
-            const groupStudentsCount = students.filter(st => st.group === s.group).length;
-            const presentCount = Object.values(s.attendance).filter(v => v === 'present').length;
-            sessionsByDate[s.date].expected += groupStudentsCount;
-            sessionsByDate[s.date].attended += presentCount;
-        });
-        const sortedDates = Object.keys(sessionsByDate).sort((a,b) => new Date(a) - new Date(b)).slice(-7);
-        const sessionLabels = sortedDates.map(d => d.substring(5)); 
-        const sessionData = sortedDates.map(d => { const exp = sessionsByDate[d].expected; return exp > 0 ? Math.round((sessionsByDate[d].attended / exp) * 100) : 0; });
-        attendanceChartInstance = new Chart(ctxAtt, { type: 'line', data: { labels: sessionLabels, datasets: [{ label: 'متوسط الحضور (%)', data: sessionData, borderColor: primaryColor, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 3, fill: true, tension: 0.3 }] }, options: { plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor }, min: 0, max: 100 } } } });
-    }
+    // لو المتصفح بيرسم حالاً، متخليهوش يعيد من الأول عشان ميهنجش
+    if(isRenderingCharts) return; 
+    isRenderingCharts = true;
 
-    // رسم المجموعات
-    const ctxGrp = document.getElementById('groupsChart')?.getContext('2d');
-    if(ctxGrp) {
-        if(groupsChartInstance) groupsChartInstance.destroy();
-        const groupLabels = groups.map(g => g.name); 
-        const groupData = groups.map(g => students.filter(s => s.group === g.name).length); 
-        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
-        groupsChartInstance = new Chart(ctxGrp, { type: 'doughnut', data: { labels: groupLabels, datasets: [{ data: groupData, backgroundColor: colors, borderWidth: 0 }] }, options: { plugins: { legend: { position: 'bottom', labels: { color: textColor } } } } });
-    }
+    // ⏳ إعطاء المتصفح فرصة للتنفس قبل الحسابات
+    setTimeout(() => {
+        window.requestAnimationFrame(() => {
+            try {
+                if (document.getElementById("total-students")) document.getElementById("total-students").innerText = students.length;
+                if (document.getElementById("total-groups")) document.getElementById("total-groups").innerText = groups.length;
+                
+                const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-main').trim() || '#fff';
+                const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#3b82f6';
+                
+                // حساب أعداد المجموعات مرة واحدة بذكاء
+                const groupSizes = {};
+                students.forEach(st => {
+                    if (st.group) groupSizes[st.group] = (groupSizes[st.group] || 0) + 1;
+                });
 
-    // إخفاء ماليّات المساعد
-    if(isAssistantMode) return; 
-
-    // رسم المالية
-    const ctxFin = document.getElementById('financeChart')?.getContext('2d');
-    if(ctxFin) {
-        if(financeChartInstance) financeChartInstance.destroy();
-        const monthlyData = {}; const defaultStudentFee = 50; const defaultCenterFee = 10;
-        classSessions.forEach(s => { const month = s.date.substring(0, 7); if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 }; });
-        Object.keys(financeRecords).forEach(key => {
-            if(key.startsWith('fin_session_')) {
-                const sessionId = key.replace('fin_session_', ''); const session = classSessions.find(s => s.id === sessionId);
-                if(session) {
-                    const month = session.date.substring(0, 7); if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 };
-                    let paidCount = 0; Object.values(financeRecords[key]).forEach(status => { if(status === 'paid') paidCount++; });
-                    monthlyData[month].income += paidCount * defaultStudentFee; monthlyData[month].expenses += paidCount * defaultCenterFee;
+                // 📊 رسم الحضور
+                const ctxAtt = document.getElementById('attendanceChart');
+                if(ctxAtt) {
+                    const ctx = ctxAtt.getContext('2d');
+                    if(window.attendanceChartInstance) window.attendanceChartInstance.destroy();
+                    const sessionsByDate = {};
+                    
+                    classSessions.forEach(s => {
+                        if(!sessionsByDate[s.date]) { sessionsByDate[s.date] = { expected: 0, attended: 0 }; }
+                        const groupStudentsCount = groupSizes[s.group] || 0; 
+                        const presentCount = Object.values(s.attendance || {}).filter(v => v === 'present').length;
+                        sessionsByDate[s.date].expected += groupStudentsCount;
+                        sessionsByDate[s.date].attended += presentCount;
+                    });
+                    
+                    const sortedDates = Object.keys(sessionsByDate).sort((a,b) => new Date(a) - new Date(b)).slice(-7);
+                    const sessionLabels = sortedDates.map(d => d.substring(5)); 
+                    const sessionData = sortedDates.map(d => { 
+                        const exp = sessionsByDate[d].expected; 
+                        return exp > 0 ? Math.round((sessionsByDate[d].attended / exp) * 100) : 0; 
+                    });
+                    
+                    window.attendanceChartInstance = new Chart(ctx, { 
+                        type: 'line', 
+                        data: { labels: sessionLabels, datasets: [{ label: 'متوسط الحضور (%)', data: sessionData, borderColor: primaryColor, backgroundColor: 'rgba(59, 130, 246, 0.2)', borderWidth: 3, fill: true, tension: 0.3 }] }, 
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false, // 🚀 دي اللي بتمنع دوامة تهنيج المقاسات
+                            plugins: { legend: { labels: { color: textColor } } }, 
+                            scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor }, min: 0, max: 100 } } 
+                        } 
+                    });
                 }
+
+                // 🍩 رسم المجموعات
+                const ctxGrp = document.getElementById('groupsChart');
+                if(ctxGrp) {
+                    const ctx = ctxGrp.getContext('2d');
+                    if(window.groupsChartInstance) window.groupsChartInstance.destroy();
+                    const groupLabels = groups.map(g => g.name); 
+                    const groupData = groups.map(g => groupSizes[g.name] || 0); 
+                    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+                    
+                    window.groupsChartInstance = new Chart(ctx, { 
+                        type: 'doughnut', 
+                        data: { labels: groupLabels, datasets: [{ data: groupData, backgroundColor: colors, borderWidth: 0 }] }, 
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false, 
+                            plugins: { legend: { position: 'bottom', labels: { color: textColor } } } 
+                        } 
+                    });
+                }
+
+                // 💰 رسم المالية (تظهر فقط للمدير)
+                if(typeof isAssistantMode !== 'undefined' && !isAssistantMode) {
+                    const ctxFin = document.getElementById('financeChart');
+                    if(ctxFin) {
+                        const ctx = ctxFin.getContext('2d');
+                        if(window.financeChartInstance) window.financeChartInstance.destroy();
+                        const monthlyData = {}; const defaultStudentFee = 50; const defaultCenterFee = 10;
+                        
+                        classSessions.forEach(s => { 
+                            const month = s.date.substring(0, 7); 
+                            if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 }; 
+                        });
+                        
+                        Object.keys(financeRecords || {}).forEach(key => {
+                            if(key.startsWith('fin_session_')) {
+                                const sessionId = key.replace('fin_session_', ''); 
+                                const session = classSessions.find(s => s.id === sessionId);
+                                if(session) {
+                                    const month = session.date.substring(0, 7); 
+                                    if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 };
+                                    let paidCount = 0; 
+                                    Object.values(financeRecords[key]).forEach(status => { 
+                                        if(status === 'paid' || (typeof status === 'object' && status.status === 'paid')) paidCount++; 
+                                    });
+                                    monthlyData[month].income += paidCount * defaultStudentFee; 
+                                    monthlyData[month].expenses += paidCount * defaultCenterFee;
+                                }
+                            }
+                        });
+                        
+                        (expenses || []).forEach(ex => {
+                            const session = classSessions.find(s => s.id === ex.sessionId);
+                            if(session) { 
+                                const month = session.date.substring(0, 7); 
+                                if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 }; 
+                                monthlyData[month].expenses += parseFloat(ex.amount); 
+                            }
+                        });
+                        
+                        Object.keys(monthlyData).forEach(m => { monthlyData[m].net = monthlyData[m].income - monthlyData[m].expenses; });
+                        const sortedMonths = Object.keys(monthlyData).sort();
+                        
+                        window.financeChartInstance = new Chart(ctx, { 
+                            type: 'bar', 
+                            data: { labels: sortedMonths, datasets: [ 
+                                { label: 'الإيرادات', data: sortedMonths.map(m => monthlyData[m].income), backgroundColor: '#10b981' }, 
+                                { label: 'المصروفات', data: sortedMonths.map(m => monthlyData[m].expenses), backgroundColor: '#ef4444' }, 
+                                { label: 'الربح', data: sortedMonths.map(m => monthlyData[m].net), backgroundColor: '#3b82f6' } 
+                            ] }, 
+                            options: { 
+                                responsive: true, 
+                                maintainAspectRatio: false, 
+                                plugins: { legend: { labels: { color: textColor } } }, 
+                                scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } 
+                            } 
+                        });
+                    }
+                }
+                
+                if(typeof updateParentLinkUI === "function") updateParentLinkUI(); 
+
+            } catch (error) {
+                console.error("Dashboard Render Error:", error);
+            } finally {
+                // فك قفل الحماية عشان يقدر يرسم تاني لو اتطلب منه
+                isRenderingCharts = false; 
             }
         });
-        expenses.forEach(ex => {
-            const session = classSessions.find(s => s.id === ex.sessionId);
-            if(session) { const month = session.date.substring(0, 7); if(!monthlyData[month]) monthlyData[month] = { income: 0, expenses: 0, net: 0 }; monthlyData[month].expenses += parseFloat(ex.amount); }
-        });
-        Object.keys(monthlyData).forEach(m => { monthlyData[m].net = monthlyData[m].income - monthlyData[m].expenses; });
-        const sortedMonths = Object.keys(monthlyData).sort();
-        financeChartInstance = new Chart(ctxFin, { type: 'bar', data: { labels: sortedMonths, datasets: [ { label: 'الإيرادات', data: sortedMonths.map(m => monthlyData[m].income), backgroundColor: '#10b981' }, { label: 'المصروفات', data: sortedMonths.map(m => monthlyData[m].expenses), backgroundColor: '#ef4444' }, { label: 'الربح', data: sortedMonths.map(m => monthlyData[m].net), backgroundColor: '#3b82f6' } ] }, options: { plugins: { legend: { labels: { color: textColor } } }, scales: { x: { ticks: { color: textColor } }, y: { ticks: { color: textColor } } } } });
-    }
-}
+    }, 150); 
+};
 // ==========================================
 // 15. المالية والاشتراكات الشهرية (النسخة الميلادية الذكية)
 // ==========================================
@@ -3135,83 +3645,6 @@ if (!document.getElementById('qrScript')) {
 
 
 
-// ==========================================
-// 🚀 تسريع الرصد (الانتقال بزر Enter مع التحقق)
-// ==========================================
-
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- 1. قسم الامتحانات ---
-    document.getElementById('examBarcodeCode')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            let val = this.value.trim();
-            if (val === "") return;
-            
-            let student = findStudentByCodeOrName(val);
-            const ex = exams.find(e => e.id === currentActiveExamId);
-            
-            // التحقق من وجود الطالب
-            if (!student) {
-                showToast("الطالب غير موجود!", "error");
-                this.value = ''; // تفريغ الخانة
-                return;
-            }
-            // التحقق من إن الطالب في نفس المجموعة
-            if (ex && student.group !== ex.group) {
-                showToast("الطالب ليس في هذه المجموعة!", "error");
-                this.value = ''; // تفريغ الخانة
-                return;
-            }
-            
-            // لو الطالب سليم 100%، انط لخانة الدرجة
-            document.getElementById('examBarcodeGrade')?.focus();
-        }
-    });
-
-    document.getElementById('examBarcodeGrade')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if(typeof submitExamBarcodeGrade === 'function') submitExamBarcodeGrade();
-        }
-    });
-
-    // --- 2. قسم الواجبات ---
-    document.getElementById('hwBarcodeCode')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            let val = this.value.trim();
-            if (val === "") return;
-            
-            let student = findStudentByCodeOrName(val);
-            const hw = homeworks.find(h => h.id === currentActiveHwId);
-            
-            // التحقق من وجود الطالب
-            if (!student) {
-                showToast("الطالب غير موجود!", "error");
-                this.value = ''; // تفريغ الخانة
-                return;
-            }
-            // التحقق من إن الطالب في نفس المجموعة
-            if (hw && student.group !== hw.group) {
-                showToast("الطالب ليس في هذه المجموعة!", "error");
-                this.value = ''; // تفريغ الخانة
-                return;
-            }
-
-            // لو الطالب سليم 100%، انط لخانة الدرجة
-            document.getElementById('hwBarcodeGrade')?.focus();
-        }
-    });
-
-    document.getElementById('hwBarcodeGrade')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if(typeof submitHwBarcodeGrade === 'function') submitHwBarcodeGrade();
-        }
-    });
-
-});
 
 // ==========================================
 // 🔗 توليد ونسخ رابط بوابة أولياء الأمور
@@ -3345,7 +3778,7 @@ document.getElementById('demoRegistrationForm')?.addEventListener('submit', func
     localStorage.setItem("demo_device_id", demoId); // حفظ البصمة
 
     // رفع بيانات العميل للوحة الإدارة (الفايربيز) بالحالة نشط
-    fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/demo_users/${demoId}.json`, {
+    fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/demo_users/${demoId}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -3380,7 +3813,7 @@ document.getElementById('requestIdCardsForm')?.addEventListener('submit', functi
     }
 
     // رفع الطلب لقاعدة بيانات الإدارة العليا (dashb.html)
-    fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/id_orders/${Date.now()}.json`, {
+    fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/id_orders/${Date.now()}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -3404,7 +3837,7 @@ document.getElementById('requestIdCardsForm')?.addEventListener('submit', functi
 // 💸 نظام الإحالات المتكامل (Stats & Checkout)
 // ==========================================
 
-const DB_URL = "https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app";
+const DB_URL = "https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app";
 window.availableAffiliateBalance = 0; // متغير جلوبال لتخزين الرصيد المتاح للسحب
 
 // 1. توليد كود إحالة عشوائي وفريد ومستحيل يتكرر
@@ -4037,7 +4470,7 @@ window.generateChargeCodes = async function() {
     }
 
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/chargeCodes.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/chargeCodes.json`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newCodes)
         });
         
@@ -4086,7 +4519,7 @@ window.downloadNewCodesExcel = function() {
 // 📥 تحميل جميع أكواد السنتر في ملف إكسيل
 window.exportAllCodesToExcel = async function() {
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
         let codes = await res.json() || {};
         let data = Object.keys(codes).map(codeStr => ({
             "كود الشحن": codeStr,
@@ -4132,7 +4565,7 @@ window.renderChargeCodes = async function() {
         </tbody>`;
         
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
         let codes = await res.json() || {};
         
         // تحويل الأوبجكت لمصفوفة عشان نقدر نقسمها لصفحات (ونرتبها من الأحدث للأقدم)
@@ -4222,7 +4655,7 @@ window.changeCodesPage = function(direction) {
 window.deleteChargeCode = async function(codeStr) {
     if(!confirm("⚠️ هل أنت متأكد من حذف هذا الكود نهائياً؟")) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
         
         // حذف الكود من المصفوفة المحلية وإعادة الرسم بدون ريفريش للسيرفر
         window.allFetchedCodes = window.allFetchedCodes.filter(c => c.codeStr !== codeStr);
@@ -4234,7 +4667,7 @@ window.deleteChargeCode = async function(codeStr) {
 window.deleteChargeCode = async function(codeStr) {
     if(!confirm("⚠️ هل أنت متأكد من حذف هذا الكود نهائياً؟")) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
         renderChargeCodes();
         showToast("تم حذف الكود بنجاح 🗑️");
     } catch(e) { alert("حدث خطأ"); }
@@ -4379,7 +4812,7 @@ window.loadSentNotifications = async function() {
     container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري جلب الإشعارات من السيرفر... ⏳</div>`;
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications.json`);
         let data = await res.json() || {};
         let notifs = Object.values(data).reverse(); 
         
@@ -4553,13 +4986,13 @@ window.loadSentNotifications = async function() {
                 date: new Date().toLocaleDateString('ar-EG')
             };
 
-            let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`);
+            let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`);
             let existing = await res.json() || [];
             if(!Array.isArray(existing)) existing = Object.values(existing).filter(e => e !== null);
             
             existing.push(courseData);
 
-            await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`, {
+            await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(existing)
             });
 
@@ -4658,7 +5091,7 @@ window.loadSentNotifications = async function() {
 
                 if(imageBase64) window.fetchedLectures[courseIndex].image = imageBase64;
 
-                await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`, {
+                await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/lectures.json`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.fetchedLectures)
                 });
 
@@ -4819,7 +5252,7 @@ window.openVideoAnalytics = async function(courseId, videoIndex, videoTitle) {
     let defaultMaxViews = course ? (parseInt(course.maxViews) || 0) : 0;
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}.json`);
         let trackingData = await res.json() || {};
         
         tbody.innerHTML = ""; let hasData = false;
@@ -4879,7 +5312,7 @@ window.addExtraViews = async function(courseId, videoIndex, studentKey, currentE
     btn.disabled = true;
 
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}/${studentKey}/${videoIndex}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}/${studentKey}/${videoIndex}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ extraViews: newExtraTotal })
@@ -4903,7 +5336,7 @@ window.openCourseAnalytics = async function(courseId) {
     openModal("courseAnalyticsModal");
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/course_tracking/${courseId}.json`);
         let trackingData = await res.json() || {};
         
         tbody.innerHTML = ""; let hasData = false;
@@ -5002,12 +5435,12 @@ window.saveOnlineExam = async function() {
     let newExam = { id: "exam_" + Date.now(), title: title, duration: parseInt(duration), group: selectedGroups, autoShowResult: autoResult, totalScore: totalScore,track: document.getElementById("onlineExamTrack").value, status: "open", date: new Date().toISOString().split('T')[0], questions: currentQuestions };
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`);
         let existingExams = await res.json() || [];
         if(!Array.isArray(existingExams)) existingExams = Object.values(existingExams).filter(e => e !== null);
         existingExams.push(newExam);
 
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(existingExams) });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(existingExams) });
 
         if(typeof showToast === 'function') showToast("تم نشر الامتحان للطلاب بنجاح! 🚀");
         else alert("تم نشر الامتحان بنجاح!");
@@ -5021,7 +5454,7 @@ window.renderOnlineExams = async function() {
     if(!container) return;
     container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل... ⏳</div>`;
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`);
         let exams = await res.json() || [];
         window.fetchedOnlineExams = Array.isArray(exams) ? exams : Object.values(exams).filter(e => e !== null);
         
@@ -5084,7 +5517,7 @@ window.openOnlineExamDetails = async function(id) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">جاري تحليل البيانات ومقارنة الطلاب... ⏳</td></tr>`;
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/onlineSubmissions/${id}.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/onlineSubmissions/${id}.json`);
         let subs = await res.json() || {};
         exam.submissions = subs; 
         
@@ -5324,7 +5757,7 @@ window.saveManualGrades = async function() {
 
         sub.isGraded = true; 
 
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/onlineSubmissions/${examId}/${subKey}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/onlineSubmissions/${examId}/${subKey}.json`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub)
         });
 
@@ -5354,7 +5787,7 @@ window.saveManualGrades = async function() {
 window.toggleExamStatus = async function(index, currentStatus) {
     let newStatus = currentStatus === 'open' ? 'closed' : 'open';
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams/${index}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newStatus) });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams/${index}/status.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newStatus) });
         renderOnlineExams();
     } catch(e) {}
 };
@@ -5393,7 +5826,7 @@ window.sendPlatformNotification = async function(target, title, message) {
         date: new Date().toLocaleDateString('ar-EG')
     };
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications/${notif.id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications/${notif.id}.json`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(notif)
         });
     } catch(e) { console.error("Notification Error", e); }
@@ -5420,7 +5853,7 @@ window.loadPlatformForumQuestions = async function() {
     if(!tbody) return;
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">جاري جلب الأسئلة... ⏳</td></tr>`;
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/forum.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/forum.json`);
         let data = await res.json() || {};
         tbody.innerHTML = "";
         let keys = Object.keys(data).reverse();
@@ -5439,7 +5872,7 @@ window.answerForumQuestion = async function(id) {
     let reply = prompt("اكتب الرد النموذجي للسؤال:");
     if(!reply) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/forum/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/forum/${id}.json`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ replyText: reply })
         });
         showToast("تم إرسال الرد وتحديث المنصة لجميع زملائه! ✅");
@@ -5460,7 +5893,7 @@ window.loadStoreData = async function() {
     if(grid) grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center;">جاري تحميل المتجر... ⏳</div>`;
     
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store.json`);
         let data = await res.json() || { items: {}, logs: {} };
         
         window.currentStoreItems = data.items ? Object.values(data.items) : [];
@@ -5536,7 +5969,7 @@ window.saveStoreItem = async function() {
         };
 
         // حفظ العنصر
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store/items/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store/items/${id}.json`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData)
         });
 
@@ -5586,7 +6019,7 @@ window.resetStoreForm = function() {
 window.deleteStoreItem = async function(id, name) {
     if(!confirm(`هل أنت متأكد من حذف (${name}) من المتجر نهائياً؟`)) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store/items/${id}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/store/items/${id}.json`, { method: 'DELETE' });
         showToast("تم الحذف بنجاح! 🗑️");
         loadStoreData();
     } catch(e) { showToast("حدث خطأ أثناء الحذف", "error"); }
@@ -6188,7 +6621,7 @@ window.notifyParentApp = async function(studentCode, title, message) {
         
         // حفظ نسخة في الداتا بيز عشان "سجل الإشعارات" يفضل شغال في تطبيق ولي الأمر
         let notifId = "notif_" + Date.now();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications/${notifId}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/notifications/${notifId}.json`, {
             method: 'PUT', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify({
@@ -6316,7 +6749,7 @@ window.loadJoinRequests = async function() {
     let tbody = document.getElementById("join-requests-tbody");
     if(!tbody) return;
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests.json`);
         let data = await res.json() || {};
         window.currentJoinRequests = data;
         
@@ -6410,7 +6843,7 @@ window.confirmApproveRequest = async function() {
         localStorage.setItem("students", JSON.stringify(students));
         
         // مسح الطلب من الفايربيز
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
 
         // إرسال رسالة واتساب للطالب (ولو مش كاتب رقمه هيبعت لولي الأمر احتياطي)
         let portalLink = `https://elsenoir.online/.html`;
@@ -6441,7 +6874,7 @@ window.confirmApproveRequest = async function() {
 window.rejectRequest = async function(id) {
     if(!confirm("هل أنت متأكد من رفض هذا الطلب وحذفه؟")) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${localStorage.getItem("licenseKey")}/join_requests/${id}.json`, { method: 'DELETE' });
         showToast("تم حذف الطلب 🗑️");
         loadJoinRequests();
     } catch(e) { showToast("خطأ في الاتصال!", "error"); }
@@ -6780,7 +7213,7 @@ window.triggerGlobalSyncSignal = async function() {
     if (localStorage.getItem("is_demo_mode") === "true") return;
     window.lastLocalSyncTime = Date.now();
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(window.lastLocalSyncTime)
@@ -6791,36 +7224,10 @@ window.triggerGlobalSyncSignal = async function() {
 
 
 // ==========================================
-// 🚀 محرك المزامنة اللحظية الشامل والذكي (Zero-Bug Sync) 🚀
-// ==========================================
-window.isIncomingSync = false;
-let syncTimeout = null;
 
-// بنحفظ الدالة الأصلية مرة واحدة بس بره اللوب عشان منعملش تكرار لا نهائي
-const originalSetItem = localStorage.setItem;
-const keysToSync = [
-    "students", "classSessions", "exams", "homeworks", "schedule", "groups", 
-    "centers", "financeRecords", "expenses", "books", "monthlyPayments", "onlineExams"
-];
 
-localStorage.setItem = function(k, v) {
-    // 1. الحفظ المحلي في الجهاز بيتم فوراً في أقل من فيمتو ثانية (عشان العداد والشاشة تتحدث فورا)
-    originalSetItem.apply(this, arguments);
-    
-    // 2. تجميع الطلبات لرفعها للسيرفر بذكاء (لمنع تهنيج المتصفح مع 2000+ طالب)
-    if (keysToSync.includes(k) && !window.isIncomingSync) {
-        // نكنسل أي رفع قديم كان مستني لو المدرس لسه بيرصد
-        if (syncTimeout) clearTimeout(syncTimeout);
-        
-        // نأجل الرفع للسيرفر لمدة 800 مللي ثانية (أقل من ثانية) 
-        // عشان لو بيرصد بالباركود بسرعة، يجمعهم ويرفع الداتا مرة واحدة في الآخر
-        syncTimeout = setTimeout(() => {
-            if (typeof syncDataToBot === "function") {
-                syncDataToBot();
-            }
-        }, 800); 
-    }
-};
+
+
 
 // 4. تحديث الشاشة المرئية بذكاء بناءً على مكان تواجد المستخدم حالياً
 window.refreshCurrentVisibleScreens = function() {
@@ -6886,7 +7293,7 @@ window.refreshCurrentVisibleScreens = function() {
 window.startRealTimeSync = function() {
     if (sessionStorage.getItem("isLoggedIn") !== "true" || localStorage.getItem("is_demo_mode") === "true") return;
 
-    const syncUrl = `https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`;
+    const syncUrl = `https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/syncSignal.json`;
     const source = new EventSource(syncUrl);
 
     source.addEventListener('put', async function(e) {
@@ -7149,7 +7556,7 @@ window.syncDataToBot = async function() {
         
         // ضرب جرس التحديث للأجهزة التانية
         let currentLicenseKey = "ElSenior_System_Master";
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`, {
             method: 'PUT', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(window.lastLocalSyncTime)
@@ -7170,7 +7577,7 @@ setInterval(async () => {
     
     try {
         let currentLicenseKey = "ElSenior_System_Master";
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`);
         let remoteTime = await res.json();
         
         // لو الرادار لقط إن فيه جهاز تاني عدل داتا والوقت بتاعه أحدث من بتاعنا
@@ -7326,8 +7733,8 @@ window.switchPlatformTab = async function(tabName, fromHistory = false) {
         try {
             let uid = window.getSafeUid();
             let [lecRes, foldRes] = await Promise.all([
-                fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectures.json`),
-                fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders.json`)
+                fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectures.json`),
+                fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders.json`)
             ]);
             
             let lecturesData = await lecRes.json() || {};
@@ -7398,7 +7805,7 @@ window.saveFolder = async function() {
         };
         
         let uid = window.getSafeUid();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${newFolder.id}.json`, { 
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${newFolder.id}.json`, { 
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newFolder) 
         });
         
@@ -7465,7 +7872,7 @@ window.saveEditedFolder = async function() {
         };
 
         let uid = window.getSafeUid();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${id}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatedData)
@@ -7496,7 +7903,7 @@ window.deleteFolder = async function(folderId) {
 
     try {
         let uid = window.getSafeUid();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${folderId}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectureFolders/${folderId}.json`, { method: 'DELETE' });
         window.lectureFolders = window.lectureFolders.filter(f => f.id !== folderId);
         showToast("تم حذف المجلد بنجاح! 🗑️");
         window.renderLectures();
@@ -7655,7 +8062,7 @@ window.deleteLecture = async function(id) {
 
     try {
         let uid = window.getSafeUid();
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectures/${id}.json`, { method: 'DELETE' });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${uid}/lectures/${id}.json`, { method: 'DELETE' });
         window.fetchedLectures = window.fetchedLectures.filter(l => l.id !== id);
         showToast("تم حذف الكورس بنجاح 🗑️");
         window.renderLectures();
@@ -7768,7 +8175,7 @@ window.loadWalletRequests = async function() {
     tbodyHist.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">جاري التحميل... ⏳</td></tr>`;
 
     try {
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/wallet_requests.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${window.getSafeUid()}/wallet_requests.json`);
         let data = await res.json() || {};
         
         let reqs = Object.values(data).reverse();
@@ -7875,7 +8282,7 @@ window.confirmApproveWalletRequest = async function() {
 
     try {
         // 1. جلب بيانات السيستم بالكامل لتحديث رصيد الطالب في مصفوفة الطلاب
-        let res = await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data.json`);
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data.json`);
         let sysData = await res.json() || {};
         
         let studentsArr = Array.isArray(sysData.students) ? sysData.students : Object.values(sysData.students || {}).filter(s => s !== null);
@@ -7893,7 +8300,7 @@ window.confirmApproveWalletRequest = async function() {
         studentsArr[studentIndex].walletBalance = newBalance;
 
         // تحديث مصفوفة الطلاب في الفايربيز
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/students.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/students.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(studentsArr)
@@ -7904,7 +8311,7 @@ window.confirmApproveWalletRequest = async function() {
         localStorage.setItem("students", JSON.stringify(students));
 
         // 2. تحديث حالة الطلب في قائمة الطلبات إلى "approved" ونقله للسجل بدلاً من حذفه
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: "approved", approvedAmount: finalAmount })
@@ -7932,7 +8339,7 @@ window.rejectWalletRequest = async function() {
     if(!confirm("هل أنت متأكد من رفض طلب الشحن هذا؟")) return;
     
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: "rejected" })
@@ -7946,7 +8353,7 @@ window.rejectWalletRequest = async function() {
 window.directRejectWallet = async function(id) {
     if(!confirm("هل أنت متأكد من رفض هذا الطلب؟")) return;
     try {
-        await fetch(`https://el-senior-system-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/wallet_requests/${id}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: "rejected" })
@@ -8226,156 +8633,9 @@ window.importData = function(event) {
 // 📋 قسم إدارة حضور وانصراف الطلاب (النسخة المجمعة والاحترافية)
 // ==========================================
 
-// 1. دالة تسجيل الحضور (عبر الباركود أو البحث السريع أو اليدوي)
-window.markAttendance = function(codeOrPhone, status) {
-    const session = classSessions.find(s => s.id === currentActiveSessionId);
-    if(session && session.status === 'open') {
-        const student = students.find(st => st.code === codeOrPhone || st.phone === codeOrPhone);
-        if(!student) return;
-        
-        let oldStatus = session.attendance[student.code] || session.attendance[student.phone];
-        
-        // خصم النقاط القديمة لو كان متسجل قبل كده
-        if (oldStatus) {
-            if (oldStatus === 'present') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 5);
-            if (oldStatus === 'late') student.behaviorPoints = Math.max(0, (student.behaviorPoints || 0) - 2);
-        }
-        
-        // إضافة النقاط الجديدة
-        if (status === 'present') student.behaviorPoints = (student.behaviorPoints || 0) + 5;
-        if (status === 'late') student.behaviorPoints = (student.behaviorPoints || 0) + 2;
 
-        // تنظيف الداتا القديمة لو متسجلة برقم الموبايل بالغلط لمنع التداخل
-        if (session.attendance[student.phone] && student.phone !== student.code) {
-            delete session.attendance[student.phone];
-        }
 
-        // الحفظ دايماً بكود الطالب لضمان عدم التداخل
-        session.attendance[student.code] = status;
 
-        // ⏱️ حفظ وقت التحضير (ساعة ودقيقة)
-        if (!session.arrivalTimes) session.arrivalTimes = {};
-        let now = new Date();
-        let h = now.getHours().toString().padStart(2, '0');
-        let m = now.getMinutes().toString().padStart(2, '0');
-        session.arrivalTimes[student.code] = formatTime12(`${h}:${m}`);
-
-        localStorage.setItem("classSessions", JSON.stringify(classSessions));
-        localStorage.setItem("students", JSON.stringify(students));
-        
-        // إعادة رسم الجدول فوراً وتحديث العداد
-        renderAttendanceTable(session);
-        updateLiveAttendanceCounter(session);
-
-        // الإشعار اللحظي لتطبيق ولي الأمر
-        let title = "تحديث حضور وانصراف 🏫";
-        let msg = "";
-        if(status === 'present') msg = `✅ وصل ${student.name} إلى السنتر لحضور حصة (${session.topic || 'اليوم'}).`;
-        else if(status === 'late') msg = `⏳ تأخر ${student.name} عن موعد بداية حصة (${session.topic || 'اليوم'}).`;
-        else if(status === 'absent') msg = `❌ تنبيه: ${student.name} غائب عن حصة (${session.topic || 'اليوم'}).`;
-        
-        if(typeof notifyParentApp === 'function') notifyParentApp(student.code, title, msg);
-    }
-};
-
-// 2. دالة رسم جدول الحضور (رفع الأحدث لأعلى + أزرار التبديل السريعة)
-window.renderAttendanceTable = function(session) {
-    const tbody = document.getElementById("attendance-list");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const groupStudents = students.filter(s => s.group === session.group);
-    
-    if (groupStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-weight: bold; padding: 20px;">لا يوجد طلاب في هذه المجموعة</td></tr>`;
-        return;
-    }
-
-    const previousSession = classSessions.filter(s => s.group === session.group && new Date(s.date) < new Date(session.date))
-                                         .sort((a,b) => new Date(b.date) - new Date(a.date))[0];
-
-    // استخراج ترتيب التحضير لرفع الأحدث لأعلى
-    let attendanceOrder = Object.keys(session.attendance || {});
-
-    // ترتيب الطلاب: أحدث حاضر فوق
-    groupStudents.sort((a, b) => {
-        let statA = session.attendance[a.code] || session.attendance[a.phone];
-        let statB = session.attendance[b.code] || session.attendance[b.phone];
-        
-        if (statA && !statB) return -1; 
-        if (!statA && statB) return 1;  
-        
-        if (statA && statB) {
-            let indexA = attendanceOrder.indexOf(String(a.code)) > -1 ? attendanceOrder.indexOf(String(a.code)) : attendanceOrder.indexOf(String(a.phone));
-            let indexB = attendanceOrder.indexOf(String(b.code)) > -1 ? attendanceOrder.indexOf(String(b.code)) : attendanceOrder.indexOf(String(b.phone));
-            return indexB - indexA;
-        }
-        return 0; 
-    });
-
-    groupStudents.forEach(st => {
-        let stat = session.attendance[st.code] || session.attendance[st.phone];
-        let arrivalTime = (session.arrivalTimes && session.arrivalTimes[st.code]) ? `<br><span style="font-size: 11px; color: var(--text-muted); font-weight: bold;">🕒 ${session.arrivalTimes[st.code]}</span>` : '';
-        
-        let statusHtml = `<span style="color:var(--text-muted); font-weight:bold;">لم يسجل</span>`;
-        let actionsHtml = `<button class="save-btn" style="background:#10b981; padding: 6px 12px; margin: 0; width: auto; font-size: 13px;" onclick="markAttendance('${st.code}', 'present')">تحضير يدوي</button>`;
-
-        // 🔥 التعديل هنا: أزرار التبديل السريعة (بدون نوافذ)
-        if (stat === 'present') {
-            statusHtml = `<span style="color:#10b981; font-weight:bold;">حاضر ✓</span>${arrivalTime}`;
-            actionsHtml = `
-                <div style="display: flex; gap: 5px; justify-content: center;">
-                    <button class="theme-btn" style="border-color: #f59e0b; color: #f59e0b; padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'late')">تحويل لمتأخر ⏳</button>
-                    <button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
-                </div>`;
-        } else if (stat === 'late') {
-            statusHtml = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>${arrivalTime}`;
-            actionsHtml = `
-                <div style="display: flex; gap: 5px; justify-content: center;">
-                    <button class="theme-btn" style="border-color: #10b981; color: #10b981; padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="markAttendance('${st.code}', 'present')">تحويل لحاضر ✓</button>
-                    <button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>
-                </div>`;
-        } else if (stat === 'absent') {
-            statusHtml = `<span style="color:var(--danger-color); font-weight:bold;">غائب ✗</span>`;
-        } else if (typeof stat === 'object') {
-            if (stat.status === 'makeup') {
-                statusHtml = `<span style="color:#2563eb; font-weight:900; background:rgba(37,99,235,0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(37,99,235,0.2);">💻 تعويض (سنتر)</span>${arrivalTime}`;
-                actionsHtml = `<button class="icon-btn danger" style="padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px;" onclick="cancelAttendance('${st.code}')">إلغاء ❌</button>`;
-            } else if (stat.status === 'platform_makeup') {
-                statusHtml = `<span style="color:#a855f7; font-weight:900; background:rgba(168, 85, 247, 0.1); padding:4px 10px; border-radius:8px; border:1px solid rgba(168, 85, 247, 0.2);">💻 تعويض (منصة)</span>`;
-            }
-        }
-
-        // حالة الحصة السابقة
-        let prevStatText = "---";
-        if (previousSession) {
-            let prevStat = previousSession.attendance[st.code] || previousSession.attendance[st.phone];
-            if (prevStat === 'present') {
-                prevStatText = `<span style="color:#10b981; font-weight:bold;">حاضر</span>`;
-            } else if (prevStat === 'late') {
-                prevStatText = `<span style="color:#f59e0b; font-weight:bold;">متأخر ⏳</span>`;
-            } else if (prevStat === 'absent') {
-                prevStatText = `<span style="color:var(--danger-color); font-weight:bold;">غائب</span>`;
-            } else if (typeof prevStat === 'object') {
-                if (prevStat.status === 'makeup') {
-                    prevStatText = `<span style="color:#2563eb; font-weight:bold;">تعويض (سنتر)</span>`;
-                } else if (prevStat.status === 'platform_makeup') {
-                    prevStatText = `<span style="color:#a855f7; font-weight:bold;">تعويض (منصة)</span>`;
-                }
-            }
-        }
-
-        tbody.innerHTML += `
-            <tr style="${stat ? 'background: rgba(16, 185, 129, 0.02);' : ''}">
-                <td style="font-weight: bold; color: var(--primary-color);">${st.code}</td>
-                <td>${st.name} ${st.isSpecialCase ? '<span title="حالة خاصة" style="cursor:help;">⭐</span>' : ''}</td>
-                <td style="direction: ltr;">${st.parentPhone}</td>
-                <td>${prevStatText}</td>
-                <td>${statusHtml}</td>
-                <td>${actionsHtml}</td>
-            </tr>`;
-    });
-};
 
 // 3. دالة إلغاء التحضير
 window.cancelAttendance = function(studentCode) {
@@ -8426,49 +8686,97 @@ window.openSessionDetails = function(id) {
     updateLiveAttendanceCounter(session);
 };
 
-// 6. حدث إدخال الباركود السريع
-document.getElementById('attendanceBarcode')?.addEventListener('keypress', function(e) { 
-    if(e.key === 'Enter') { 
-        e.preventDefault(); 
-        let val = this.value.trim(); 
-        if (!val) return; 
+// ==========================================
+// 🚀 تسريع الرصد والحل القاطع (مضاد للملفات القديمة والتكرار)
+// ==========================================
 
-        let student = findStudentByCodeOrName(val); 
-        const session = classSessions.find(s => s.id === currentActiveSessionId); 
-        
-        if(!student) {
-            showToast(`طالب غير موجود! تأكد من الكود.`, 'error');
-        } else if(!session) {
-            showToast(`يرجى فتح الحصة أولاً!`, 'error');
-        } else if(student.group !== session.group) {
-            openWrongGroupModal(student, session);
-        } else if(session.status === 'closed') {
-            showToast(`الحصة مغلقة!`, 'error');
-        } else { 
-            let isLate = document.getElementById('markAsLateCheckbox')?.checked;
-            let attStatus = isLate ? 'late' : 'present';
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1️⃣ اعتراض زر Enter بالقوة قبل أي ملف تاني (عبر Capture Phase)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
             
-            let oldAtt = session.attendance[student.code] || session.attendance[student.phone];
-
-            if (oldAtt === attStatus) {
-                showToast(`⚠️ الطالب (${student.name}) تم تحضيره بالفعل!`, "warning");
-            } else {
-                markAttendance(student.code, attStatus); 
-                showToast(isLate ? `⏳ تم تسجيل تأخير: ${student.name}` : `✅ تم حضور: ${student.name}`); 
+            // --- قسم الحضور ---
+            if (e.target && e.target.id === 'attendanceBarcode') {
+                e.preventDefault();
+                e.stopPropagation(); // إيقاف أي ملف مشفر قديم
+                e.stopImmediatePropagation();
+                
+                let val = e.target.value.trim();
+                if (val === "") return;
+                
+                let student = typeof findStudentByCodeOrName === 'function' ? findStudentByCodeOrName(val) : students.find(s => s.code === val);
+                const session = classSessions.find(s => s.id === currentActiveSessionId);
+                
+                if (!student) {
+                    if(typeof showToast === 'function') showToast("الطالب غير موجود!", "error");
+                    e.target.value = '';
+                    return;
+                }
+                
+                if (session && student.group !== session.group) {
+                    if(typeof openWrongGroupModal === 'function') {
+                        openWrongGroupModal(student, session);
+                        e.target.value = '';
+                        return;
+                    }
+                }
+                
+                // 🔥 الحل السحري لتخطي مشكلة تكرار الـ HTML: البحث عن أي شيك بوكس "متأخر" متفعل
+                let isLate = Array.from(document.querySelectorAll('.late-check')).some(cb => cb.checked);
+                let attStatus = isLate ? 'late' : 'present';
+                
+                if(typeof markAttendance === 'function') markAttendance(student.code, attStatus);
+                if(typeof showToast === 'function') showToast(`تم تسجيل ${isLate ? 'تأخير ⏳' : 'حضور ✅'} لـ: ${student.name}`);
+                
+                e.target.value = ''; 
             }
-            
-            let autoPaymentEnabled = document.getElementById('autoPaymentCheckbox')?.checked;
-            if (autoPaymentEnabled) {
-                setTimeout(() => openQuickPaymentModal(student), 500);
+
+            // --- قسم الامتحانات ---
+            else if (e.target && e.target.id === 'examBarcodeCode') {
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                let val = e.target.value.trim();
+                if (val === "") return;
+                let student = typeof findStudentByCodeOrName === 'function' ? findStudentByCodeOrName(val) : students.find(s => s.code === val);
+                const ex = exams.find(e => e.id === currentActiveExamId);
+                if (!student) { if(typeof showToast === 'function') showToast("الطالب غير موجود!", "error"); e.target.value = ''; return; }
+                if (ex && student.group !== ex.group) { if(typeof showToast === 'function') showToast("الطالب ليس في هذه المجموعة!", "error"); e.target.value = ''; return; }
+                document.getElementById('examBarcodeGrade')?.focus();
+            }
+            else if (e.target && e.target.id === 'examBarcodeGrade') {
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                if(typeof submitExamBarcodeGrade === 'function') submitExamBarcodeGrade();
+            }
+
+            // --- قسم الواجبات ---
+            else if (e.target && e.target.id === 'hwBarcodeCode') {
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                let val = e.target.value.trim();
+                if (val === "") return;
+                let student = typeof findStudentByCodeOrName === 'function' ? findStudentByCodeOrName(val) : students.find(s => s.code === val);
+                const hw = homeworks.find(h => h.id === currentActiveHwId);
+                if (!student) { if(typeof showToast === 'function') showToast("الطالب غير موجود!", "error"); e.target.value = ''; return; }
+                if (hw && student.group !== hw.group) { if(typeof showToast === 'function') showToast("الطالب ليس في هذه المجموعة!", "error"); e.target.value = ''; return; }
+                document.getElementById('hwBarcodeGrade')?.focus();
+            }
+            else if (e.target && e.target.id === 'hwBarcodeGrade') {
+                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                if(typeof submitHwBarcodeGrade === 'function') submitHwBarcodeGrade();
             }
         }
-        
-        this.value = ''; 
-        this.focus();
-    } 
+    }, true); // تفعيل الـ Capture عشان يسبق كل الملفات
+
+    // 2️⃣ إجهاض أي أحداث (KeyPress / KeyUp) متبقية من الملفات القديمة على نفس الخانات
+    ['keypress', 'keyup'].forEach(evt => {
+        document.addEventListener(evt, function(e) {
+            if (e.key === 'Enter' && e.target && ['attendanceBarcode', 'examBarcodeCode', 'examBarcodeGrade', 'hwBarcodeCode', 'hwBarcodeGrade'].includes(e.target.id)) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+    });
 });
-
-
 // ==========================================
 // ✏️ فتح نافذة تعديل الحضور من ملف الطالب
 // ==========================================

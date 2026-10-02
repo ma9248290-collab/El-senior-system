@@ -524,41 +524,119 @@
             <div id="attendance-view" class="view-section" style="display: none;">
                 <section id="sessions-overview" class="students-section"><div class="section-header"><h2>إدارة الحصص</h2><button class="add-btn" onclick="openModal('addSessionModal')">+ فتح حصة</button></div><div class="stats-grid" id="sessions-grid"></div></section>
                 <section id="session-details-view" class="students-section" style="display: none;">
-                    <div class="section-header">
-    <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <button class="theme-btn" onclick="backToSessions()" style="margin:0;">🔙 عودة</button>
-        <h2 id="current-session-title" style="margin:0;"></h2>
-        <!-- العداد الجديد 👇 -->
-        <span id="liveAttendanceCounter" style="background: linear-gradient(45deg, #10b981, #059669); color: white; padding: 5px 20px; border-radius: 30px; font-size: 16px; font-weight: 900; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); display: none; align-items: center; gap: 8px; transition: 0.3s;">👥 الحاضرين الآن: <span id="liveCountNumber" style="font-size: 20px; transition: 0.3s;">0</span></span>
+    <div class="section-header" style="margin-bottom: 20px;">
+        <div>
+            <button class="theme-btn" onclick="backToSessions()" style="border-color: var(--primary-color); color: var(--primary-color); margin-bottom: 10px;">🔙 عودة للحصص</button>
+            <h2 id="current-session-title" style="color: var(--secondary-color); margin-top: 5px;"></h2>
+        </div>
+        <div id="session-status-badge"></div>
     </div>
-    <div id="session-status-badge"></div>
-</div>
-                    <div class="barcode-scanner-box">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-        <h4 style="color: var(--success-color); margin: 0;">📠 رصد سريع (بالكود أو الاسم)</h4>
-        
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <!-- زرار تفعيل التحصيل التلقائي الجديد -->
-            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: bold; color: var(--success-color); background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--success-color);">
-                <input type="checkbox" id="autoPaymentCheckbox" checked style="accent-color: var(--success-color); width: 18px; height: 18px; cursor: pointer;">
-                التحصيل السريع 💰
-            </label>
 
-            <!-- زرار تسجيل التأخير -->
-            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: bold; color: #f59e0b; background: rgba(245, 158, 11, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid #f59e0b;">
-                <input type="checkbox" id="markAsLateCheckbox" style="accent-color: #f59e0b; width: 18px; height: 18px; cursor: pointer;">
-                تسجيل كمتأخر ⏳
-            </label>
+    <!-- 📊 كروت الإحصائيات العلوية -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div style="background: white; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-bottom: 4px solid var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;">
+            <h4 style="margin: 0 0 5px 0; font-size: 13px; color: var(--text-muted);">إجمالي المجموعة</h4>
+            <p id="att-count-total" style="margin: 0; font-size: 24px; font-weight: 900; color: var(--primary-color);">0</p>
+        </div>
+        <div style="background: white; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-bottom: 4px solid #10b981; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;">
+            <h4 style="margin: 0 0 5px 0; font-size: 13px; color: var(--text-muted);">حاضرين ✅</h4>
+            <p id="att-count-present" style="margin: 0; font-size: 24px; font-weight: 900; color: #10b981;">0</p>
+        </div>
+        <div style="background: white; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-bottom: 4px solid #f59e0b; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;">
+            <h4 style="margin: 0 0 5px 0; font-size: 13px; color: var(--text-muted);">متأخرين ⏳</h4>
+            <p id="att-count-late" style="margin: 0; font-size: 24px; font-weight: 900; color: #f59e0b;">0</p>
+        </div>
+        <div style="background: white; padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); border-bottom: 4px solid #ef4444; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;">
+            <h4 style="margin: 0 0 5px 0; font-size: 13px; color: var(--text-muted);">غائبين ❌</h4>
+            <p id="att-count-absent" style="margin: 0; font-size: 24px; font-weight: 900; color: #ef4444;">0</p>
         </div>
     </div>
-    <div style="display: flex; gap: 10px;">
-        <input type="text" id="attendanceBarcode" class="custom-input" style="flex: 1; font-weight: bold; font-size: 16px;" placeholder="كود الطالب أو اسمه...">
-        <button class="icon-btn" onclick="startCameraScanner('attendanceBarcode')" style="margin: 0; background-color: var(--primary-color); color: white; border: none;">📷 كاميرا</button>
-        <button class="icon-btn voice-btn" id="voiceBtn_attendance" onclick="toggleVoiceRecognition('attendance', 'attendanceBarcode')">🎙️ رصد بالصوت</button>
+
+    <!-- 🎨 ستايل لوحة الرصد المخصصة -->
+    <style>
+        .attendance-panel { background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .smart-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 800; padding: 8px 16px; border-radius: 12px; transition: all 0.3s ease; user-select: none; border: 2px solid transparent; }
+        .smart-toggle input { display: none; }
+        .toggle-late { background: #f1f5f9; color: #64748b; }
+        .toggle-late input:checked + span { color: #f59e0b; }
+        .smart-toggle:has(.late-check:checked) { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); }
+        .action-btn { height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; border-radius: 12px; font-weight: 800; font-size: 15px; border: none; cursor: pointer; transition: all 0.3s ease; color: white; }
+        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .btn-cam { background: #1e293b; }
+        .btn-mic { background: #8b5cf6; }
+        .btn-excel { background: #10b981; }
+        .barcode-input-wrapper { position: relative; flex: 1; min-width: 250px; }
+        .barcode-input-wrapper input { width: 100%; height: 50px; margin: 0; padding: 0 45px 0 15px; border-radius: 12px; border: 2px solid #e2e8f0; background: #f8fafc; font-size: 16px; font-weight: 900; color: var(--secondary-color); transition: 0.3s; }
+        .barcode-input-wrapper input:focus { border-color: var(--primary-color); background: #ffffff; box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1); outline: none; }
+        .barcode-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 20px; pointer-events: none; }
+    </style>
+
+    <!-- 💡 شريط الإضافة السريعة ومعلومات الكود الذكي -->
+    <div style="background: rgba(59, 130, 246, 0.05); border: 1px dashed #3b82f6; border-radius: 16px; padding: 15px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: #3b82f6; color: white; width: 45px; height: 45px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 22px; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);">💡</div>
+            <div>
+                <h4 style="margin: 0; color: var(--secondary-color); font-size: 15px;" id="quick-info-level-name">الصف: ---</h4>
+                <p style="margin: 5px 0 0 0; font-size: 13px; color: var(--text-muted); font-weight: bold;">
+                    آخر كود مسجل للسنتر: <strong id="quick-info-last-code" style="color: var(--primary-color); font-size: 16px; letter-spacing: 1px; padding: 0 5px;">---</strong>
+                    <span id="quick-info-last-name" style="color: var(--text-main);"></span>
+                </p>
+            </div>
+        </div>
+        <button class="save-btn" style="margin: 0; background: #3b82f6; width: auto; padding: 10px 20px; font-size: 15px; border-radius: 10px; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);" onclick="openQuickAddFromSession()">
+            ➕ طالب جديد (وتحضير فوري)
+        </button>
     </div>
-</div>
-<div class="table-container"><table class="students-table"><thead><tr><th>الكود</th><th>الطالب</th><th>الهاتف</th><th>السابق</th><th>الحالة</th><th>تسجيل يدوي</th></tr></thead><tbody id="attendance-list"></tbody></table></div>
-                </section>
+
+    <!-- 📠 لوحة التحكم والرصد الجديدة -->
+    <div class="attendance-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <h4 style="color: var(--secondary-color); margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                <span>📠</span> لوحة الرصد السريع
+            </h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <button class="save-btn" style="background: #10b981; margin: 0; padding: 8px 15px; font-size: 14px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);" onclick="downloadCurrentSessionReport()">
+                    📥 استخراج تقرير الحصة (إكسيل)
+                </button>
+                <label class="smart-toggle toggle-late">
+                    <input type="checkbox" id="markAsLateCheckbox" class="late-check">
+                    <span>تسجيل كمتأخر ⏳</span>
+                </label>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;">
+            <div class="barcode-input-wrapper">
+                <span class="barcode-icon">🎯</span>
+                <input type="text" id="attendanceBarcode" placeholder="اسحب الباركود أو اكتب الكود / الاسم...">
+            </div>
+            <button class="action-btn btn-cam" onclick="startCameraScanner('attendanceBarcode')">📷 كاميرا</button>
+            <button class="action-btn btn-mic voice-btn" id="voiceBtn_attendance" onclick="toggleVoiceRecognition('attendance', 'attendanceBarcode')">🎙️ صوت</button>
+            <div style="width: 2px; background: #e2e8f0; margin: 0 5px; border-radius: 2px; display: block;"></div>
+            <div style="position: relative; display: inline-block;">
+                <input type="file" id="importAttendanceExcel" accept=".xlsx, .xls" style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importAttendanceFromExcel(event)">
+                <button class="action-btn btn-excel" style="pointer-events: none;">📥 شيت حضور</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📋 جدول الحضور النظيف -->
+    <div class="table-container card">
+        <table class="students-table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <th style="width: 10%;">الكود</th>
+                    <th style="width: 30%;">الطالب</th>
+                    <th style="width: 15%;">هاتف الطالب</th>
+                    <th style="width: 15%;">الحصة السابقة</th>
+                    <th style="width: 15%;">وقت الحضور</th>
+                    <th style="width: 15%; text-align: center;">إجراء</th>
+                </tr>
+            </thead>
+            <tbody id="attendance-list"></tbody>
+        </table>
+    </div>
+</section>
             </div>
 
             <div id="homework-view" class="view-section" style="display: none;">
