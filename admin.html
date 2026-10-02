@@ -131,7 +131,6 @@
                     </div>
                     <ul class="dropdown-menu">
                         <li id="nav-students"><a href="#" onclick="switchPage('students')">إدارة الطلاب 🎓</a></li>
-                        <li id="nav-joinreq"><a href="#" onclick="switchPage('joinreq')">طلبات الانضمام 🙋‍♂️ <span id="joinReqBadge" style="background: red; color: white; padding: 2px 6px; border-radius: 50%; font-size: 12px; display: none;">0</span></a></li>
                         <li id="nav-groups"><a href="#" onclick="switchPage('groups')">إدارة المجموعات 📚</a></li>
                         <li id="nav-attendance"><a href="#" onclick="switchPage('attendance')">سجل الحضور 📋</a></li>
                         <li id="nav-reports"><a href="#" onclick="switchPage('reports')">التقارير الشاملة 📈</a></li>
@@ -152,7 +151,6 @@
                 </li>
                 
                 <li id="nav-platform"><a href="#" onclick="switchPage('platform')">إدارة المنصة💻</a></li>
-                <li id="nav-walletRequests"><a href="#" onclick="switchPage('walletRequests')">طلبات الشحن 💳 <span id="walletReqBadge" style="background: red; color: white; padding: 2px 6px; border-radius: 50%; font-size: 12px; display: none;">0</span></a></li>
                 <li class="nav-dropdown admin-only">
                     <div class="dropdown-toggle" onclick="toggleSidebarDropdown(this)">
                         <span>📈 الإدارة والماليات</span>
@@ -1075,7 +1073,10 @@
                 <h3 style="margin: 0; color: var(--secondary-color); display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 24px;">📋</span> الأكواد المتاحة للطباعة
                 </h3>
-                <button class="theme-btn" style="border-color: #10b981; color: #10b981; padding: 10px 20px; font-weight: bold; border-width: 2px;" onclick="exportAllCodesToExcel()">📥 تحميل جميع الأكواد إكسيل</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button class="icon-btn danger" style="padding: 10px 20px; font-weight: bold; border-radius: 8px; width: auto;" onclick="deleteAllUsedCodes()">🧹 مسح الأكواد المستخدمة</button>
+    <button class="theme-btn" style="border-color: #10b981; color: #10b981; padding: 10px 20px; font-weight: bold; border-width: 2px;" onclick="exportAllCodesToExcel()">📥 تحميل الإكسيل</button>
+</div>
             </div>
 
 
@@ -2695,7 +2696,7 @@
                 <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="perm-cb" value="atrisk" style="accent-color: #f59e0b; width:18px; height:18px;"> تحت الملاحظة 🚨</label>
                 <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="perm-cb" value="broadcast" style="accent-color: #f59e0b; width:18px; height:18px;"> الإرسال الجماعي 📢</label>
                 <label style="cursor: pointer; font-weight: bold; color: var(--danger-color);"><input type="checkbox" class="perm-cb" value="finance" style="accent-color: var(--danger-color); width:18px; height:18px;"> الخزنة والماليات 💰</label>
-                <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="perm-cb" value="walletRequests" style="accent-color: #f59e0b; width:18px; height:18px;"> طلبات الشحن 💳</label>
+            
 <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="perm-cb" value="backup" style="accent-color: #f59e0b; width:18px; height:18px;"> النسخ الاحتياطي والرفع 💾</label>
             </div>
             <button class="save-btn" style="margin-top: 20px; width: 100%; background: #f59e0b;" onclick="closeModal('assistantPermissionsModal')">حفظ الصلاحيات مؤقتاً 🔒</button>
@@ -2726,8 +2727,7 @@
                 <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="edit-perm-cb" value="atrisk" style="accent-color: #f59e0b; width:18px; height:18px;"> تحت الملاحظة 🚨</label>
                 <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="edit-perm-cb" value="broadcast" style="accent-color: #f59e0b; width:18px; height:18px;"> الإرسال الجماعي 📢</label>
                 <label style="cursor: pointer; font-weight: bold; color: var(--danger-color);"><input type="checkbox" class="edit-perm-cb" value="finance" style="accent-color: var(--danger-color); width:18px; height:18px;"> الخزنة والماليات 💰</label>
-                <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="edit-perm-cb" value="walletRequests" style="accent-color: #f59e0b; width:18px; height:18px;"> طلبات الشحن 💳</label>
-<label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="edit-perm-cb" value="backup" style="accent-color: #f59e0b; width:18px; height:18px;"> النسخ الاحتياطي والرفع 💾</label>
+                <label style="cursor: pointer; font-weight: bold;"><input type="checkbox" class="edit-perm-cb" value="backup" style="accent-color: #f59e0b; width:18px; height:18px;"> النسخ الاحتياطي والرفع 💾</label>
 </div>
             <button id="saveEditPermBtn" class="save-btn" style="margin-top: 20px; width: 100%; background: #f59e0b;" onclick="saveEditedPermissions()">حفظ التعديلات ✅</button>
         </div>

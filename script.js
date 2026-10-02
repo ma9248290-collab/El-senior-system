@@ -8846,3 +8846,67 @@ window.confirmEditAttendance = function(newStatus) {
     // ريفريش لملف الطالب
     openStudentProfile(studentCode);
 };
+
+// ==========================================
+// 🧹 مسح جميع الأكواد "المستخدمة" من قاعدة البيانات نهائياً
+// ==========================================
+window.deleteAllUsedCodes = async function() {
+    // 1. رسالة تأكيد أولية
+    if(!confirm("⚠️ هل أنت متأكد من مسح جميع الأكواد 'المستخدمة' من النظام وقاعدة البيانات نهائياً؟\n(هذا الإجراء لا يمكن التراجع عنه لتخفيف الضغط على السيرفر)")) return;
+
+    // 2. حماية إضافية بالرقم السري للإدارة
+    const enteredPin = prompt("⚠️ تنبيه أمني!\nالرجاء إدخال الرقم السري للإدارة (Admin PIN) لتأكيد الحذف الجماعي:");
+    const currentAdminPin = localStorage.getItem("adminPin") || "1234";
+    if (enteredPin !== currentAdminPin) {
+        return showToast("الرقم السري للإدارة غير صحيح! تم كنسل العملية.", "error");
+    }
+
+    let btn = document.querySelector('button[onclick="deleteAllUsedCodes()"]');
+    let origText = btn.innerText;
+    btn.innerText = "جاري مسح السيرفر... ⏳";
+    btn.disabled = true;
+
+    try {
+        // 3. جلب جميع الأكواد من السيرفر
+        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`);
+        let codes = await res.json() || {};
+        
+        let unusedCodesOnly = {};
+        let deletedCount = 0;
+
+        // 4. فلترة الأكواد (هناخد المتاح بس، ونتجاهل المستخدم)
+        Object.keys(codes).forEach(code => {
+            if (codes[code].status === 'used') {
+                deletedCount++; // نعد الأكواد اللي هتتمسح
+            } else {
+                unusedCodesOnly[code] = codes[code]; // نحتفظ بالأكواد السليمة
+            }
+        });
+
+        // لو مفيش أكواد مستخدمة أصلاً
+        if (deletedCount === 0) {
+            showToast("لا توجد أكواد مستخدمة لمسحها حالياً!", "info");
+            btn.innerText = origText;
+            btn.disabled = false;
+            return;
+        }
+
+        // 5. رفع الأكواد المتاحة فقط للسيرفر (وبكده المستخدمة هتتمسح أوتوماتيك)
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes.json`, {
+            method: 'PUT', // بنستخدم PUT عشان نستبدل الداتا القديمة بالجديدة النضيفة
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(unusedCodesOnly)
+        });
+
+        showToast(`تم تنظيف السيرفر ومسح ${deletedCount} كود مستخدم بنجاح! 🧹`, "success");
+        
+        // 6. تحديث الجدول قدام المدرس
+        renderChargeCodes(); 
+        
+    } catch (error) {
+        showToast("حدث خطأ أثناء الاتصال بقاعدة البيانات!", "error");
+    } finally {
+        btn.innerText = origText;
+        btn.disabled = false;
+    }
+};
