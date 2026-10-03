@@ -2262,15 +2262,123 @@ document.getElementById("addSessionForm")?.addEventListener("submit", function(e
     this.reset(); toggleAutoInputs(); closeModal('addSessionModal'); renderSessionCards(); showToast("تم الإنشاء"); 
 });
 
-function renderSessionCards() { 
-    const grid = document.getElementById("sessions-grid"); if(!grid) return; grid.innerHTML = ""; 
+window.renderSessionCards = function() { 
+    const grid = document.getElementById("sessions-grid"); 
+    if(!grid) return; 
+    grid.innerHTML = ""; 
+    
     [...classSessions].reverse().forEach(session => { 
-        const presentCount = Object.values(session.attendance).filter(v => v === 'present').length; 
-        const total = students.filter(s => s.group === session.group).length; 
+        // 🧮 1. الحسابات الدقيقة للطلاب
+        const groupStudentsCount = students.filter(s => s.group === session.group).length; 
+        let presentCount = 0, lateCount = 0;
+        
+        Object.values(session.attendance || {}).forEach(status => {
+            if (status === 'present' || (typeof status === 'object' && status.status && status.status.includes('makeup'))) {
+                presentCount++;
+            } else if (status === 'late') {
+                lateCount++;
+            }
+        });
+        
+        let absentCount = groupStudentsCount - (presentCount + lateCount);
+        if (absentCount < 0) absentCount = 0; 
+
         const isClosed = session.status === 'closed'; 
-        grid.innerHTML += `<div class="session-card"><div class="session-header-card"><div><div class="session-group-name">${session.group}</div><div class="session-date">${session.date}</div></div><span class="status-badge ${isClosed ? 'status-closed' : 'status-open'}">${isClosed ? 'مغلقة' : 'مفتوحة'}</span></div><div class="session-topic">${session.topic}</div><div style="font-size: 14px; color: var(--text-muted);">الحضور: <strong>${presentCount} / ${total}</strong></div><div class="session-actions"><button class="enter-btn" onclick="openSessionDetails('${session.id}')" ${isClosed?'disabled':''}>تسجيل</button><button class="icon-btn admin-only" onclick="openEditSessionModal('${session.id}')">✏️</button><button class="icon-btn admin-only" onclick="toggleSessionStatus('${session.id}')">${isClosed?'🔓':'🔒 قفل وإرسال'}</button><button class="icon-btn danger admin-only" onclick="deleteSession('${session.id}')">🗑️</button></div></div>`; 
+        
+        // 🎨 الألوان الأساسية لحالة الكارت
+        const statusColor = isClosed ? '#ef4444' : '#10b981'; // أحمر للمغلق، أخضر للمفتوح
+        const statusBg = isClosed ? '#fee2e2' : '#d1fae5';
+        const statusText = isClosed ? 'مغلقة' : 'مفتوحة';
+        const mainBtnColor = isClosed ? '#64748b' : '#3b82f6'; // رصاصي للمغلق، أزرق للمفتوح
+        const mainBtnText = isClosed ? 'عرض وتعديل الرصد 📋' : 'تسجيل الغياب 📠';
+        
+        // 📲 2. دمج شريط الواتساب
+        let waHtml = "";
+        if (session.isSending) {
+            waHtml = `
+                <div style="background: #eff6ff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #bfdbfe;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #1e3a8a; font-weight: bold; margin-bottom: 6px;">
+                        <span>⏳ جاري الإرسال للواتساب...</span>
+                        <span>${session.sentProgress} / ${session.sentTotal}</span>
+                    </div>
+                    <div style="height: 6px; background: #dbeafe; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${(session.sentProgress/session.sentTotal)*100}%; height: 100%; background: #3b82f6; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>`;
+        } else if (session.reportData) {
+            waHtml = `
+                <button style="width: 100%; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 8px; border-radius: 8px; font-size: 13px; font-weight: 900; cursor: pointer; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 5px; transition: 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='#ecfdf5'" onclick="showReportModal('${session.id}')" title="عرض تقرير الواتساب">
+                    📊 تقرير الواتساب
+                </button>`;
+        }
+        
+        // 🚀 3. الكارت الاحترافي
+        grid.innerHTML += `
+        <div style="background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; border-top: 5px solid ${statusColor}; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; flex-direction: column; position: relative; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.06)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.03)';">
+            
+            <!-- الهيدر (اسم المجموعة وحالة الفتح/القفل) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 19px; color: #0f172a; font-weight: 900; letter-spacing: -0.5px;">${session.group}</h3>
+                <span style="background: ${statusBg}; color: ${statusColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 900; box-shadow: 0 2px 4px ${statusColor}33;">
+                    ${statusText}
+                </span>
+            </div>
+
+            <!-- التاريخ والموضوع -->
+            <div style="display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
+                <span>📅 ${session.date}</span>
+                <span style="background: #f8fafc; padding: 2px 8px; border-radius: 6px; border: 1px solid #e2e8f0;">🎯 ${session.topic || 'بدون موضوع'}</span>
+            </div>
+
+            <!-- صندوق الإحصائيات (Grid) -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #e2e8f0; text-align: center; margin-bottom: 15px;">
+                <div>
+                    <span style="display: block; font-size: 18px; font-weight: 900; color: #0f172a;">${groupStudentsCount}</span>
+                    <span style="display: block; font-size: 11px; color: #64748b; font-weight: bold;">الإجمالي</span>
+                </div>
+                <div style="border-right: 1px solid #e2e8f0;">
+                    <span style="display: block; font-size: 18px; font-weight: 900; color: #10b981;">${presentCount}</span>
+                    <span style="display: block; font-size: 11px; color: #10b981; font-weight: bold;">حاضر ✅</span>
+                </div>
+                <div style="border-right: 1px solid #e2e8f0;">
+                    <span style="display: block; font-size: 18px; font-weight: 900; color: #f59e0b;">${lateCount}</span>
+                    <span style="display: block; font-size: 11px; color: #f59e0b; font-weight: bold;">متأخر ⏳</span>
+                </div>
+                <div style="border-right: 1px solid #e2e8f0;">
+                    <span style="display: block; font-size: 18px; font-weight: 900; color: #ef4444;">${absentCount}</span>
+                    <span style="display: block; font-size: 11px; color: #ef4444; font-weight: bold;">غائب ❌</span>
+                </div>
+            </div>
+
+            <!-- شريط الواتساب (إن وجد) -->
+            ${waHtml}
+
+            <!-- منطقة الأزرار -->
+            <div style="margin-top: auto;">
+                <button class="save-btn" style="width: 100%; margin: 0 0 8px 0; background: ${mainBtnColor}; color: white; border: none; font-size: 15px; font-weight: 900; padding: 12px; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 10px ${mainBtnColor}40; transition: filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='brightness(1)'" onclick="openSessionDetails('${session.id}')">
+                    ${mainBtnText}
+                </button>
+                
+                <div style="display: flex; gap: 8px;">
+                    <!-- زر القفل/الفتح -->
+                    <button class="admin-only" style="flex: 2; background: white; color: ${statusColor}; border: 1px solid ${statusColor}; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='${statusBg}'" onmouseout="this.style.background='white'" onclick="toggleSessionStatus('${session.id}')" title="${isClosed ? 'فتح الحصة للتعديل' : 'قفل وإرسال للواتساب'}">
+                        ${isClosed ? 'فتح الحصة' : 'قفل وإرسال'}
+                    </button>
+                    
+                    <!-- زر التعديل -->
+                    <button class="admin-only" style="flex: 1; background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f8fafc'; this.style.color='#475569'" onclick="openEditSessionModal('${session.id}')" title="تعديل الحصة">
+                        ✏️
+                    </button>
+
+                    <!-- زر الحذف -->
+                    <button class="admin-only" style="flex: 1; background: #fff0f2; color: #ef4444; border: 1px solid #fecdd3; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: 0.2s;" onmouseover="this.style.background='#ffe4e6'; this.style.color='#e11d48'" onmouseout="this.style.background='#fff0f2'; this.style.color='#ef4444'" onclick="deleteSession('${session.id}')" title="حذف الحصة">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+        </div>`; 
     }); 
-}
+};
 
 function deleteSession(id) { 
     customConfirm("هل أنت متأكد من حذف هذه الحصة نهائياً؟", () => { 
@@ -6077,81 +6185,6 @@ window.renderStoreLogs = function() {
 
 
 
-
-
-
-
-
-
-
-
-
-// ==========================================
-// 🎨 دمج شريط التحميل وزرار الإحصائيات جوه الكارت بشياكة واحترافية
-// ==========================================
-const originalRenderSessionCards = window.renderSessionCards;
-window.renderSessionCards = function() {
-    if(originalRenderSessionCards) originalRenderSessionCards();
-    
-    // التعديل السحري على الكروت بعد رسمها
-    classSessions.forEach(session => {
-        let delBtn = document.querySelector(`button[onclick*="deleteSession('${session.id}')"]`);
-        if(delBtn) {
-            let cardActionsDiv = delBtn.parentElement;
-            
-            if (session.isSending) {
-                // شكل شريط التحميل وهو شغال (تصميم فخم)
-                cardActionsDiv.innerHTML = `
-                    <div style="width: 100%; text-align: center; background: rgba(59, 130, 246, 0.05); padding: 12px; border-radius: 10px; border: 1px dashed rgba(59, 130, 246, 0.3); margin-bottom: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 13px; color: #3b82f6; font-weight: 800;">⏳ جاري إرسال التقارير...</span>
-                            <span id="prog-text-${session.id}" style="font-size: 12px; font-weight: bold; background: #3b82f6; color: white; padding: 2px 8px; border-radius: 20px;">${session.sentProgress}/${session.sentTotal}</span>
-                        </div>
-                        <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 10px; overflow: hidden;">
-                            <div id="prog-bar-${session.id}" style="width: ${(session.sentProgress/session.sentTotal)*100}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: 0.3s; border-radius: 10px;"></div>
-                        </div>
-                    </div>
-                `;
-            } else if (session.reportData) {
-                // زرار التقرير بعد ما يخلص (تصميم Premium بـ Hover Effect)
-                let reportBtn = document.createElement('button');
-                reportBtn.style.cssText = `
-                    width: 100%;
-                    background: linear-gradient(45deg, #10b981, #059669);
-                    color: white;
-                    border: none;
-                    padding: 10px 15px;
-                    border-radius: 10px;
-                    font-size: 14px;
-                    font-weight: 800;
-                    font-family: 'Cairo', sans-serif;
-                    cursor: pointer;
-                    margin-bottom: 12px;
-                    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
-                    transition: all 0.3s ease;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    gap: 8px;
-                `;
-                
-                // تأثير الأنيميشن لما الماوس ييجي عليه
-                reportBtn.onmouseover = function() {
-                    this.style.transform = 'translateY(-2px)';
-                    this.style.boxShadow = '0 6px 15px rgba(16, 185, 129, 0.4)';
-                };
-                reportBtn.onmouseout = function() {
-                    this.style.transform = 'translateY(0)';
-                    this.style.boxShadow = '0 4px 10px rgba(16, 185, 129, 0.2)';
-                };
-                
-                reportBtn.innerHTML = "<span style='font-size: 18px;'>📊</span> تقرير إرسال الواتساب";
-                reportBtn.onclick = () => showReportModal(session.id);
-                cardActionsDiv.insertBefore(reportBtn, cardActionsDiv.firstChild);
-            }
-        }
-    });
-};
 // ==========================================
 // 📊 دوال فتح نافذة الإحصائيات وتنزيل الإكسيل
 // ==========================================
