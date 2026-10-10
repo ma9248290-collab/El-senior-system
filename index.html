@@ -132,7 +132,7 @@
             .trust-item h2 { font-size: 32px; }
         }
 
-        /* ========================================== */
+       /* ========================================== */
         /* 📱 تصميم الموبايل - Mobile First VIP */
         /* ========================================== */
         @media (max-width: 992px) {
@@ -153,42 +153,67 @@
             .nav-actions .btn-outline { display: none; }
             .nav-actions .btn-solid { padding: 8px 20px; font-size: 14px; }
             
-            /* 🛠️ إصلاح شاشة تسجيل الدخول 🛠️ */
-            .auth-overlay { padding: 15px; align-items: center; }
-            .auth-container { flex-direction: column; width: 100%; max-height: 85vh; border-radius: 24px; }
+            /* 🛠️ إصلاح وتوسعة شاشة الدخول والتسجيل */
+            .auth-overlay { padding: 0; align-items: flex-end; background: rgba(15, 23, 42, 0.6); }
+            .auth-container { 
+                flex-direction: column; width: 100%; max-height: 95vh; border-radius: 30px 30px 0 0; 
+                margin: 0; transform: translateY(100%); animation: slideUpModal 0.4s ease forwards; 
+            }
+            @keyframes slideUpModal { to { transform: translateY(0); } }
+            
             .auth-brand-side { display: none; }
-            .auth-form-side { padding: 25px 20px; overflow-y: auto; text-align: right; }
-            .auth-form-side h2 { font-size: 24px; text-align: center; margin-bottom: 10px; }
-            .auth-form-side p { text-align: center; font-size: 13px; margin-bottom: 20px; }
-            .auth-input-group label { text-align: right; font-size: 13px; margin-bottom: 5px; }
-            .auth-input-group input, .auth-input-group select { padding: 14px 15px; font-size: 14px; }
-            .auth-btn-submit { font-size: 16px; padding: 14px; }
+            .auth-form-side { padding: 35px 25px; overflow-y: auto; text-align: right; }
+            .auth-form-side h2 { font-size: 26px; text-align: center; margin-bottom: 5px; color: var(--primary); }
+            .auth-form-side p { text-align: center; font-size: 14px; margin-bottom: 25px; color: var(--text-muted); }
+            
+            /* تباعد وحجم الحقول في شاشة التسجيل */
+            .auth-input-group { margin-bottom: 18px; }
+            .auth-input-group label { text-align: right; font-size: 14px; margin-bottom: 8px; color: var(--text-main); font-weight: 800; }
+            .auth-input-group input, .auth-input-group select { 
+                padding: 16px 15px; font-size: 16px; border-radius: 14px; 
+                background: #f1f5f9; border: 2px solid #e2e8f0; 
+            }
+            .auth-input-group input:focus, .auth-input-group select:focus { background: #fff; }
+            .auth-btn-submit { font-size: 18px; padding: 16px; border-radius: 14px; margin-top: 10px; }
 
             /* تظبيط المنصة من الداخل */
-            .main-container { flex-direction: column; padding-bottom: 100px; } /* مساحة عشان الشريط ميغطيش المحتوى */
+            .main-container { flex-direction: column; padding-bottom: 95px; } /* مساحة للنافبار */
             .content-area { padding: 15px; }
             
-            /* 📱 شريط التنقل السفلي الاحترافي (iOS Style) 📱 */
+            /* 📱 شريط التنقل السفلي بعرض الشاشة (Full Width iOS Style) 📱 */
             .sidebar { 
-                position: fixed; bottom: 15px; left: 5%; width: 90%; height: 75px; 
+                position: fixed; bottom: 0; left: 0; width: 100%; height: 80px; 
                 flex-direction: row; overflow-x: auto; overflow-y: hidden; 
-                padding: 5px; gap: 0; justify-content: space-around;
-                background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-                border: 1px solid rgba(255,255,255,0.1); z-index: 1000; 
-                align-items: center; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                padding: 5px 10px; gap: 0; justify-content: space-between;
+                background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+                border: none; border-top: 1px solid rgba(255,255,255,0.1); z-index: 1000; 
+                align-items: center; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+                /* أنيميشن لفت الانتباه عند فتح المنصة */
+                animation: suggestScroll 2s ease 1s; 
             }
             .sidebar::-webkit-scrollbar { display: none; }
             
+            @keyframes suggestScroll {
+                0%, 100% { transform: translateX(0); }
+                20% { transform: translateX(15px); }
+                40% { transform: translateX(-15px); }
+                60% { transform: translateX(10px); }
+                80% { transform: translateX(-10px); }
+            }
+            
             .nav-item { 
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
-                padding: 5px; background: transparent; flex: 1; min-width: 55px; border-radius: 12px; gap: 4px;
+                padding: 8px 5px; background: transparent; flex: 1; min-width: 65px; border-radius: 12px; gap: 6px;
             }
-            .nav-item span:first-child { font-size: 22px; margin: 0; transition: 0.2s; }
-            .nav-item .nav-text { font-size: 10.5px; margin: 0; font-weight: 800; display: block; opacity: 0.6; white-space: nowrap; transition: 0.2s; }
+            .nav-item span:first-child { font-size: 24px; margin: 0; transition: 0.2s; }
+            .nav-item .nav-text { 
+                font-size: 11px; margin: 0; font-weight: 800; display: block; opacity: 0.7; 
+                white-space: nowrap; transition: 0.2s; text-align: center; width: 100%;
+            }
             
             .nav-item.active { background: transparent; box-shadow: none; transform: none; }
-            .nav-item.active span:first-child { transform: translateY(-3px); font-size: 24px; text-shadow: 0 0 15px rgba(14, 165, 233, 0.6); }
-            .nav-item.active .nav-text { opacity: 1; color: var(--primary); }
+            .nav-item.active span:first-child { transform: translateY(-4px); font-size: 26px; text-shadow: 0 0 15px rgba(14, 165, 233, 0.8); }
+            .nav-item.active .nav-text { opacity: 1; color: var(--primary); font-size: 11.5px; }
 
             /* تظبيط الكروت والجداول */
             .bento-grid { grid-template-columns: 1fr; gap: 15px; }
