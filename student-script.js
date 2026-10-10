@@ -865,10 +865,16 @@ window.openCoursePlayer = function(courseId, startVideoIndex = 0, fromHistory = 
     }
 };
 
+// المتغيرات دي للتحكم في العداد الذكي 🧠
+window.currentVideoViewTimer = null;
+window.hasCountedCurrentView = false;
+
 window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, element = null) {
     let course = window.allLectures.find(l => l.id === courseId); if (!course) return;
     let maxViews = parseInt(course.maxViews) || 0; 
     let usedKey = currentStudent.code;
+    
+    // 1. جلب البيانات للتأكد من الرصيد قبل ما نفتح
     let resCode = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`);
     let data = await resCode.json() || { views: 0 };
     
@@ -876,11 +882,13 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
         return window.showToast("🚫 لقد استنفدت العدد المسموح لمشاهدة هذا الفيديو.", "error"); 
     }
 
+    // تلوين العنصر في القائمة
     if (element) {
         document.querySelectorAll('.playlist-item').forEach(item => { item.style.background = 'transparent'; item.style.color = '#94a3b8'; item.style.borderRight = 'none'; item.querySelector('.vid-icon').innerText = '📺'; });
         element.style.background = 'rgba(59, 130, 246, 0.15)'; element.style.color = '#3b82f6'; element.style.borderRight = '4px solid #3b82f6'; element.querySelector('.vid-icon').innerText = '▶️';
     }
 
+    // تجهيز رابط اليوتيوب
     let embedUrl = url;
     try {
         let parsedUrl = new URL(url);
@@ -892,14 +900,45 @@ window.playCourseVideo = async function(url, videoTitle, courseId, videoIndex, e
     
     document.getElementById("video-iframe").src = embedUrl;
 
-    let now = new Date();
-    await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ videoTitle: videoTitle, views: data.views + 1, lastSeen: now.toLocaleDateString('ar-EG') + " | " + now.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric', hour12: true }), extraViews: (parseInt(data.extraViews) || 0) })
-    });
+    // 🧠 2. العداد الذكي (Smart View Tracker)
+    // تنظيف أي عداد قديم لو كان شغال
+    if(window.currentVideoViewTimer) clearTimeout(window.currentVideoViewTimer);
+    window.hasCountedCurrentView = false;
+    
+    window.showToast("👀 تم فتح الفيديو! (لن يتم خصم المشاهدة إلا بعد مرور 10 دقائق لتأكيد المتابعة).", "info");
+
+    // تشغيل تايمر لمدة 10 دقائق (10 * 60 * 1000 ملي ثانية)
+    window.currentVideoViewTimer = setTimeout(async () => {
+        if(!window.hasCountedCurrentView) {
+            // هنجيب الداتا الطازة من السيرفر عشان لو حصل تحديث
+            let freshRes = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`);
+            let freshData = await freshRes.json() || { views: 0 };
+            
+            let now = new Date();
+            await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/course_tracking/${courseId}/${usedKey}/${videoIndex}.json`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    videoTitle: videoTitle, 
+                    views: freshData.views + 1, // 🎯 هنا بيتم احتساب المشاهدة فعلياً
+                    lastSeen: now.toLocaleDateString('ar-EG') + " | " + now.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: 'numeric', hour12: true }), 
+                    extraViews: (parseInt(freshData.extraViews) || 0) 
+                })
+            });
+            
+            window.hasCountedCurrentView = true;
+            window.showToast("✅ مرت 10 دقائق.. تم تأكيد واحتساب المشاهدة بنجاح.", "success");
+        }
+    }, 10 * 60 * 1000); // 10 دقائق
 };
 
 window.closeCoursePlayer = function(fromHistory = false) {
+    // 🛑 3. إيقاف العداد لو الطالب خرج قبل الـ 10 دقايق
+    if(window.currentVideoViewTimer && !window.hasCountedCurrentView) {
+        clearTimeout(window.currentVideoViewTimer);
+        window.currentVideoViewTimer = null;
+        // مش هنخصم حاجة!
+    }
+
     document.getElementById("video-iframe").src = ""; 
     document.body.classList.remove("no-select");
     document.getElementById("protected-course-screen").style.display = "none";
