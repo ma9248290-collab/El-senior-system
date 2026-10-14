@@ -119,18 +119,25 @@ window.onload = function() {
 };      
 
 // ==========================================
-// 🌟 2. دالة الدخول (التحقق وتلوين المنصة)
+// 🌟 2. دالة الدخول (التحقق وتلوين المنصة) - النسخة الذكية المضادة للأخطاء
 // ==========================================
 window.fetchStudentData = async function(isAutoLogin = false) {
-    const code = document.getElementById("studentCode").value.trim();
-    const phone = document.getElementById("parentPhone").value.trim();
+    // 1. سحب البيانات الخام
+    let rawCode = document.getElementById("studentCode").value.trim();
+    let rawPhone = document.getElementById("parentPhone").value.trim();
     const errorMsg = document.getElementById("error-msg");
     const btn = document.getElementById('login-btn-action');
     
-    if (!code || !phone || !globalTeacherId) {
+    if (!rawCode || !rawPhone || !globalTeacherId) {
         if(!isAutoLogin) { errorMsg.style.display = "block"; errorMsg.innerText = "تأكد من إدخال البيانات كاملة!"; }
         return;
     }
+
+    // 2. التنظيف الذكي للمدخلات (Smart Normalization)
+    // أ- تحويل الحروف لكابيتال ومسح أي مسافات جوه الكود
+    let cleanCode = rawCode.toUpperCase().replace(/\s/g, '');
+    // ب- تحويل أي أرقام عربية (١٢٣) إلى إنجليزية (123)
+    let cleanPhone = rawPhone.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
 
     errorMsg.style.display = "none";
     if(btn && !isAutoLogin) {
@@ -163,7 +170,7 @@ window.fetchStudentData = async function(isAutoLogin = false) {
         let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${globalTeacherId}/data.json`, {cache: 'no-store'});
         let data = await res.json() || {};
 
-        let safeStudents = Array.isArray(data.students) ? data.students : Object.values(data.students || {}).filter(i => i !== null);
+        let studentsData = data.students || {};
         let safeGroups = Array.isArray(data.groups) ? data.groups : Object.values(data.groups || {}).filter(i => i !== null);
         let safeClassSessions = Array.isArray(data.classSessions) ? data.classSessions : Object.values(data.classSessions || {}).filter(i => i !== null);
         let safeExams = Array.isArray(data.exams) ? data.exams : Object.values(data.exams || {}).filter(i => i !== null);
@@ -180,21 +187,35 @@ window.fetchStudentData = async function(isAutoLogin = false) {
         if (Array.isArray(lecturesData)) window.allLectures = lecturesData.filter(l => l !== null).reverse();
         else window.allLectures = Object.values(lecturesData).filter(l => l !== null).reverse();
 
-        if (safeStudents.length === 0) {
-            errorMsg.style.display = "block"; errorMsg.innerText = "لا يوجد طلاب مسجلين!";
+        // 3. البحث الذكي في قاعدة البيانات (يمنع باج تغيير الـ Index ويقبل رقم الطالب كباسورد بديل)
+        let studentKey = null;
+        currentStudent = null;
+
+        for (let key in studentsData) {
+            let s = studentsData[key];
+            if (!s) continue;
+            
+            let dbCode = String(s.code).toUpperCase().replace(/\s/g, '');
+            let dbParentPhone = String(s.parentPhone).trim();
+            let dbPhone = String(s.phone).trim();
+
+            // المطابقة: الكود لازم يكون صح، والباسورد ممكن يكون رقم ولي الأمر أو رقم الطالب نفسه!
+            if (dbCode === cleanCode && (dbParentPhone === cleanPhone || dbPhone === cleanPhone)) {
+                studentKey = key;
+                currentStudent = s;
+                break;
+            }
+        }
+
+        if (!currentStudent) {
+            errorMsg.style.display = "block"; 
+            errorMsg.innerText = "البيانات غير مسجلة! تأكد من الكود ورقم الهاتف.";
             if(btn) { btn.innerHTML = "تسجيل الدخول 🚀"; btn.disabled = false; }
             return;
         }
 
-        let studentIndex = safeStudents.findIndex(s => s && String(s.code) === String(code) && String(s.parentPhone) === String(phone));
-        if (studentIndex === -1) {
-            errorMsg.style.display = "block"; errorMsg.innerText = "البيانات غير مسجلة!";
-            if(btn) { btn.innerHTML = "تسجيل الدخول 🚀"; btn.disabled = false; }
-            return;
-        }
-        
-        currentStudent = safeStudents[studentIndex];
-        window.currentStudentIndex = studentIndex;
+        // 🚀 حفظ المفتاح الأصلي الحقيقي للسيرفر لمنع تداخل المحافظ
+        window.currentStudentIndex = studentKey; 
         
         if (currentStudent.purchasedCourses) currentStudent.purchasedCourses = Array.isArray(currentStudent.purchasedCourses) ? currentStudent.purchasedCourses : Object.values(currentStudent.purchasedCourses);
         else currentStudent.purchasedCourses = [];
@@ -211,12 +232,12 @@ window.fetchStudentData = async function(isAutoLogin = false) {
 
         applyDynamicTheme(currentStudent.level);
 
-        localStorage.setItem("edu_student_code", code);
-        localStorage.setItem("edu_parent_phone", phone);
+        localStorage.setItem("edu_student_code", rawCode); // نحفظ اللي كتبه عشان الـ AutoLogin
+        localStorage.setItem("edu_parent_phone", rawPhone);
         localStorage.setItem("edu_teacher_id", globalTeacherId);
 
         allOnlineExams = Array.isArray(data.onlineExams) ? data.onlineExams.filter(e => e !== null) : Object.values(data.onlineExams || {}).filter(e => e !== null);
-        window.studentCode = code;
+        window.studentCode = currentStudent.code; // نستخدم الكود النضيف بتاع السيرفر
 
         // تعبئة كارت الطالب
         document.getElementById("top-name").innerText = currentStudent.name;
@@ -225,7 +246,7 @@ window.fetchStudentData = async function(isAutoLogin = false) {
         let cName = document.getElementById("card-student-name"); if(cName) cName.innerText = currentStudent.name;
         let cLevel = document.getElementById("card-student-level"); if(cLevel) cLevel.innerText = currentStudent.level;
         let cGroup = document.getElementById("card-student-group-name"); if(cGroup) cGroup.innerText = currentStudent.group;
-        let cCodeNum = document.getElementById("card-student-code-num"); if(cCodeNum) cCodeNum.innerText = code;
+        let cCodeNum = document.getElementById("card-student-code-num"); if(cCodeNum) cCodeNum.innerText = currentStudent.code;
         let cPoints = document.getElementById("card-behavior-points"); if(cPoints) cPoints.innerText = currentStudent.behaviorPoints || 0;
 
         if (typeof JsBarcode !== 'undefined' && document.getElementById("digitalIdBarcode")) {
