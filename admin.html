@@ -1731,60 +1731,7 @@
     </section>
 </div>
 
-<div id="buildOnlineExamModal" class="modal">
-        <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
-            <span class="close-btn" onclick="closeModal('buildOnlineExamModal')">&times;</span>
-            <h2 style="color: var(--primary-color); margin-bottom: 15px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">🛠️ صانع الامتحانات الإلكترونية</h2>
-            
-            <div style="overflow-y: auto; padding-right: 10px; flex: 1;" id="examBuilderScrollArea">
-                <form id="buildOnlineExamForm">
-                    <div style="background: var(--hover-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid var(--border-color);">
-                        <div class="form-grid">
-                            <div class="input-group full-width">
-                                <label>عنوان الامتحان</label>
-                                <input type="text" id="onlineExamTitle" required class="custom-input" placeholder="مثال: امتحان الباب الأول">
-                            </div>
-                            <div class="input-group full-width">
-                                <label>المجموعات المستهدفة (يمكن اختيار أكثر من مجموعة)</label>
-                                <div id="onlineExamGroupsContainer" style="display: flex; gap: 15px; flex-wrap: wrap; background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 120px; overflow-y: auto;">
-                                    </div>
-                            </div>
-                            <div class="input-group">
-                                <label>مدة الامتحان (بالدقائق)</label>
-                                <input type="number" id="onlineExamDuration" required class="custom-input" placeholder="مثال: 60" min="1">
-                            </div>
 
-                            <div class="input-group">
-    <label>المسار المستهدف للامتحان</label>
-    <select id="onlineExamTrack" class="custom-input" style="border-color: #f59e0b;">
-        <option value="all">عام وأزهر معاً (الكل)</option>
-        <option value="عام">طلاب العام فقط</option>
-        <option value="أزهر">طلاب الأزهر فقط</option>
-    </select>
-</div>
-                            <div class="input-group" style="display: flex; align-items: flex-end; padding-bottom: 10px;">
-                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: bold; color: var(--success-color);">
-                                    <input type="checkbox" id="onlineExamAutoShowResult" style="width: 20px; height: 20px; accent-color: var(--success-color);" checked>
-                                    إظهار النتيجة للطالب فوراً
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="examQuestionsContainer"></div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; background: var(--bg-color); padding: 15px; border-radius: 12px; border: 1px dashed var(--primary-color);">
-                        <p style="width: 100%; margin-bottom: 10px; font-weight: bold; color: var(--text-muted);">➕ أضف سؤالاً جديداً:</p>
-                        <button type="button" class="theme-btn" style="flex: 1; border-color: #3b82f6; color: #3b82f6;" onclick="addQuestionBlock('mcq')">🔘 اختيار من متعدد</button>
-                        <button type="button" class="theme-btn" style="flex: 1; border-color: #10b981; color: #10b981;" onclick="addQuestionBlock('tf')">✔️ صح وخطأ</button>
-                        <button type="button" class="theme-btn" style="flex: 1; border-color: #f59e0b; color: #f59e0b;" onclick="addQuestionBlock('blank')">✍️ أكمل الفراغ</button>
-                        <button type="button" class="theme-btn" style="flex: 1; border-color: #8b5cf6; color: #8b5cf6;" onclick="addQuestionBlock('essay')">📝 مقالي</button>
-                    </div>
-                </form>
-            </div>
-            <div style="padding-top: 15px; border-top: 1px solid var(--border-color); margin-top: 10px;">
-                <button type="button" class="save-btn" style="width: 100%; font-size: 18px;" onclick="saveOnlineExam()">🚀 نشر الامتحان الإلكتروني</button>
-            </div>
-        </div>
-    </div>
 
     <div id="gradeOnlineExamModal" class="modal" style="z-index: 1000000;">
         <div class="modal-content" style="width: 750px; max-width: 95%; max-height: 90vh; overflow-y: auto; border-top: 5px solid var(--primary-color);">

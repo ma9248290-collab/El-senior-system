@@ -1025,14 +1025,6 @@ window.updateGeneratedCode = function() {
         document.getElementById("studentCode").value = "";
     }
 };
-window.updateGeneratedCode = function() {
-    let prefix = document.getElementById("studentCenterPrefix").value;
-    if (prefix) {
-        document.getElementById("studentCode").value = generateStudentCode(prefix);
-    } else {
-        document.getElementById("studentCode").value = "";
-    }
-};
 // دالة مساعدة لحفظ الطالب تعمل مع الزرارين (حفظ وإنهاء / حفظ وإضافة)
 window.processStudentSaving = async function(keepOpen) {
     const code = document.getElementById("studentCode").value.trim(); 
@@ -1282,7 +1274,10 @@ function deleteStudentFromProfile() {
     customConfirm("حذف الطالب نهائياً؟", () => { 
         const student = students.find(s => s.code === currentStudentProfileCode);
         if(typeof addSystemLog === "function" && student) addSystemLog("حذف طالب 🗑️", `تم مسح الطالب: ${student.name} (كود: ${student.code}) نهائياً من النظام`);
-        
+
+        // 👇 ضيف السطر ده هنا عشان يسجل إنه اتمسح عمداً
+        if(typeof window.registerIntentionalDelete === "function") window.registerIntentionalDelete('students', currentStudentProfileCode);
+
         students = students.filter(s => s.code !== currentStudentProfileCode); 
         localStorage.setItem("students", JSON.stringify(students)); 
         backToStudents(); renderTable(); showToast("تم الحذف"); 
@@ -2388,6 +2383,10 @@ function deleteSession(id) {
         if (enteredPin !== currentAdminPin) {
             return showToast("الرقم السري للإدارة غير صحيح! تم إلغاء الحذف.", "error");
         }
+
+
+        // ضيف السطر ده قبل classSessions = classSessions.filter(...)
+if(typeof window.registerIntentionalDelete === "function") window.registerIntentionalDelete('sessions', id);
 
         classSessions = classSessions.filter(s => s.id !== id); 
         localStorage.setItem("classSessions", JSON.stringify(classSessions)); 
@@ -4772,14 +4771,6 @@ window.deleteChargeCode = async function(codeStr) {
         showToast("تم حذف الكود بنجاح 🗑️");
     } catch(e) { alert("حدث خطأ"); }
 };
-window.deleteChargeCode = async function(codeStr) {
-    if(!confirm("⚠️ هل أنت متأكد من حذف هذا الكود نهائياً؟")) return;
-    try {
-        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/chargeCodes/${codeStr}.json`, { method: 'DELETE' });
-        renderChargeCodes();
-        showToast("تم حذف الكود بنجاح 🗑️");
-    } catch(e) { alert("حدث خطأ"); }
-};
 
 
 // ==========================================
@@ -5913,7 +5904,13 @@ window.deleteOnlineExam = async function(index) {
     try {
         let examsArray = [...window.fetchedOnlineExams]; 
         examsArray.splice(index, 1);
-        await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/teachers/${getSafeUid()}/data/onlineExams.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(examsArray) });
+        await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${getSafeUid()}/data/onlineExams.json`, { 
+            method: 'PUT', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(examsArray) 
+        });
+        onlineExams = examsArray;
+        window.safeLocalSave("onlineExams", onlineExams);
         renderOnlineExams();
         showToast("تم حذف الامتحان الإلكتروني بنجاح 🗑️");
     } catch(e) {
@@ -7067,18 +7064,6 @@ backButtonsOverrides.forEach(override => {
     };
 });
 
-backButtonsOverrides.forEach(override => {
-    const originalBackFunc = window[override.funcName];
-    window[override.funcName] = function(fromHistory = false) {
-        if (originalBackFunc) originalBackFunc.apply(this, []);
-        
-        // تحديث الرابط وتسجيل الخطوة
-        if (!fromHistory && !window.isHistoryNavigating) {
-            history.pushState({ page: override.parentPage, type: 'main' }, '', `#${override.parentPage}`);
-        }
-    };
-});
-
 // 6. الاستماع السحري لزر الرجوع (Back Button) في المتصفح أو الموبايل
 window.addEventListener('popstate', function(event) {
     window.isHistoryNavigating = true;
@@ -7412,224 +7397,286 @@ window.confirmMoveGroupToCenter = function() {
 
 
 // =====================================================================
-// 🚀 محرك المزامنة الشامل والمحمي (Zero-Bug Master Sync Engine) 🚀
+// 🚀 محرك المزامنة الذكي بالدمج الآمن (Smart Merge & Anti-Wipe Engine) 🚀
 // =====================================================================
 
-// 1️⃣ المتغيرات الخاصة بحالة المزامنة (لمنع التداخل)
-window.isIncomingSync = false;  // فلاج بيمنع الرفع للسيرفر أثناء السحب منه
-window.isSyncingNow = false;    // فلاج بيمنع الرفع المزدوج لو دوست على كذا حاجة بسرعة
-window.lastLocalSyncTime = Date.now(); // وقت آخر تحديث محلي
+window.isIncomingSync = false;  
+window.isSyncingNow = false;    
+window.hasPendingLocalChanges = false; // 🛡️ درع حماية: يمنع السيرفر من مسح تعديلاتك اللي لسه مترفعتش!
+window.lastLocalSyncTime = Date.now(); 
+window.deletedItemsRegistry = JSON.parse(localStorage.getItem("deletedItemsRegistry") || '{"students":[],"sessions":[],"groups":[]}');
 
+// دالة لتسجيل أي عنصر يتم حذفه عمداً حتى لا يعود عند الدمج
+window.registerIntentionalDelete = function(type, idOrCode) {
+    if (!window.deletedItemsRegistry[type]) window.deletedItemsRegistry[type] = [];
+    if (!window.deletedItemsRegistry[type].includes(String(idOrCode))) {
+        window.deletedItemsRegistry[type].push(String(idOrCode));
+        originalSetItem.call(localStorage, "deletedItemsRegistry", JSON.stringify(window.deletedItemsRegistry));
+    }
+};
 
+// تحديث دالة الحفظ المحلي لتفعيل درع الحماية فوراً
+window.safeLocalSave = function(key, valueObj) {
+    originalSetItem.call(localStorage, key, JSON.stringify(valueObj));
+    if (keysToSync.includes(key) && !window.isIncomingSync) {
+        window.hasPendingLocalChanges = true; // 🛑 تنبيه: يوجد تعديلات محلية لم ترفع بعد!
+        if (syncTimeoutTimer) clearTimeout(syncTimeoutTimer);
+        syncTimeoutTimer = setTimeout(() => {
+            if (typeof syncDataToBot === "function") syncDataToBot();
+        }, 800); 
+    }
+};
+
+localStorage.setItem = function(k, v) {
+    originalSetItem.apply(this, arguments); 
+    if (keysToSync.includes(k) && !window.isIncomingSync) {
+        window.hasPendingLocalChanges = true; // 🛑 تنبيه: يوجد تعديلات محلية لم ترفع بعد!
+        if (syncTimeoutTimer) clearTimeout(syncTimeoutTimer);
+        syncTimeoutTimer = setTimeout(() => {
+            if (typeof syncDataToBot === "function") syncDataToBot();
+        }, 800); 
+    }
+};
+
+// 🧠 دالة الدمج الذكي للطلاب (تمنع مسح أي طالب سجل أونلاين أو من جهاز آخر)
+function smartMergeStudents(localList, remoteList, preferLocal = true) {
+    const map = new Map();
+    const deletedCodes = window.deletedItemsRegistry.students || [];
+
+    // 1. وضع قائمة السيرفر أولاً
+    (remoteList || []).forEach(st => {
+        if (st && st.code && !deletedCodes.includes(String(st.code))) {
+            map.set(String(st.code), st);
+        }
+    });
+
+    // 2. دمج القائمة المحلية مع الحفاظ على رصيد المحفظة والكورسات المشتراة من المنصة
+    (localList || []).forEach(localSt => {
+        if (!localSt || !localSt.code) return;
+        let codeKey = String(localSt.code);
+        if (deletedCodes.includes(codeKey)) return;
+
+        if (map.has(codeKey)) {
+            let remoteSt = map.get(codeKey);
+            let mergedSt = preferLocal ? { ...remoteSt, ...localSt } : { ...localSt, ...remoteSt };
+            
+            // حماية رصيد المحفظة والكورسات المشتراة أونلاين من المسح
+            if (remoteSt.walletBalance !== undefined && (!preferLocal || localSt.walletBalance === undefined)) {
+                mergedSt.walletBalance = remoteSt.walletBalance;
+            }
+            if (remoteSt.purchasedCourses) {
+                let localCourses = Array.isArray(localSt.purchasedCourses) ? localSt.purchasedCourses : [];
+                let remoteCourses = Array.isArray(remoteSt.purchasedCourses) ? remoteSt.purchasedCourses : Object.values(remoteSt.purchasedCourses);
+                mergedSt.purchasedCourses = [...new Set([...localCourses, ...remoteCourses])];
+            }
+            map.set(codeKey, mergedSt);
+        } else {
+            map.set(codeKey, localSt);
+        }
+    });
+
+    return Array.from(map.values());
+}
+
+// 🧠 دالة الدمج الذكي للحصص والحضور (تمنع اختفاء الطلاب بعد تحضيرهم بالباركود!)
+function smartMergeSessions(localSessions, remoteSessions, preferLocal = true) {
+    const map = new Map();
+    const deletedSessions = window.deletedItemsRegistry.sessions || [];
+
+    (remoteSessions || []).forEach(sess => {
+        if (sess && sess.id && !deletedSessions.includes(String(sess.id))) {
+            map.set(String(sess.id), { ...sess, attendance: sess.attendance || {}, attendanceLog: sess.attendanceLog || {} });
+        }
+    });
+
+    (localSessions || []).forEach(localSess => {
+        if (!localSess || !localSess.id) return;
+        let idKey = String(localSess.id);
+        if (deletedSessions.includes(idKey)) return;
+
+        if (map.has(idKey)) {
+            let remoteSess = map.get(idKey);
+            let baseSess = preferLocal ? { ...remoteSess, ...localSess } : { ...localSess, ...remoteSess };
+            
+            // 🔥 دمج سجلات الحضور طالب بطالب بدلاً من مسحها!
+            baseSess.attendance = preferLocal 
+                ? { ...(remoteSess.attendance || {}), ...(localSess.attendance || {}) }
+                : { ...(localSess.attendance || {}), ...(remoteSess.attendance || {}) };
+                
+            baseSess.attendanceLog = preferLocal
+                ? { ...(remoteSess.attendanceLog || {}), ...(localSess.attendanceLog || {}) }
+                : { ...(localSess.attendanceLog || {}), ...(remoteSess.attendanceLog || {}) };
+
+            map.set(idKey, baseSess);
+        } else {
+            map.set(idKey, localSess);
+        }
+    });
+
+    return Array.from(map.values());
+}
 
 // ---------------------------------------------------------
-// 📥 أولاً: دالة السحب من السيرفر (التحميل للأجهزة)
+// 📥 أولاً: دالة السحب الآمن من السيرفر
 // ---------------------------------------------------------
-window.loadDataFromFirebase = async function() {
+window.loadDataFromFirebase = async function(forceOverwrite = false) {
+    // 🛡️ إذا كان المساعد يسحب باركود الآن ولديه تعديلات لم ترفع، نؤجل السحب حتى لا نمسح شغله!
+    if (window.hasPendingLocalChanges && !forceOverwrite) {
+        console.log("🛡️ تم تأجيل السحب اللحظي لحماية التعديلات المحلية الجارية...");
+        return;
+    }
 
     window.isIncomingSync = true;
     if (localStorage.getItem("is_demo_mode") === "true") {
-        isFirebaseLoaded = true; return; 
+        isFirebaseLoaded = true; 
+        window.isIncomingSync = false;
+        return; 
     }
     
     let currentLicenseKey = "ElSenior_System_Master";
     
     try {
-        // فحص حالة الترخيص والاشتراك
-        let licRes = await fetch(`https://edutrack-system-1ded4-default-rtdb.firebaseio.com/licenses/${currentLicenseKey}.json`);
-        let licData = await licRes.json();
-        
-        if (licData) {
-            let isExpired = false;
-            if (licData.activatedAt) {
-                let activationDate = new Date(licData.activatedAt);
-                let expirationDate = new Date(activationDate);
-                
-                if (licData.durationDays) expirationDate.setDate(expirationDate.getDate() + parseInt(licData.durationDays));
-                else if (licData.durationMonths) expirationDate.setMonth(expirationDate.getMonth() + parseInt(licData.durationMonths));
-                
-                let timeDiff = expirationDate.getTime() - new Date().getTime();
-                let daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-                if (licData.durationMonths != 99) {
-                    if (daysLeft <= 0) isExpired = true;
-                    else if (daysLeft <= 5 && daysLeft > 0) {
-                        let banner = document.getElementById("expiration-banner");
-                        if(banner) { banner.style.display = "block"; document.getElementById("expire-days").innerText = daysLeft; }
-                    }
-                }
-            }
-
-            if (licData.status === 'suspended' || isExpired) {
-                sessionStorage.removeItem("isLoggedIn"); localStorage.setItem("keepLoggedIn", "false");
-                document.getElementById("login-screen").style.display = "none"; document.getElementById("main-app").style.display = "none";
-                const suspendedScreen = document.getElementById("suspended-screen");
-                if(suspendedScreen) {
-                    suspendedScreen.style.display = "flex";
-                    if (isExpired) {
-                        suspendedScreen.querySelector("h2").innerText = "انتهت فترة الاشتراك! ⏳";
-                        suspendedScreen.querySelector("p").innerText = "لقد انتهت صلاحية باقتك الحالية. يرجى التواصل مع الإدارة.";
-                    } else {
-                        suspendedScreen.querySelector("h2").innerText = "تم إيقاف النسخة! 🚫";
-                        suspendedScreen.querySelector("p").innerText = "عفواً، تم إيقاف ترخيص استخدام هذا النظام.";
-                    }
-                }
-                return; // قفل التحميل
-            }
-        }
-
-        // سحب داتا السيستم كاملة
-        let res = await fetch(getFirebaseUrl());
+        let res = await fetch(getFirebaseUrl(), { cache: 'no-store' });
         let data = await res.json();
         
         if (data) {
-            // سحب إعدادات المدير
-            if(data.settings) {
-                localStorage.setItem("teacherName", data.settings.teacherName || "El-Senior");
-                localStorage.setItem("centerName", data.settings.centerName || "El-Senior");
-                localStorage.setItem("adminUser", data.settings.adminUser || "shefo");
-                localStorage.setItem("adminPass", data.settings.adminPass || "12345");
-                localStorage.setItem("adminPin", data.settings.adminPin || "1234");
+            if (data.settings) {
+                originalSetItem.call(localStorage, "teacherName", data.settings.teacherName || "El-Senior");
+                originalSetItem.call(localStorage, "centerName", data.settings.centerName || "El-Senior");
+                originalSetItem.call(localStorage, "adminUser", data.settings.adminUser || "shefo");
+                originalSetItem.call(localStorage, "adminPass", data.settings.adminPass || "12345");
+                originalSetItem.call(localStorage, "adminPin", data.settings.adminPin || "1234");
                 adminPin = data.settings.adminPin || "1234"; 
-                if(data.settings.phoneNumbers) localStorage.setItem("teacherPhones", data.settings.phoneNumbers);
-                if(data.settings.parentMsgTemplate) localStorage.setItem("parentMsgTemplate", data.settings.parentMsgTemplate);
-                if(data.settings.studentMsgTemplate) localStorage.setItem("studentMsgTemplate", data.settings.studentMsgTemplate);
+                if (data.settings.phoneNumbers) originalSetItem.call(localStorage, "teacherPhones", data.settings.phoneNumbers);
+                if (data.settings.parentMsgTemplate) originalSetItem.call(localStorage, "parentMsgTemplate", data.settings.parentMsgTemplate);
+                if (data.settings.studentMsgTemplate) originalSetItem.call(localStorage, "studentMsgTemplate", data.settings.studentMsgTemplate);
             }
 
-            // تنظيف ومعالجة المصفوفات (عشان لو السيرفر بعتها فاضية ميبوظش الكود)
+            if (data.deletedItemsRegistry) {
+                window.deletedItemsRegistry = data.deletedItemsRegistry;
+                originalSetItem.call(localStorage, "deletedItemsRegistry", JSON.stringify(window.deletedItemsRegistry));
+            }
+
+            let remoteStudents = (data.students || []).filter(i => i !== null);
+            let remoteSessions = (data.classSessions || []).filter(i => i !== null);
+
+            // استخدام الدمج الذكي بدلاً من المسح العشوائي
+            students = isFirebaseLoaded ? smartMergeStudents(students, remoteStudents, false) : remoteStudents;
+            classSessions = isFirebaseLoaded ? smartMergeSessions(classSessions, remoteSessions, false) : remoteSessions.map(s => ({...s, attendance: s.attendance || {}}));
+
             centers = data.centers || ["السنتر الرئيسي"];
-            students = (data.students || []).filter(i => i !== null);
             groups = (data.groups || []).filter(i => i !== null);
             schedule = (data.schedule || []).filter(i => i !== null);
             expenses = (data.expenses || []).filter(i => i !== null);
             books = (data.books || []).filter(i => i !== null);
             onlineExams = (data.onlineExams || []).filter(i => i !== null);
-            
             financeRecords = data.financeRecords || {};
             monthlyPayments = data.monthlyPayments || {};
-
-            classSessions = (data.classSessions || []).filter(i => i !== null).map(s => ({...s, attendance: s.attendance || {}}));
             exams = (data.exams || []).filter(i => i !== null).map(e => ({...e, grades: e.grades || {}}));
             homeworks = (data.homeworks || []).filter(i => i !== null).map(h => ({...h, grades: h.grades || {}}));
             
-            // 🛑 إيقاف الرفع التلقائي أثناء تحديث الذاكرة المحلية
-            window.isIncomingSync = true; 
+            originalSetItem.call(localStorage, "centers", JSON.stringify(centers));
+            originalSetItem.call(localStorage, "students", JSON.stringify(students));
+            originalSetItem.call(localStorage, "classSessions", JSON.stringify(classSessions));
+            originalSetItem.call(localStorage, "exams", JSON.stringify(exams));
+            originalSetItem.call(localStorage, "homeworks", JSON.stringify(homeworks));
+            originalSetItem.call(localStorage, "schedule", JSON.stringify(schedule));
+            originalSetItem.call(localStorage, "groups", JSON.stringify(groups));
+            originalSetItem.call(localStorage, "financeRecords", JSON.stringify(financeRecords));
+            originalSetItem.call(localStorage, "expenses", JSON.stringify(expenses));
+            originalSetItem.call(localStorage, "books", JSON.stringify(books));
+            originalSetItem.call(localStorage, "onlineExams", JSON.stringify(onlineExams));
+            originalSetItem.call(localStorage, "monthlyPayments", JSON.stringify(monthlyPayments));
             
-            localStorage.setItem("centers", JSON.stringify(centers));
-            localStorage.setItem("students", JSON.stringify(students));
-            localStorage.setItem("classSessions", JSON.stringify(classSessions));
-            localStorage.setItem("exams", JSON.stringify(exams));
-            localStorage.setItem("homeworks", JSON.stringify(homeworks));
-            localStorage.setItem("schedule", JSON.stringify(schedule));
-            localStorage.setItem("groups", JSON.stringify(groups));
-            localStorage.setItem("financeRecords", JSON.stringify(financeRecords));
-            localStorage.setItem("expenses", JSON.stringify(expenses));
-            localStorage.setItem("books", JSON.stringify(books));
-            localStorage.setItem("onlineExams", JSON.stringify(onlineExams));
-            localStorage.setItem("monthlyPayments", JSON.stringify(monthlyPayments));
-            
-            // 🟢 إعادة تشغيل الرفع التلقائي
-            window.isIncomingSync = false;
-            
-            // تحديث وقت المزامنة عشان الرادار ميشتغلش على داتا لسه ساحبها
             window.lastLocalSyncTime = Date.now();
 
-            // تحديث واجهات النظام لو مفتوحة
-            if(typeof renderTable === "function") renderTable();
-            if (document.getElementById("groups-list") && typeof renderGroupCards === "function") renderGroupCards();
-            if (document.getElementById("centers-list") && typeof renderCentersCards === "function") renderCentersCards(); 
-            if (typeof renderBooksTable === "function") renderBooksTable();
-            if(sessionStorage.getItem("isLoggedIn") === "true" && typeof renderDashboardCharts === "function") renderDashboardCharts();
+            if (typeof refreshCurrentVisibleScreens === "function") {
+                refreshCurrentVisibleScreens();
+            }
         }
     } catch (e) {
         console.log("⚠️ تعذر الاتصال بالسحابة أثناء السحب.");
     }
     isFirebaseLoaded = true; 
-    setTimeout(()=> { if(typeof window.checkGlobalAnnouncements === 'function') window.checkGlobalAnnouncements(); }, 1500);
     window.isIncomingSync = false;
 };
 
 // ---------------------------------------------------------
-// 📤 ثانياً: دالة الرفع للسيرفر (التحديث)
+// 📤 ثانياً: دالة الرفع الآمن للسيرفر (تدمج قبل الرفع!)
 // ---------------------------------------------------------
 window.syncDataToBot = async function() {
     let isDemo = localStorage.getItem("is_demo_mode") === "true";
     if (isDemo || !isFirebaseLoaded) return; 
-    if (window.isIncomingSync) return; // حماية: متعملش رفع وانت لسه بتسحب
-    if (window.isSyncingNow) return;   // حماية: متعملش رفع لو في عملية رفع شغالة حاليا
+    if (window.isIncomingSync || window.isSyncingNow) return;
 
     window.isSyncingNow = true;
-    window.lastLocalSyncTime = Date.now(); // تحديث الوقت للوقت الحالي
-
-    const dataToSync = {
-        settings: {
-            teacherName: localStorage.getItem("teacherName") || "El-Senior",
-            centerName: localStorage.getItem("centerName") || "El-Senior",
-            adminUser: localStorage.getItem("adminUser") || "shefo",
-            adminPass: localStorage.getItem("adminPass") || "12345",
-            adminPin: localStorage.getItem("adminPin") || "1234",
-            phoneNumbers: localStorage.getItem("teacherPhones") || "",
-            parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
-            studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
-            botEnabled: localStorage.getItem("botEnabled") === "true",
-            botName: localStorage.getItem("botName") || "أوكتو",
-            botInstructions: localStorage.getItem("botInstructions") || ""
-        },
-        centers, groups, students, classSessions, exams, homeworks, schedule, 
-        expenses, books, financeRecords, monthlyPayments, onlineExams
-    };
 
     try {
-        // الرفع باستخدام PATCH عشان نعدل الداتا دي بس بدون ما نمسح أي قوائم تانية في الداتا بيز
+        // 🔥 خطوة عبقرية: سحب أحدث نسخة من السيرفر قبل الرفع مباشرة لدمج أي طالب سجل أونلاين أو حضور من جهاز آخر!
+        let checkRes = await fetch(getFirebaseUrl(), { cache: 'no-store' });
+        let remoteData = await checkRes.json();
+
+        if (remoteData) {
+            let remoteStudents = (remoteData.students || []).filter(i => i !== null);
+            let remoteSessions = (remoteData.classSessions || []).filter(i => i !== null);
+
+            // دمج بياناتنا الجديدة مع بيانات السيرفر (مع إعطاء الأولوية لتعديلاتنا الحالية)
+            students = smartMergeStudents(students, remoteStudents, true);
+            classSessions = smartMergeSessions(classSessions, remoteSessions, true);
+
+            // حفظ النسخة المدمجة محلياً بدون إطلاق حدث مزامنة جديد
+            originalSetItem.call(localStorage, "students", JSON.stringify(students));
+            originalSetItem.call(localStorage, "classSessions", JSON.stringify(classSessions));
+        }
+
+        window.lastLocalSyncTime = Date.now();
+
+        const dataToSync = {
+            settings: {
+                teacherName: localStorage.getItem("teacherName") || "El-Senior",
+                centerName: localStorage.getItem("centerName") || "El-Senior",
+                adminUser: localStorage.getItem("adminUser") || "shefo",
+                adminPass: localStorage.getItem("adminPass") || "12345",
+                adminPin: localStorage.getItem("adminPin") || "1234",
+                phoneNumbers: localStorage.getItem("teacherPhones") || "",
+                parentMsgTemplate: localStorage.getItem("parentMsgTemplate") || "",
+                studentMsgTemplate: localStorage.getItem("studentMsgTemplate") || "",
+                botEnabled: localStorage.getItem("botEnabled") === "true",
+                botName: localStorage.getItem("botName") || "أوكتو",
+                botInstructions: localStorage.getItem("botInstructions") || ""
+            },
+            deletedItemsRegistry: window.deletedItemsRegistry,
+            centers, groups, students, classSessions, exams, homeworks, schedule, 
+            expenses, books, financeRecords, monthlyPayments, onlineExams
+        };
+
         await fetch(getFirebaseUrl(), { 
             method: 'PATCH', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(dataToSync) 
         });
         
-        // ضرب جرس التحديث للأجهزة التانية
+        window.hasPendingLocalChanges = false; // ✅ تم رفع التعديلات بنجاح!
+
         let currentLicenseKey = "ElSenior_System_Master";
         await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`, {
             method: 'PUT', 
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(window.lastLocalSyncTime)
         });
+
+        // تحديث الجدول أمام المساعد لو هناك حضور جديد جاء من جهاز آخر أثناء الدمج
+        if (document.getElementById("session-details-view")?.style.display === "block" && currentActiveSessionId) {
+            const session = classSessions.find(s => s.id === currentActiveSessionId);
+            if (session) renderAttendanceTable(session);
+        }
+
     } catch (e) { 
         console.error("⚠️ فشل في الرفع للسيرفر", e); 
     }
     
     window.isSyncingNow = false;
 };
-
-// ---------------------------------------------------------
-// 📡 ثالثاً: رادار الأجهزة (استشعار التعديلات من موبايلك أو جهاز تاني)
-// ---------------------------------------------------------
-setInterval(async () => {
-    let isDemo = localStorage.getItem("is_demo_mode") === "true";
-    if (isDemo || !isFirebaseLoaded) return;
-    
-    try {
-        let currentLicenseKey = "ElSenior_System_Master";
-        let res = await fetch(`https://elsenior-alone-default-rtdb.europe-west1.firebasedatabase.app/${currentLicenseKey}/syncSignal.json`);
-        let remoteTime = await res.json();
-        
-        // لو الرادار لقط إن فيه جهاز تاني عدل داتا والوقت بتاعه أحدث من بتاعنا
-        if (remoteTime && window.lastLocalSyncTime && remoteTime > window.lastLocalSyncTime) {
-            console.log("🔄 تم اكتشاف تحديث من جهاز آخر! جاري سحب البيانات...");
-            window.lastLocalSyncTime = remoteTime;
-            await window.loadDataFromFirebase(); // ننده لدالة السحب فوراً
-        } 
-        // لو دي أول مرة نفتح السيستم ومش معانا وقت
-        else if (remoteTime && !window.lastLocalSyncTime) {
-            window.lastLocalSyncTime = remoteTime;
-        }
-    } catch (e) {}
-}, 3000); // الفحص بيتم كل 3 ثواني بملف خفيف جداً عشان ميسحبش نت
-
-
-
-// =====================================================================
-
 
 // ==========================================
 // 📥 دوال تصدير الطلاب للإكسيل الشامل
@@ -8533,7 +8580,7 @@ function attachBarcodeListeners() {
         });
     });
 }
-setTimeout(attachBarcodeListeners, 1000);
+
 
 
 
